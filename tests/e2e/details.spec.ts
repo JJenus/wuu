@@ -3,14 +3,19 @@ import AxeBuilder from '@axe-core/playwright'
 
 async function navigate(page: Page, path: string) {
   await page.goto(path)
-  await expect(page.locator('[data-workspace-ready]')).toHaveAttribute('data-workspace-ready', 'true')
+  await expect(page.locator('[data-workspace-ready]')).toHaveAttribute(
+    'data-workspace-ready',
+    'true',
+  )
 }
 
 test('alert details keep preview actions and related vehicle in sync', async ({ page }) => {
   await navigate(page, '/alerts')
   await page.getByRole('link', { name: 'View alert AL-001' }).click()
   await expect(page).toHaveURL(/\/alerts\/AL-001$/)
-  await expect(page.getByRole('heading', { name: 'Device disconnected', exact: true })).toBeVisible()
+  await expect(
+    page.getByRole('heading', { name: 'Device disconnected', exact: true }),
+  ).toBeVisible()
   await page.getByRole('button', { name: 'Acknowledge in preview' }).click()
   await expect(page.getByTestId('alert-state')).toHaveText('acknowledged')
   await page.getByRole('button', { name: 'Resolve in preview' }).click()
@@ -67,7 +72,9 @@ test('missing detail records provide a working recovery link', async ({ page }) 
   }
 })
 
-test('detail pages fit small screens and pass light/dark accessibility checks', async ({ page }) => {
+test('detail pages fit small screens and pass light/dark accessibility checks', async ({
+  page,
+}) => {
   for (const theme of ['light', 'dark']) {
     await page.setViewportSize({ width: 1440, height: 1000 })
     await navigate(page, '/')
@@ -77,12 +84,19 @@ test('detail pages fit small screens and pass light/dark accessibility checks', 
       for (const path of ['/alerts/AL-001', '/trips/TR-1048', '/geofences/GF-001']) {
         await navigate(page, path)
         await expect(page.locator('h1')).toBeVisible()
-        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+          true,
+        )
         if (width === 1440) {
-          const result = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze()
+          const result = await new AxeBuilder({ page })
+            .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
+            .analyze()
           expect(result.violations, `${theme}: ${path}`).toEqual([])
         }
-        await page.screenshot({ path: `test-results/details-${path.split('/')[1]}-${theme}-${width}.png`, fullPage: true })
+        await page.screenshot({
+          path: `test-results/details-${path.split('/')[1]}-${theme}-${width}.png`,
+          fullPage: true,
+        })
       }
     }
   }
@@ -94,11 +108,15 @@ test('styled scrollbars preserve keyboard scrolling in narrow tables', async ({ 
   const region = page.getByRole('region', { name: 'Trip records' })
   await region.focus()
   await page.keyboard.press('ArrowRight')
-  await expect.poll(() => region.evaluate(el => el.scrollLeft)).toBeGreaterThan(0)
-  const light = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--scrollbar-thumb'))
+  await expect.poll(() => region.evaluate((el) => el.scrollLeft)).toBeGreaterThan(0)
+  const light = await page.evaluate(() =>
+    getComputedStyle(document.documentElement).getPropertyValue('--scrollbar-thumb'),
+  )
   await page.setViewportSize({ width: 1440, height: 1000 })
   await page.getByRole('button', { name: 'Switch to dark mode' }).click()
-  const dark = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--scrollbar-thumb'))
+  const dark = await page.evaluate(() =>
+    getComputedStyle(document.documentElement).getPropertyValue('--scrollbar-thumb'),
+  )
   expect(light.trim()).not.toBe('')
   expect(dark.trim()).not.toBe(light.trim())
 })

@@ -3,7 +3,18 @@ import { tripsCsv } from '../../app/features/workspace/domain/trip-export'
 import type { Trip } from '../../app/features/workspace/domain/types'
 
 describe('preview trip CSV', () => {
-  const trip: Trip = { id: 'TR-1', vehicleId: 'VH-1', vehicle: 'Van "A"', driver: 'Maya', from: 'Depot, SF', to: 'SOMA', started: '10:42 AM', duration: '24 min', distance: 12.8, status: 'completed' }
+  const trip: Trip = {
+    id: 'TR-1',
+    vehicleId: 'VH-1',
+    vehicle: 'Van "A"',
+    driver: 'Maya',
+    from: 'Depot, SF',
+    to: 'SOMA',
+    started: '10:42 AM',
+    duration: '24 min',
+    distance: 12.8,
+    status: 'completed',
+  }
   it('quotes cells and exports only the supplied records', () => {
     const csv = tripsCsv([trip])
     expect(csv.split('\r\n')).toHaveLength(2)
