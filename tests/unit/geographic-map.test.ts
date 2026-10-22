@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import {validateGeofence,geometryArea} from '../../app/features/geofences/domain/geofence'
 import {
   validCoordinate,
   normalizeLocation,
@@ -6,6 +7,12 @@ import {
   tileConfiguration,
 } from '../../app/features/maps/domain/geographic'
 describe('geographic map contract', () => {
+  it('accepts geographic geofences beyond San Francisco and measures a meter-scale polygon',()=>{
+    const geometry={type:'circle' as const,center:{lat:51.5074,lng:-.1278},radiusMeters:500}
+    expect(validateGeofence({name:'London depot',description:'',location:'London',active:true,events:'Entry and exit',vehicleIds:['VH-001'],geometry},[],['VH-001'])).toEqual({})
+    const area=geometryArea({type:'polygon',vertices:[{lat:0,lng:0},{lat:0,lng:.001},{lat:.001,lng:.001},{lat:.001,lng:0}]})
+    expect(area).toBeGreaterThan(12000);expect(area).toBeLessThan(12500)
+  })
   it('accepts real coordinates, rejects missing/nonfinite/out-of-range locations without fallback', () => {
     expect(validCoordinate({ lat: 37.77, lng: -122.4 })).toBe(true)
     for (const p of [
