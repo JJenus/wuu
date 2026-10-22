@@ -2,35 +2,42 @@ import type { NewVehicle, Vehicle } from '../../fleet/domain/fleet'
 import type { GeofenceDraft, Geometry } from '../../geofences/domain/geofence'
 
 export type AlertState = 'active' | 'acknowledged' | 'resolved'
+
 export interface FleetAlert {
   id: string
   title: string
   description: string
   vehicleId: string
-  vehicle: string
+  vehicle: string | null
   severity: 'critical' | 'warning' | 'info'
   time: string
+  triggeredAt: string | null
   icon: string
   status: AlertState
 }
+
 export interface Trip {
   id: string
   vehicleId: string
-  vehicle: string
-  driver: string
-  from: string
-  to: string
+  vehicle: string | null
+  driver: string | null
+  from: string | null
+  to: string | null
   started: string
+  startedAt: string | null
+  endedAt: string | null
   duration: string
   distance: number
   status: 'completed' | 'in progress'
 }
+
 export interface Preferences {
   email: boolean
   push: boolean
   weekly: boolean
 }
-export interface Geofence extends GeofenceDraft {
+
+export interface Geofence {
   id: string
   name: string
   description: string
@@ -38,9 +45,11 @@ export interface Geofence extends GeofenceDraft {
   radius: string
   location: string
   events: string
+  active: boolean
   vehicleIds: string[]
-  geometry: Geometry
+  geometry: Geometry | null
 }
+
 export interface Workspace {
   vehicles: Vehicle[]
   alerts: FleetAlert[]
@@ -48,6 +57,8 @@ export interface Workspace {
   preferences: Preferences
   geofences: Geofence[]
 }
+
+/** Legacy aggregate used by the preview fixtures and their contract tests. */
 export interface WorkspaceService {
   load(): Promise<Workspace>
   addVehicle(input: NewVehicle): Promise<void>

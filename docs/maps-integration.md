@@ -47,7 +47,7 @@ An operator must verify provider terms, usage capacity, key restrictions, allowe
 
 ## Remaining application release gates
 
-Real rendering is implemented, not deferred. The **whole app is not yet production-release ready**: authenticated sessions, server-enforced effective permissions/tenant isolation, verified live API adapters, telemetry reconnect/order/staleness rules, durable geofence saves and commands remain separate backend/integration gates. The active backend checkout remains untouched.
+Real rendering is implemented, not deferred. Typed live read adapters and an allowlisted runtime gateway now exist, but the **whole app is not yet production-release ready**: authenticated sessions, server-enforced effective permissions/tenant isolation, validated live-backend behavior, telemetry reconnect/order/staleness rules, durable geofence saves and commands remain separate backend/integration gates. The active backend checkout remains untouched.
 
 Real-device touch, manual screen-reader review, non-Chromium engines, provider-specific deployment tests, large-fleet performance measurements and surveyed/geodesic edge-case validation are not implied by Chromium tests. Selected-file unit coverage excludes the engine lifecycle and Vue UI; browser tests exercise the integrated map behavior.
 

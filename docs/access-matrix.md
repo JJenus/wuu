@@ -2,7 +2,17 @@
 
 ## Current frontend security posture
 
-All routes are a **public sample-data preview**, including `/admin`. There is no authentication or authorization claim. No real tenant data, credentials, commands, or administrative mutations are available. UI templates are descriptive, not security boundaries.
+Preview mode is a **public sample-data workspace**, including `/admin`. There is no authentication or authorization claim. No real tenant data, credentials, commands, or administrative mutations are available. UI templates are descriptive, not security boundaries.
+
+Live mode is opt-in through deployment configuration and uses read-only GET adapters through the same-origin BFF. It is **not** an authentication boundary:
+
+- There is no login, session issuance, refresh, revocation, CSRF flow, or route guard.
+- The optional `wuu_access_token` cookie is only forwarded upstream; the frontend does not validate or derive permissions from it.
+- Client role templates never grant access, and `/admin` remains an unprotected concept preview.
+- Live vehicle creation, alert transitions, geofence create/edit, team management, and preferences are disabled in the UI.
+- Upstream server authorization and tenant isolation must enforce every read and mutation. Those controls are not verified.
+
+The preview/live split is a data-source and failure-isolation boundary, not a security boundary.
 
 ## Verified backend roles
 

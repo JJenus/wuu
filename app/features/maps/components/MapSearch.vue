@@ -61,7 +61,7 @@ function key(event: KeyboardEvent) {
         v-model="query"
         type="search"
         :aria-label="label"
-        placeholder="Find a vehicle or sample place…"
+        placeholder="Find a vehicle or place…"
         maxlength="120"
         @focus="focusSearch"
       /><button v-if="query" type="button" aria-label="Clear map search" @click="clear">

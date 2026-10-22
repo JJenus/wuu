@@ -17,7 +17,7 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ select: [string | null]; navigate: []; retry: [] }>()
 const map = ref<InstanceType<typeof GeographicMap>>()
-const selected = ref<string | null>('VH-001'),
+const selected = ref<string | null>(props.focusId ?? null),
   notice = ref(''),
   searchPosition = ref<Coordinate | null>(null)
 const legend = ref(true),
@@ -45,9 +45,15 @@ watch(
 )
 watch(
   () => props.vehicles,
-  () => {
-    if (selected.value && !props.vehicles.some((v) => v.id === selected.value)) select(null)
+  (vehicles) => {
+    if (!vehicles.length) {
+      if (selected.value) select(null)
+      return
+    }
+    if (!selected.value || !vehicles.some((v) => v.id === selected.value))
+      select(vehicles[0]?.id ?? null)
   },
+  { immediate: true },
 )
 function select(id: string | null) {
   selected.value = id
@@ -143,7 +149,10 @@ defineExpose({
     <div v-if="layerPanel" class="map-layer-panel" data-map-control>
       <strong>Map layers</strong
       ><label><input v-model="showLabels" type="checkbox" />Show vehicle labels</label
-      ><label><input v-model="showRoute" type="checkbox" />Show sample route</label
+      ><label
+        ><input v-model="showRoute" type="checkbox" />{{
+          dataState?.source === 'live' ? 'Show simulated trail' : 'Show sample route'
+        }}</label
       ><button type="button" aria-label="Close map layers" @click="layerPanel = false">Done</button>
     </div>
     <div v-if="current && !unavailable" class="map-vehicle-popup" data-map-control>
@@ -184,7 +193,7 @@ defineExpose({
       >
     </div>
     <p v-else-if="!vehicles.length" class="map-empty-message" role="status">
-      No vehicles in this view. Change the status filter or search for a sample place.
+      No vehicles in this view. Change the status filter or search for a vehicle or place.
     </p>
     <p v-else-if="missing" class="geo-missing-message" role="status">
       {{ missing }} vehicle{{ missing === 1 ? '' : 's' }} without a plottable location. No position

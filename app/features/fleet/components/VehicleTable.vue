@@ -35,19 +35,21 @@ defineProps<{ vehicles: Vehicle[]; compact?: boolean }>()
           <td>
             <div class="driver-cell">
               <span class="avatar" :class="`avatar-${vehicle.id.slice(-1)}`">{{
-                vehicle.initials
+                vehicle.initials ?? '—'
               }}</span
-              >{{ vehicle.driver }}
+              >{{ vehicle.driver ?? 'Not assigned' }}
             </div>
           </td>
           <td><UiStatusBadge :status="vehicle.status" /></td>
           <td>
             <span class="table-location"
-              ><UIcon name="i-lucide-map-pin" />{{ vehicle.location.split(',')[0] }}</span
+              ><UIcon name="i-lucide-map-pin" />{{
+                vehicle.location?.split(',')[0] ?? 'Not provided'
+              }}</span
             >
           </td>
           <td>
-            <div class="fuel-cell">
+            <div v-if="vehicle.fuel !== null" class="fuel-cell">
               <UIcon name="i-lucide-fuel" :class="{ 'text-warning': vehicle.fuel < 25 }" /><span
                 class="fuel-track"
                 ><span
@@ -55,8 +57,9 @@ defineProps<{ vehicles: Vehicle[]; compact?: boolean }>()
                   :class="{ low: vehicle.fuel < 25 }" /></span
               ><span>{{ vehicle.fuel }}%</span>
             </div>
+            <span v-else class="muted">Unavailable</span>
           </td>
-          <td class="muted table-time">{{ vehicle.updated }}</td>
+          <td class="muted table-time">{{ vehicle.updated ?? 'No telemetry' }}</td>
           <td>
             <NuxtLink
               :to="`/vehicles/${vehicle.id}`"

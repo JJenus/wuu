@@ -20,6 +20,8 @@ export default defineConfig({
   testDir: './tests/e2e',
   workers: 1,
   timeout: 60000,
+  // Leave headroom for cold, slower CI rendering without masking a permanently stuck page.
+  expect: { timeout: 15000 },
   fullyParallel: true,
   retries: 0,
   use: {
@@ -36,9 +38,10 @@ export default defineConfig({
   webServer: process.env.PLAYWRIGHT_BASE_URL
     ? undefined
     : {
-        command: 'pnpm dev --port 3000',
+        // Dev-mode Vite reloads while discovering dependencies; verify the production build instead.
+        command: 'pnpm build && PORT=3000 node .output/server/index.mjs',
         url: 'http://localhost:3000',
-        reuseExistingServer: !process.env.CI,
-        timeout: 120000,
+        reuseExistingServer: false,
+        timeout: 240000,
       },
 })

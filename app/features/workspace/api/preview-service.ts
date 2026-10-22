@@ -59,6 +59,7 @@ export function createPreviewService(): WorkspaceService {
         fuel: 0,
         location: 'Awaiting tracker assignment',
         updated: 'No telemetry',
+        observedAt: null,
         distance: 0,
         position: null,
       })
@@ -66,6 +67,10 @@ export function createPreviewService(): WorkspaceService {
     async updateAlert(id: string, status: AlertState) {
       const alert = data.alerts.find((a) => a.id === id)
       if (!alert) throw new Error('Alert not found.')
+      if (alert.status === 'resolved' && status !== 'resolved')
+        throw new Error('A resolved alert cannot be reopened in this preview.')
+      if (status === 'active')
+        throw new Error('Acknowledged or resolved alerts cannot return to the active queue.')
       alert.status = status
     },
     async savePreferences(input: Preferences) {

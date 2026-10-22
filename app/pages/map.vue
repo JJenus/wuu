@@ -1,11 +1,13 @@
 <script setup lang="ts">
+import { useDataSource } from '~/features/core/composables/useDataSource'
 import { useWorkspace } from '~/features/workspace/composables/useWorkspace'
 import FleetMap from '~/features/fleet/components/FleetMap.vue'
 import { useTrackingPreview } from '~/features/tracking/composables/useTrackingPreview'
 import { formatElapsed } from '~/features/tracking/domain/playback'
+const source = useDataSource()
 const { vehicles, summary, isPending, isError, refetch } = useWorkspace()
 const mapDataState = computed(() => ({
-  source: 'preview' as const,
+  source: source.mode,
   status: isPending.value
     ? ('loading' as const)
     : isError.value
@@ -15,7 +17,7 @@ const mapDataState = computed(() => ({
 }))
 const { positions, seconds, playing, speed, play, pause, restart, trail } =
   useTrackingPreview(vehicles)
-const selectedId = ref<string | null>('VH-001')
+const selectedId = ref<string | null>(null)
 const follow = ref(false)
 const fleetMap = ref<InstanceType<typeof FleetMap>>()
 const status = ref('all')
@@ -23,9 +25,13 @@ const visible = computed(() =>
   positions.value.filter((v) => status.value === 'all' || v.status === status.value),
 )
 const selected = computed(() => visible.value.find((v) => v.id === selectedId.value))
-watch(status, () => {
-  if (!visible.value.some((v) => v.id === selectedId.value)) selectedId.value = null
-})
+watch(
+  visible,
+  (vehicles) => {
+    if (!vehicles.some((v) => v.id === selectedId.value)) selectedId.value = vehicles[0]?.id ?? null
+  },
+  { immediate: true },
+)
 useHead({ title: 'Fleet map — Wuu' })
 </script>
 
@@ -45,9 +51,13 @@ useHead({ title: 'Fleet map — Wuu' })
     >
     <div class="info-banner">
       <UIcon name="i-lucide-info" />
-      <p>
+      <p v-if="source.isPreview">
         Real geographic map with sample vehicle positions—not live GPS. Only sample moving vehicles
         animate; idle, parked, and offline vehicles stay still. Nothing is written to fleet records.
+      </p>
+      <p v-else>
+        A simulated movement overlay on live vehicle starting positions. It is not live GPS and
+        never writes to fleet records. Only moving vehicles animate.
       </p>
     </div>
     <section class="panel tracking-panel">
@@ -102,7 +112,7 @@ useHead({ title: 'Fleet map — Wuu' })
     <section class="panel mt-6">
       <div class="panel-heading">
         <h2>Vehicles in this view</h2>
-        <span class="preview-tag">{{ visible.length }} sample vehicles</span>
+        <span class="preview-tag">{{ visible.length }} vehicles in view</span>
       </div>
       <div class="tracking-vehicle-grid section-body">
         <button
@@ -120,11 +130,11 @@ useHead({ title: 'Fleet map — Wuu' })
             ><UiStatusBadge :status="vehicle.status" /><small>{{
               vehicle.status === 'offline'
                 ? 'No simulated updates'
-                : `${vehicle.speed} km/h · Sample`
+                : `${vehicle.speed} km/h · Simulated`
             }}</small></span
           >
         </button>
-        <p v-if="!visible.length" class="muted">No sample vehicles match this filter.</p>
+        <p v-if="!visible.length" class="muted">No vehicles match this filter.</p>
       </div>
     </section>
   </div>

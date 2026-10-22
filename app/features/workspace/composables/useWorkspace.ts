@@ -1,53 +1,137 @@
-import { useQuery, useQueryClient } from '@tanstack/vue-query'
-import { fleetSummary, type NewVehicle } from '../../fleet/domain/fleet'
-import type { AlertState, Preferences } from '../domain/types'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import { isRetryable } from '../../core/domain/errors'
+import { queryKeys } from '../../core/queries/keys'
+import type { NewVehicle } from '../../fleet/domain/fleet'
+import { fleetSummary } from '../../fleet/domain/fleet'
 import type { GeofenceDraft } from '../../geofences/domain/geofence'
+import type { AlertState } from '../domain/types'
+import type { AlertTransitionContext } from '../../alerts/services/alert-service'
+import { useWorkspaceContextValue, useWorkspaceServices } from './useWorkspaceServices'
 
 export function useWorkspace() {
-  const { $workspaceService: service } = useNuxtApp()
+  const services = useWorkspaceServices()
+  const context = useWorkspaceContextValue()
   const queryClient = useQueryClient()
-  const key = ['workspace', 'preview', 'northstar'] as const
-  const query = useQuery({ queryKey: key, queryFn: () => service.load() })
-  const vehicles = computed(() => query.data.value?.vehicles ?? [])
-  const alerts = computed(() => query.data.value?.alerts ?? [])
-  const trips = computed(() => query.data.value?.trips ?? [])
-  const geofences = computed(() => query.data.value?.geofences ?? [])
+  const isServer = import.meta.server
+
+  const fleetQuery = useQuery({
+    queryKey: queryKeys.fleet.list(context),
+    queryFn: ({ signal }) => services.fleet.list({ signal }),
+    enabled: services.mode === 'preview' || !isServer,
+    staleTime: 30_000,
+    retry: (count, error) => count < 1 && isRetryable(error),
+  })
+  const alertsQuery = useQuery({
+    queryKey: queryKeys.alerts.list(context),
+    queryFn: ({ signal }) => services.alerts.list({ signal }),
+    enabled: services.mode === 'preview' || !isServer,
+    staleTime: 15_000,
+    retry: (count, error) => count < 1 && isRetryable(error),
+  })
+  const tripsQuery = useQuery({
+    queryKey: queryKeys.trips.list(context),
+    queryFn: ({ signal }) => services.trips.list({ signal }),
+    enabled: services.mode === 'preview' || !isServer,
+    staleTime: 30_000,
+    retry: (count, error) => count < 1 && isRetryable(error),
+  })
+  const geofencesQuery = useQuery({
+    queryKey: queryKeys.geofences.list(context),
+    queryFn: ({ signal }) => services.geofences.list({ signal }),
+    enabled: services.mode === 'preview' || !isServer,
+    staleTime: 30_000,
+    retry: (count, error) => count < 1 && isRetryable(error),
+  })
+
+  const vehicles = computed(() => fleetQuery.data.value ?? [])
+  const alerts = computed(() => alertsQuery.data.value ?? [])
+  const trips = computed(() => tripsQuery.data.value ?? [])
+  const geofences = computed(() => geofencesQuery.data.value ?? [])
   const summary = computed(() => fleetSummary(vehicles.value))
+  const pendingStates = [
+    fleetQuery.isPending,
+    alertsQuery.isPending,
+    tripsQuery.isPending,
+    geofencesQuery.isPending,
+  ]
+  const errorStates = [fleetQuery.error, alertsQuery.error, tripsQuery.error, geofencesQuery.error]
+  const isPending = computed(() => pendingStates.some((state) => state.value))
+  const isFetching = computed(
+    () =>
+      fleetQuery.isFetching.value ||
+      alertsQuery.isFetching.value ||
+      tripsQuery.isFetching.value ||
+      geofencesQuery.isFetching.value,
+  )
+  const isError = computed(() => errorStates.some((state) => Boolean(state.value)))
+  const error = computed(() => errorStates.find((state) => Boolean(state.value))?.value ?? null)
+
+  async function refetch() {
+    await Promise.all([
+      fleetQuery.refetch(),
+      alertsQuery.refetch(),
+      tripsQuery.refetch(),
+      geofencesQuery.refetch(),
+    ])
+  }
+
   async function refresh() {
-    await queryClient.invalidateQueries({ queryKey: key })
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.fleet.list(context) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.alerts.list(context) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.trips.list(context) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.geofences.list(context) }),
+    ])
   }
-  async function addVehicle(input: NewVehicle) {
-    await service.addVehicle(input)
-    await refresh()
-  }
-  async function updateAlert(id: string, status: AlertState) {
-    await service.updateAlert(id, status)
-    await refresh()
-  }
-  async function savePreferences(input: Preferences) {
-    await service.savePreferences(input)
-    await refresh()
-  }
-  async function createGeofence(input: GeofenceDraft) {
-    const id = await service.createGeofence(input)
-    await refresh()
-    return id
-  }
-  async function updateGeofence(id: string, input: GeofenceDraft) {
-    await service.updateGeofence(id, input)
-    await refresh()
-  }
+
+  const addVehicle = useMutation({
+    mutationFn: (input: NewVehicle) => services.fleet.create(input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.fleet.list(context) }),
+  })
+
+  const updateAlert = useMutation({
+    mutationFn: (input: { id: string; status: AlertState; context?: AlertTransitionContext }) =>
+      services.alerts.transition(input.id, input.status, input.context),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.alerts.list(context) }),
+  })
+
+  const createGeofence = useMutation({
+    mutationFn: (input: GeofenceDraft) => services.geofences.create(input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.geofences.list(context) }),
+  })
+
+  const updateGeofence = useMutation({
+    mutationFn: (input: { id: string; draft: GeofenceDraft }) =>
+      services.geofences.update(input.id, input.draft),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.geofences.list(context) }),
+  })
+
   return {
-    ...query,
+    services,
+    context,
     vehicles,
     alerts,
     trips,
     geofences,
     summary,
-    addVehicle,
-    updateAlert,
-    savePreferences,
-    createGeofence,
-    updateGeofence,
+    fleetQuery,
+    alertsQuery,
+    tripsQuery,
+    geofencesQuery,
+    isPending,
+    isFetching,
+    isError,
+    error,
+    refetch,
+    refresh,
+    addVehicle: (input: NewVehicle) => addVehicle.mutateAsync(input),
+    isAddingVehicle: addVehicle.isPending,
+    updateAlert: (id: string, status: AlertState, transitionContext?: AlertTransitionContext) =>
+      updateAlert.mutateAsync({ id, status, context: transitionContext }),
+    isUpdatingAlert: updateAlert.isPending,
+    createGeofence: (input: GeofenceDraft) => createGeofence.mutateAsync(input),
+    isCreatingGeofence: createGeofence.isPending,
+    updateGeofence: (id: string, draft: GeofenceDraft) => updateGeofence.mutateAsync({ id, draft }),
+    isUpdatingGeofence: updateGeofence.isPending,
   }
 }

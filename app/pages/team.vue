@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useDataSource } from '~/features/core/composables/useDataSource'
+const source = useDataSource()
 const search = ref('')
 const members = [
   {
@@ -43,60 +45,70 @@ const visible = computed(() =>
         >Explore role templates</UButton
       ></UiPageHeading
     >
-    <div class="info-banner warning-banner">
+    <div v-if="source.isLive" class="info-banner warning-banner">
       <UIcon name="i-lucide-shield-alert" />
       <p>
-        Sample members only. Invitations and role changes are unavailable until effective backend
-        permissions and tenant boundaries are enforced.
+        <strong>Team management is not connected in live mode.</strong> The member, invitation, and
+        role-assignment contracts are not verified, so no sample people are shown here. Effective
+        backend permissions and tenant boundaries remain release gates.
       </p>
     </div>
-    <section class="panel">
-      <div class="toolbar">
-        <UInput
-          v-model="search"
-          icon="i-lucide-search"
-          placeholder="Search team members..."
-          aria-label="Search team members"
-        /><span class="record-count">{{ visible.length }} preview members</span>
+    <template v-else>
+      <div class="info-banner warning-banner">
+        <UIcon name="i-lucide-shield-alert" />
+        <p>
+          Sample members only. Invitations and role changes are unavailable until effective backend
+          permissions and tenant boundaries are enforced.
+        </p>
       </div>
-      <div class="table-scroll">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Team member</th>
-              <th>Role</th>
-              <th>Access scope</th>
-              <th>Status</th>
-              <th>Account</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="member in visible" :key="member.email">
-              <td>
-                <div class="vehicle-cell">
-                  <span class="avatar">{{ member.initials }}</span
-                  ><span
-                    ><strong>{{ member.name }}</strong
-                    ><small>{{ member.email }}</small></span
-                  >
-                </div>
-              </td>
-              <td>
-                <strong class="font-medium">{{ member.label }}</strong>
-                <p class="muted text-[9px] mt-1 font-mono">{{ member.role }}</p>
-              </td>
-              <td>Northstar Logistics</td>
-              <td><UiStatusBadge status="active" /></td>
-              <td class="muted">{{ member.last }}</td>
-            </tr>
-          </tbody>
-        </table>
-        <UiEmptyState
-          v-if="!visible.length"
-          title="No team members found"
-          description="Try another name or role."
-        />
-      </div>
-    </section>
+      <section class="panel">
+        <div class="toolbar">
+          <UInput
+            v-model="search"
+            icon="i-lucide-search"
+            placeholder="Search team members..."
+            aria-label="Search team members"
+          /><span class="record-count">{{ visible.length }} preview members</span>
+        </div>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Team member</th>
+                <th>Role</th>
+                <th>Access scope</th>
+                <th>Status</th>
+                <th>Account</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="member in visible" :key="member.email">
+                <td>
+                  <div class="vehicle-cell">
+                    <span class="avatar">{{ member.initials }}</span
+                    ><span
+                      ><strong>{{ member.name }}</strong
+                      ><small>{{ member.email }}</small></span
+                    >
+                  </div>
+                </td>
+                <td>
+                  <strong class="font-medium">{{ member.label }}</strong>
+                  <p class="muted text-[9px] mt-1 font-mono">{{ member.role }}</p>
+                </td>
+                <td>Northstar Logistics</td>
+                <td><UiStatusBadge status="active" /></td>
+                <td class="muted">{{ member.last }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <UiEmptyState
+            v-if="!visible.length"
+            title="No team members found"
+            description="Try another name or role."
+          />
+        </div>
+      </section>
+    </template>
   </div>
 </template>

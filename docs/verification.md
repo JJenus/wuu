@@ -1,10 +1,62 @@
-# Verification — Wuu preview
+# Verification — Wuu preview and live read-only integration
 
-Updated 2026-10-22. This verifies the isolated frontend preview, **not backend integration or production readiness**. Older slice evidence below retains its original dates and artifact names.
+Updated 2026-10-22. This verifies the preview workspace, the live read-only gateway, and fail-closed runtime behavior. It does **not** verify an authenticated backend integration or production readiness. Older slice evidence below retains its original dates and artifact names.
+
+## Live read-only integration and fail-closed runtime — latest slice (2026-10-22)
+
+Acceptance: add a typed live path without rewriting the UI, keep preview isolated, keep the UI HTTP-free, and ensure failed live requests never become sample data.
+
+### Implementation evidence
+
+- Added domain service interfaces and separate preview/live adapters for fleet, trips, alerts, geofences, and preferences.
+- Added a shared Zod gateway client with timeout/cancellation handling, HTTP mapping, contract validation, request IDs, and corrected `204` handling. An incompatible `204` is now a contract error rather than a server error.
+- Added runtime origin/token resolution and an allowlisted Nitro proxy at `server/api/_wuu/[...path].ts`.
+- Extracted the gateway path/origin policy to `server/utils/wuu-gateway.ts` so traversal, encoded separators, unsafe origins, and method/path policy are unit-tested.
+- Added preview/live service composition, Vue Query keys including data mode/context, preview cache seeding, live client-only queries, and aggregate async/error/retry states.
+- Moved pure API-error helpers to `core/domain/errors.ts`; UI-bound error display no longer imports an API-adapter module. `pnpm check:boundaries` passes.
+- Added a live team fail-closed state, live-safe identity/footer/date copy, UTC deterministic timestamps, and explicit disabled-action messaging.
+- Fixed the vehicle-create field error slot so validation is visible and accessible; that browser case passes.
+
+### Unit and static checks
+
+- `pnpm test:coverage`: **70/70 PASS across 12 files**. Selected-source coverage: **95.62% lines/statements, 82.24% branches, 95.16% functions**. The configured scope includes pure domain/policy/adapters, live contracts/mappers, the gateway, service composition, the BFF policy, map/search, tracking, CSV, and preview state; it does not measure Vue templates or the entire UI.
+- New focused tests cover:
+  - gateway cancellation, timeout, abort, network failure, HTTP mapping, invalid JSON/contracts, paged data, and `204` handling;
+  - BFF allowlisting, traversal/encoded-separator rejection, HTTPS/local-origin policy, credentials/query/fragment rejection, and malformed paths;
+  - live vehicle/trip/alert/geofence mapping, null/missing-field handling, paging, detail 404s, and guarded unsupported mutations;
+  - preview isolation, service composition, defensive copies, and duplicate/field validation;
+  - deterministic UTC display and data-mode/context defaults.
+- `pnpm typecheck`: PASS.
+- `pnpm check:boundaries`: PASS.
+- `pnpm format:check`: PASS.
+- `pnpm build`: PASS.
+
+### Browser and runtime checks
+
+- Final `pnpm test:e2e` against a fresh production build: **30/30 Chromium tests PASS in 2.8 minutes**. The default Playwright command now builds and owns a production server; `PLAYWRIGHT_BASE_URL` can still target an already-running compatible server. The suite includes branding, fleet/filter/search, creation validation, alert transitions, trip/downloads, settings, detail/reload/missing routes, geofences/editor, real maps/clustering/tile recovery, tracking/replay, mobile/dark layouts, and automated light/dark accessibility checks.
+- Dev-server attempts exposed Vite's on-demand dependency reload rather than an application failure: the first full run reached 28/30 (two readiness checks hit the 5-second default during a reload), and a 15-second readiness retry reached 26/30 as Nuxt UI's transitive dependencies triggered further full reloads. Prebundling the application's four heavy dependencies reduced but did not eliminate this dev-only behavior. Rather than mask the reload, `pnpm test:e2e` now builds and runs the production artifact, where dependency optimization does not occur. The 30/30 production result above is the release-relevant evidence.
+- Live configuration test: rebuilt production server on port **3001** with `NUXT_PUBLIC_DATA_MODE=live` and **no** `WUU_API_ORIGIN`.
+  - `GET /api/_wuu/vehicles` → **503**, `{"message":"The live API is not configured on this server.","requestId":"…"}`.
+  - Home displayed “We couldn’t load your workspace” with that error; no `Transit 01`, `Transit 02`, or `Alex Carter` text appeared.
+  - Map displayed “Map data unavailable”; no preview vehicle appeared.
+  - Team hid all sample members and displayed the explicit live contract gap.
+  - Sidebar/footer used live-mode copy, not preview identity or “connected” claims.
+  - Screenshots: `/tmp/opencode/wuu-live-home.png`, `/tmp/opencode/wuu-live-map.png`, `/tmp/opencode/wuu-live-team.png` (local verification artifacts, not committed).
+
+### Limits
+
+- No authenticated request was sent to the real backend. The live path is verified fail-closed and through adapter/gateway unit tests, not through a running upstream.
+- No login, session issuance, CSRF, effective-permission resolution, tenant isolation, or route protection is implemented. `/admin` remains an unprotected concept page.
+- Live mutations are not enabled: vehicle creation, alert transitions, geofence create/edit, team administration, and preferences.
+- Map tiles and interactions are Chromium-tested; no real-device, non-Chromium, screen-reader, large-fleet, or provider-capacity test was performed.
+- The BFF tests cover policy helpers; no live upstream proxy/redirect/header integration test was run.
+- CSP, production secrets management, dependency audit, and deployment hardening remain open.
+
+Self-assessment: accuracy **4/5** (actual fail-closed paths and tests pass; real-backend behavior unproven), completeness **3/5** (read-only integration and safety gates delivered; authentication/mutations remain blocked), clarity **4/5** (mode/action limits are visible and documented), actionability **4/5** (runnable preview and configurable live start; provider/session work remains), conciseness **4/5** (one service composition and gateway; docs are longer because release gates are explicit). Overall **3.8/5**. Highest-impact next step: an approved backend session/authorization slice, not more preview screens.
 
 ## Commands and results
 
-### Wuu rename and supplied logo — latest slice (2026-10-22)
+### Wuu rename and supplied logo — previous slice (2026-10-22)
 
 - User request: rename the app to Wuu and edit/resize/convert/use the logo in `public/`. Inspection found only the supplied blue mark in `photo_2026-10-21_20-47-14.jpg`, not a PNG. The original remains unchanged; SHA-256 before and after: `0c1436e1529fff27793d5193bf88f2d80a984dded4e25f33a3261f354782078d`.
 - `tools/prepare-brand.py` uses installed Pillow 10.2.0 to remove the white JPEG matte, suppress fringe noise, crop/pad without changing aspect ratio, and generate transparent PNG/lossless WebP plus platform icons. No runtime dependency or backend change. Sidebar logo: 44px display, 96/192px responsive sources. WebP payloads: **6,608 bytes / 17,468 bytes**. Master is 512px; ICO contains 16/32/48px, PNG favicon is 32px, Apple icon is 180px, manifest icons are 192/512px.

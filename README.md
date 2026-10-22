@@ -1,14 +1,15 @@
 # Wuu
 
-## Logo assets
-
-The supplied blue logo is used in the navigation with transparent 96/192px PNG and lossless WebP variants. The app also ships a 512px transparent master, 16/32/48px ICO, 32px PNG favicon, 180px Apple icon and 192/512px manifest icons. The manifest does not add offline support.
-
-To regenerate, run `python3 tools/prepare-brand.py` with Pillow installed in your Python environment, or pass another source-image path as its argument. The supplied `public/photo_2026-10-21_20-47-14.jpg` is preserved unchanged. No source PNG or vector was present, so these are cleaned raster derivatives, not vector artwork. Asset details are in `docs/design-system.md`.
-
 **Your fleet, in focus.** A responsive, map-led fleet workspace built with Nuxt 4, Vue 3, TypeScript, and Nuxt UI v4.
 
-## Run
+Wuu runs in two explicit data modes:
+
+- **Preview** (default): isolated sample data, no backend or credentials required.
+- **Live**: typed read-only adapters call an allowlisted server-side gateway. Failed live requests stay visible and are never replaced with sample data.
+
+Preview remains a frontend demonstration. Live mode is an integration seam, not a claim of production readiness: authentication, effective permissions, tenant isolation, and several backend mutation contracts are still release gates.
+
+## Run the preview
 
 Node 24 and pnpm 11 are used in this workspace.
 
@@ -17,28 +18,52 @@ pnpm install
 pnpm dev
 ```
 
-Open http://localhost:3000. No backend services, API keys, account, or real credentials are needed.
+Open http://localhost:3000. No backend service, API key, or account is needed.
 
-## What works today
+## Enable live reads
 
-- Responsive overview with counts derived from the sample fleet.
-- Real geographic Leaflet maps: tile rendering/attribution, highlighted status markers, clustering/expansion, geographic paths/boundaries, drag/pinch/keyboard navigation, search, fit/reset and tile-error recovery. Fleet positions are mocked, not live GPS.
-- Searchable/filterable vehicle list and detail routes.
-- Validated vehicle creation in the isolated preview session.
-- Alert acknowledgment/resolution, reflected in overview and notifications.
-- Searchable trips, detail dialogs, and filtered **preview** CSV downloads.
-- Global search (button or Cmd/Ctrl+K).
-- Session-scoped notification preferences and light/dark appearance.
-- Read-only geofence, team, organization, role, and platform-administration previews.
-- Helpful empty states, missing-vehicle handling, and application error page.
+Build once, then start the server with runtime configuration:
 
-## Important boundaries
+```sh
+pnpm build
+NUXT_PUBLIC_DATA_MODE=live \
+WUU_API_ORIGIN=https://fleet-api.example.com \
+WUU_API_BEARER_TOKEN='server-only-token' \
+PORT=3000 node .output/server/index.mjs
+```
 
-**This release is an interactive frontend preview, not a production-connected fleet application.** All records are fictional; `example.com` addresses are placeholders. Changes reset on reload. No network adapter connects to the Java backend. There is no authentication or production authorization. Administration routes intentionally show only sample information.
+| Variable                     | Purpose                                                                                                                        |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `NUXT_PUBLIC_DATA_MODE=live` | Switches the client and server to live mode. Any other value remains preview.                                                  |
+| `WUU_API_ORIGIN`             | Server-only upstream origin. `NUXT_API_ORIGIN` is also supported. HTTPS is required except for loopback.                       |
+| `WUU_API_BEARER_TOKEN`       | Server-only token forwarded to the upstream. `NUXT_API_BEARER_TOKEN` is also supported.                                        |
+| `wuu_access_token` cookie    | Optional per-session bearer token. No login or token-issuance flow is implemented in this app.                                 |
+| `NUXT_PUBLIC_MAP_TILES_*`    | Optional URL/attribution/zoom override for the configured map tile provider. See [maps integration](docs/maps-integration.md). |
 
-The map renders actual geographic tiles, independent of mock fleet data. Default OpenStreetMap public tiles have no SLA; configure an approved production provider using the runtime variables documented in [maps integration](docs/maps-integration.md). Real GPS transport, authenticated sessions and server authorization remain release gates—this is not yet a production-release-ready application. Mini-charts are illustrative and do not imply historical analytics. Remote commands, invitations, role editing, billing, ride-hailing, and live updates are unavailable.
+Never put a real token in a `NUXT_PUBLIC_*` variable, client code, a URL query, or the preview fixtures. The browser talks only to `/api/_wuu/*`; the Nitro gateway resolves the private origin/token at runtime and forwards only `vehicles`, `trips`, `alerts`, `geofences`, and `notifications`. Unknown resources, encoded path separators, traversal segments, unsafe origins, and unsupported methods fail closed.
 
-The active backend in `../sidie/` was not checked out, stashed, reset, or edited. A byte-verified local snapshot was created before initializing this independent orphan branch. See [progress](docs/progress.md).
+Live mode currently reads fleet vehicles, trips, alerts, and geofences. Vehicle creation, alert transitions, geofence create/edit, team administration, and preferences remain disabled or unavailable until their identity, geometry, and server-authoritative contracts are verified. Live geofence and alert screens are read-only. Simulated tracking and trip replay remain clearly labeled preview simulations; they are never live GPS or recorded history.
+
+## What works
+
+- Responsive overview, fleet search/filter, vehicle detail, alerts, trips, geofences, team, and settings routes.
+- Typed service layer with Zod contracts, pagination, normalized errors, retries, and Vue Query caching.
+- Failure-isolated preview and live services composed from one container. A live error never becomes fixture data.
+- Real Leaflet/markercluster maps with geographic coordinates, tiles and attribution, clustering, selection, search, layers, fit/reset, provider-error recovery, and mobile gestures.
+- Explicit preview workflows: validated session-only vehicle creation, alert acknowledgment/resolution, geofence drawing/editing, trip replay, tracking simulation, and notification preferences.
+- Live read-only tables and detail routes backed by the allowlisted gateway, with unsupported actions disabled.
+- Filtered client-side trip CSV downloads (`wuu-preview-trips.csv` in preview, `wuu-trips.csv` in live).
+- Dark/light mode, keyboard navigation, responsive tables, automated accessibility coverage, and a hydration-ready boundary for browser tests.
+- Platform administration remains a clearly labeled **concept preview**; it is not connected to production access control.
+
+## Safety boundary
+
+- Preview and live state are separate. Preview fixtures are seeded only in preview mode and are never a fallback.
+- Server authorization and tenant scoping are **not implemented by this frontend**. The BFF is not a substitute for upstream authorization, and `/admin` is not protected.
+- The gateway rejects non-HTTPS remote origins, limits forwarding to known resource prefixes, disables redirects, applies a 15-second timeout, and marks responses `no-store`.
+- API timestamps display deterministically in UTC so server and browser rendering agree.
+- Map tiles use the configured public OpenStreetMap endpoint by default. That endpoint has no SLA; approve a production provider, licensing, capacity, privacy review, and CSP before launch.
+- The active `../sidie/` checkout and `../sidie-snapshot-*` were not modified. Backend fixes require separately approved isolation.
 
 ## Verify
 
@@ -46,16 +71,27 @@ The active backend in `../sidie/` was not checked out, stashed, reset, or edited
 pnpm typecheck
 pnpm test:coverage
 pnpm check:boundaries
+pnpm format:check
 pnpm test:e2e
 pnpm build
 ```
 
-Playwright uses a system/cached Chromium if available, or its own installed browser otherwise. Set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to override detection. Only if none is available, run `pnpm exec playwright install chromium`.
+`pnpm test:e2e` builds a fresh production output and starts it on port 3000, so the browser suite verifies the release artifact rather than Vite's on-demand dev transform. Playwright uses a system or cached Chromium. To target an already-running compatible server instead:
 
-Playwright starts/reuses the dev server on port 3000. Set `PLAYWRIGHT_BASE_URL=http://localhost:3001` to test an already running production build instead. Screenshots and failing traces go to ignored `test-results/`. For a production preview, run `pnpm build` then `pnpm preview`.
+```sh
+PLAYWRIGHT_BASE_URL=http://localhost:3000 pnpm test:e2e
+```
 
-## Continue without drift
+Screenshots and failing traces go to ignored `test-results/`. See [verification](docs/verification.md) for actual results and limits.
 
-Read [scope](docs/scope.md), [API inventory](docs/api-contracts.md), [access matrix](docs/access-matrix.md), [architecture](docs/architecture.md), [design system](docs/design-system.md), and [progress](docs/progress.md) before starting another slice.
+## Logo assets
 
-The next slice is a separately approved, authenticated **read-only fleet integration**. Do not silently replace preview data with API data, invent endpoints, or repair the active backend in place.
+The supplied blue logo is used in navigation with transparent 96/192px PNG and lossless WebP variants, plus a 512px master, 16/32/48px ICO, 32/48/180/192/512px PNG icons, and manifest icons. The manifest does not add offline support.
+
+Regenerate with `python3 tools/prepare-brand.py` (Pillow required). The supplied `public/photo_2026-10-21_20-47-14.jpg` is preserved unchanged. No source PNG or vector was present, so these are cleaned raster derivatives, not vector artwork. See [design system](docs/design-system.md).
+
+## Canonical documents
+
+Read [scope](docs/scope.md), [architecture](docs/architecture.md), [API contracts](docs/api-contracts.md), [access matrix](docs/access-matrix.md), [design system](docs/design-system.md), and [progress](docs/progress.md) before starting another slice.
+
+Do not infer production access from client role templates or hidden navigation. Do not connect device commands, telemetry sockets, or administrative mutations until the backend contracts, effective permissions, and tenant boundaries are verified in a separately approved workstream.

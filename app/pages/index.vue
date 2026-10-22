@@ -1,10 +1,13 @@
 <script setup lang="ts">
+import { errorMessage } from '~/features/core/domain/errors'
+import { useDataSource } from '~/features/core/composables/useDataSource'
 import { useWorkspace } from '~/features/workspace/composables/useWorkspace'
 import FleetMap from '~/features/fleet/components/FleetMap.vue'
 import VehicleTable from '~/features/fleet/components/VehicleTable.vue'
 import AddVehicleModal from '~/features/fleet/components/AddVehicleModal.vue'
 import MetricCard from '~/features/workspace/components/MetricCard.vue'
-const { vehicles, alerts, summary, isPending, isError, refetch } = useWorkspace()
+const source = useDataSource()
+const { vehicles, alerts, summary, isPending, isError, error, refetch } = useWorkspace()
 const addOpen = ref(false)
 const status = ref('all')
 const visible = computed(() =>
@@ -32,30 +35,51 @@ const tabs = computed(() => [
           color="neutral"
           variant="outline"
           class="date-button"
-          >Oct 21, 2026</UButton
+          >{{ source.isPreview ? 'Oct 21, 2026' : 'Latest records' }}</UButton
         ><template #content
           ><div class="date-explanation">
-            <strong>A snapshot of a day on the road</strong>
-            <p>
+            <strong>{{
+              source.isPreview ? 'A snapshot of a day on the road' : 'Latest live records'
+            }}</strong>
+            <p v-if="source.isPreview">
               This preview uses a fixed sample day. Date-range reporting will be connected to the
               trips API in a later slice.
             </p>
+            <p v-else>
+              This date control is not connected yet. The workspace shows the latest records
+              returned by the live service.
+            </p>
           </div></template
         ></UPopover
-      ><UButton icon="i-lucide-plus" @click="addOpen = true">Add vehicle</UButton></UiPageHeading
+      ><UButton
+        icon="i-lucide-plus"
+        :disabled="!source.isPreview"
+        :title="
+          source.isPreview
+            ? undefined
+            : 'Vehicle creation is not enabled for the current live contract'
+        "
+        @click="addOpen = true"
+        >Add vehicle</UButton
+      ></UiPageHeading
     >
     <div class="preview-notice">
-      <span
+      <span v-if="source.isPreview"
         ><UIcon name="i-lucide-flask-conical" /><strong>A look at what’s ahead.</strong> You’re
         exploring an interactive preview with sample fleet data.</span
+      >
+      <span v-else
+        ><UIcon name="i-lucide-radio" /><strong>Live workspace.</strong> Fleet records are loaded
+        from the configured Wuu service; failed requests stay visible and are never replaced with
+        samples.</span
       ><NuxtLink to="/settings"
         >About this workspace<UIcon name="i-lucide-arrow-up-right"
       /></NuxtLink>
     </div>
     <UiEmptyState
-      v-if="isError"
+      v-if="isError && !vehicles.length"
       title="We couldn’t load your workspace"
-      description="Please try again."
+      :description="errorMessage(error)"
       ><UButton @click="refetch()">Retry</UButton></UiEmptyState
     >
     <div v-else-if="isPending" class="metric-grid" aria-label="Loading workspace">
@@ -95,7 +119,7 @@ const tabs = computed(() => [
           :value="summary.distance.toLocaleString()"
           icon="i-lucide-route"
           detail="km across your fleet"
-          note="sample day"
+          :note="source.isPreview ? 'sample day' : 'latest records'"
           chart="M0 35L10 31L20 31L31 22L41 25L51 17L61 18L71 10L84 12L100 3"
         />
       </section>
@@ -104,7 +128,10 @@ const tabs = computed(() => [
           <div class="panel-heading">
             <div>
               <h2>
-                Fleet at a glance <span class="subtle-badge"><span />Preview</span>
+                Fleet at a glance
+                <span class="subtle-badge"
+                  ><span />{{ source.isPreview ? 'Preview' : 'Live' }}</span
+                >
               </h2>
               <p>Your vehicles. One clear picture.</p>
             </div>
@@ -132,14 +159,14 @@ const tabs = computed(() => [
               ><span class="alert-icon" :class="alert.severity"><UIcon :name="alert.icon" /></span>
               <div>
                 <strong>{{ alert.title }}</strong
-                ><span>{{ alert.vehicle }}<i>·</i>{{ alert.time }}</span>
+                ><span>{{ alert.vehicle ?? 'Vehicle not recorded' }}<i>·</i>{{ alert.time }}</span>
                 <p>{{ alert.description }}</p>
               </div>
               <UIcon name="i-lucide-chevron-right" /></NuxtLink
             ><UiEmptyState
               v-if="!activeAlerts.length"
               title="All clear"
-              description="Your fleet has no active preview alerts."
+              description="Your fleet has no active alerts."
               icon="i-lucide-circle-check"
             />
           </div>
@@ -170,7 +197,9 @@ const tabs = computed(() => [
           >
             {{ tab.label }}<span>{{ tab.count }}</span></button
           ><span class="table-preview-note"
-            ><UIcon name="i-lucide-clock-3" />Sample snapshot · 11:06 AM</span
+            ><UIcon name="i-lucide-clock-3" />{{
+              source.isPreview ? 'Sample snapshot · 11:06 AM' : 'Latest live records'
+            }}</span
           >
         </div>
         <VehicleTable :vehicles="visible" compact />

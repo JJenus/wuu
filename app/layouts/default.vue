@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { useDataSource } from '~/features/core/composables/useDataSource'
 import { useWorkspace } from '~/features/workspace/composables/useWorkspace'
 const route = useRoute()
+const source = useDataSource()
 const mobileOpen = ref(false)
 const isMobile = ref(false)
 let mobileQuery: MediaQueryList | undefined
@@ -14,12 +16,25 @@ const { vehicles, alerts } = useWorkspace()
 const results = computed(() =>
   vehicles.value
     .filter((v) =>
-      `${v.name} ${v.plate} ${v.driver}`.toLowerCase().includes(search.value.toLowerCase()),
+      `${v.name} ${v.plate} ${v.driver ?? ''}`.toLowerCase().includes(search.value.toLowerCase()),
     )
     .slice(0, 5),
 )
 const activeAlerts = computed(() => alerts.value.filter((a) => a.status === 'active'))
 const admin = computed(() => route.path.startsWith('/admin'))
+const workspaceName = computed(() =>
+  admin.value ? 'Wuu platform' : source.isPreview ? 'Northstar Logistics' : 'Configured workspace',
+)
+const identity = computed(() =>
+  source.isPreview
+    ? { name: 'Alex Carter', detail: 'Workspace preview' }
+    : { name: admin.value ? 'Platform operator' : 'Workspace operator', detail: 'Live mode' },
+)
+const footerStatus = computed(() =>
+  source.isPreview
+    ? 'Preview environment · No live vehicles connected'
+    : 'Live workspace · Failed requests are never replaced with samples',
+)
 function isActive(path: string) {
   return (
     route.path === path || (path !== '/' && path !== '/admin' && route.path.startsWith(`${path}/`))
@@ -118,18 +133,33 @@ watch(mobileOpen, async (open) => {
           <span class="org-icon"
             ><UIcon :name="admin ? 'i-lucide-shield-check' : 'i-lucide-building-2'" /></span
           ><span
-            ><strong>{{ admin ? 'Wuu platform' : 'Northstar Logistics' }}</strong
-            ><small>{{ admin ? 'Administration preview' : 'Business workspace' }}</small></span
+            ><strong>{{ workspaceName }}</strong
+            ><small>{{
+              admin
+                ? 'Administration preview'
+                : source.isPreview
+                  ? 'Business preview'
+                  : 'Live workspace'
+            }}</small></span
           ><UIcon name="i-lucide-chevrons-up-down" class="org-chevron" />
         </button>
         <template #content
           ><div class="workspace-switch-menu">
-            <span class="eyebrow">Preview workspaces</span
-            ><NuxtLink to="/"><UIcon name="i-lucide-building-2" />Northstar Logistics</NuxtLink
+            <span class="eyebrow">{{ source.isPreview ? 'Preview workspaces' : 'Workspace' }}</span
+            ><NuxtLink to="/"
+              ><UIcon name="i-lucide-building-2" />{{
+                source.isPreview ? 'Northstar Logistics' : 'Configured workspace'
+              }}</NuxtLink
             ><NuxtLink to="/admin"
               ><UIcon name="i-lucide-shield-check" />Platform administration</NuxtLink
             >
-            <p>Preview navigation only. This is not an authorization boundary.</p>
+            <p>
+              {{
+                source.isPreview
+                  ? 'Preview navigation only. This is not an authorization boundary.'
+                  : 'Platform administration remains a concept preview and does not grant live access.'
+              }}
+            </p>
           </div></template
         >
       </UPopover>
@@ -163,10 +193,19 @@ watch(mobileOpen, async (open) => {
       </nav>
       <div class="sidebar-bottom">
         <div class="preview-card">
-          <span class="preview-orbit"><UIcon name="i-lucide-sparkles" /></span
-          ><strong>A little clarity goes a long way.</strong>
-          <p>Explore your fleet workspace with safe, sample data.</p>
-          <span class="preview-tag"><span />Interactive preview</span>
+          <span class="preview-orbit"
+            ><UIcon :name="source.isPreview ? 'i-lucide-sparkles' : 'i-lucide-radio'" /></span
+          ><strong>{{
+            source.isPreview ? 'A little clarity goes a long way.' : 'Live workspace.'
+          }}</strong>
+          <p v-if="source.isPreview">Explore your fleet workspace with safe, sample data.</p>
+          <p v-else>
+            Fleet records come from the configured service. Failed live requests are shown as
+            errors.
+          </p>
+          <span class="preview-tag"
+            ><span />{{ source.isPreview ? 'Interactive preview' : 'Live mode' }}</span
+          >
         </div>
         <NuxtLink :to="admin ? '/' : '/admin'" class="nav-item platform-link"
           ><UIcon :name="admin ? 'i-lucide-arrow-left' : 'i-lucide-shield-check'" />{{
@@ -174,8 +213,12 @@ watch(mobileOpen, async (open) => {
           }}<UIcon name="i-lucide-arrow-up-right"
         /></NuxtLink>
         <div class="sidebar-user">
-          <span class="avatar user-avatar">AC</span
-          ><span><strong>Alex Carter</strong><small>Workspace preview</small></span
+          <span class="avatar user-avatar"
+            ><template v-if="source.isPreview">AC</template
+            ><UIcon v-else name="i-lucide-user" aria-hidden="true" /></span
+          ><span
+            ><strong>{{ identity.name }}</strong
+            ><small>{{ identity.detail }}</small></span
           ><NuxtLink to="/settings" aria-label="Account settings"
             ><UIcon name="i-lucide-settings"
           /></NuxtLink>
@@ -215,7 +258,9 @@ watch(mobileOpen, async (open) => {
               ><div class="notification-popover">
                 <div class="panel-heading">
                   <h3>Notifications</h3>
-                  <span class="preview-tag">Sample data</span>
+                  <span class="preview-tag">{{
+                    source.isPreview ? 'Sample data' : 'Live data'
+                  }}</span>
                 </div>
                 <NuxtLink
                   v-for="alert in activeAlerts"
@@ -234,20 +279,25 @@ watch(mobileOpen, async (open) => {
             ></UPopover
           ><UColorModeButton color="neutral" variant="ghost" class="theme-toggle" /><span
             class="avatar topbar-avatar"
-            >AC</span
-          >
+            ><template v-if="source.isPreview">AC</template
+            ><UIcon v-else name="i-lucide-user" aria-hidden="true"
+          /></span>
         </div>
       </header>
       <main id="main-content" class="main-content"><slot /></main>
       <footer class="workspace-footer">
-        <span><span class="footer-dot" />Preview environment · No live vehicles connected</span
+        <span><span class="footer-dot" />{{ footerStatus }}</span
         ><span>Made for the road ahead.<span class="footer-brand">Wuu</span></span>
       </footer>
     </div>
     <UModal
       v-model:open="searchOpen"
       title="Find your way"
-      description="Search vehicles, registrations, or drivers in the preview fleet."
+      :description="
+        source.isPreview
+          ? 'Search vehicles, registrations, or drivers in the preview fleet.'
+          : 'Search vehicles, registrations, or drivers in the live workspace.'
+      "
       ><template #body
         ><UInput
           v-model="search"

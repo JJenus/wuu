@@ -8,7 +8,12 @@ export default defineNuxtConfig({
     '~/assets/css/maps.css',
   ],
   runtimeConfig: {
+    apiOrigin: '',
+    apiBearerToken: '',
     public: {
+      dataMode: process.env.NUXT_PUBLIC_DATA_MODE === 'live' ? 'live' : 'preview',
+      workspaceOrganizationId: 'northstar',
+      workspaceUserId: 'preview-user',
       mapTiles: {
         url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
         attribution: 'OpenStreetMap contributors',
@@ -20,6 +25,11 @@ export default defineNuxtConfig({
   ui: { fonts: false },
   colorMode: { preference: 'light' },
   devtools: { enabled: false },
+  vite: {
+    optimizeDeps: {
+      include: ['@tanstack/vue-query', 'zod', 'leaflet', 'leaflet.markercluster'],
+    },
+  },
   routeRules: {
     '/**': {
       headers: {

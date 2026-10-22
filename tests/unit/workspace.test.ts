@@ -3,6 +3,8 @@ import {
   filterVehicles,
   fleetSummary,
   validateVehicle,
+  validateVehicleFields,
+  vehicleStatusFromTelemetry,
 } from '../../app/features/fleet/domain/fleet'
 import { can, roleTemplates } from '../../app/policies/access'
 import { createPreviewService } from '../../app/features/workspace/api/preview-service'
@@ -34,6 +36,66 @@ describe('fleet workspace', () => {
       validateVehicle({ name: 'Van', plate: vehicles[0]!.plate.toLowerCase() }, vehicles),
     ).toMatch(/already/)
     expect(validateVehicle({ name: 'Van', plate: 'NEW-123' }, vehicles)).toBeNull()
+  })
+})
+
+describe('vehicle field validation and telemetry status', () => {
+  it('returns field-specific messages without accepting duplicates', async () => {
+    const { vehicles } = await createPreviewService().load()
+    expect(validateVehicleFields({ name: '', plate: '' }, vehicles)).toEqual({
+      name: 'Enter a vehicle name.',
+      plate: 'Enter a registration.',
+    })
+    expect(validateVehicleFields({ name: 'V'.repeat(61), plate: 'BAD!' }, vehicles)).toEqual({
+      name: 'Keep the name to 60 characters or fewer.',
+      plate: 'Use 2–20 letters, numbers, spaces, or hyphens.',
+    })
+    expect(
+      validateVehicleFields({ name: 'Van', plate: vehicles[0]!.plate.toLowerCase() }, vehicles),
+    ).toEqual({ plate: 'This registration already exists in your fleet.' })
+    expect(validateVehicleFields({ name: 'Van', plate: 'NEW-123' }, vehicles)).toEqual({})
+  })
+
+  it('derives status only from fresh observable telemetry', () => {
+    const now = Date.parse('2026-10-22T12:00:00Z')
+    expect(
+      vehicleStatusFromTelemetry({ observedAt: null, speedKmh: 40, accStatus: true, now }),
+    ).toBe('offline')
+    expect(
+      vehicleStatusFromTelemetry({ observedAt: 'not-a-date', speedKmh: 40, accStatus: true, now }),
+    ).toBe('offline')
+    expect(
+      vehicleStatusFromTelemetry({
+        observedAt: '2026-10-22T11:00:00Z',
+        speedKmh: 40,
+        accStatus: true,
+        now,
+      }),
+    ).toBe('offline')
+    expect(
+      vehicleStatusFromTelemetry({
+        observedAt: '2026-10-22T11:59:00Z',
+        speedKmh: 2,
+        accStatus: false,
+        now,
+      }),
+    ).toBe('moving')
+    expect(
+      vehicleStatusFromTelemetry({
+        observedAt: '2026-10-22T11:59:00Z',
+        speedKmh: 0,
+        accStatus: false,
+        now,
+      }),
+    ).toBe('parked')
+    expect(
+      vehicleStatusFromTelemetry({
+        observedAt: '2026-10-22T11:59:00Z',
+        speedKmh: null,
+        accStatus: null,
+        now,
+      }),
+    ).toBe('idle')
   })
 })
 

@@ -2,8 +2,8 @@ import type { Trip } from './types'
 
 // Quote every cell and neutralize spreadsheet formulas, including leading whitespace.
 export function tripsCsv(trips: readonly Trip[]): string {
-  const escape = (value: string | number) => {
-    const text = String(value)
+  const escape = (value: string | number | null) => {
+    const text = value === null ? '' : String(value)
     const safe = /^\s*[-=+@\t\r]/.test(text) ? `'${text}` : text
     return `"${safe.replaceAll('"', '""')}"`
   }

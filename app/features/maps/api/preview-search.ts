@@ -46,8 +46,8 @@ export function createPreviewMapSearch(
     id: string
     name: string
     plate: string
-    driver: string
-    location: string
+    driver: string | null
+    location: string | null
     position: { lat: number; lng: number } | null
   }[],
 ): MapSearchService {
@@ -57,7 +57,9 @@ export function createPreviewMapSearch(
       const vehicleResults: MapSearchResult[] = vehicles().map((v) => ({
         id: v.id,
         label: v.name,
-        description: `${v.plate} · ${v.driver} · ${v.location}`,
+        description: [v.plate, v.driver ?? 'No driver', v.location ?? 'Location unavailable'].join(
+          ' · ',
+        ),
         kind: 'vehicle',
         source: 'preview',
         coordinate: v.position
