@@ -1,3 +1,4 @@
 /home/jjenus/workspace/apps/tracker/sidie/shared/src/test/java/com/jjenus/tracker/shared/metrics/MetricsRegistryTest.java
 /home/jjenus/workspace/apps/tracker/sidie/shared/src/test/java/com/jjenus/tracker/shared/pubsub/SimpleEventBusTest.java
+/home/jjenus/workspace/apps/tracker/sidie/shared/src/test/java/com/jjenus/tracker/shared/redis/RedisJsonSerializerTest.java
 /home/jjenus/workspace/apps/tracker/sidie/shared/src/test/java/com/jjenus/tracker/shared/exception/DomainExceptionTest.java

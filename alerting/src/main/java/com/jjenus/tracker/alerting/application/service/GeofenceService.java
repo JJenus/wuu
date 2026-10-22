@@ -6,11 +6,8 @@ import com.jjenus.tracker.alerting.api.dto.GeofenceResponse;
 import com.jjenus.tracker.alerting.api.dto.PagedResponse;
 import com.jjenus.tracker.alerting.api.dto.SearchRequest;
 import com.jjenus.tracker.alerting.domain.entity.Geofence;
-import com.jjenus.tracker.alerting.domain.entity.GeofencePoint;
 import com.jjenus.tracker.alerting.infrastructure.cache.GeofenceCacheService;
-import com.jjenus.tracker.alerting.infrastructure.cache.RedisKeyGenerator;
 import com.jjenus.tracker.alerting.infrastructure.repository.GeofenceRepository;
-import com.jjenus.tracker.shared.redis.RedisKeyScanner;
 import com.jjenus.tracker.shared.security.TenantContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,47 +15,41 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.cache.annotation.CacheConfig;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
 
 import java.util.List;
-import java.util.Objects;
+import java.util.HashSet;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
+@CacheConfig(cacheResolver = "tenantAlertRuleCacheResolver", keyGenerator = "alertCacheKeyGenerator")
 public class GeofenceService {
 
     private static final Logger logger = LoggerFactory.getLogger(GeofenceService.class);
 
     private final GeofenceRepository geofenceRepository;
     private final GeofenceCacheService geofenceCacheService;
-    private final RedisTemplate<String, Object> redisTemplate;
-    private final RedisKeyGenerator keyGenerator;
 
     public GeofenceService(
             GeofenceRepository geofenceRepository,
-            GeofenceCacheService geofenceCacheService,
-            RedisTemplate<String, Object> redisTemplate,
-            RedisKeyGenerator keyGenerator) {
+            GeofenceCacheService geofenceCacheService) {
         this.geofenceRepository = geofenceRepository;
         this.geofenceCacheService = geofenceCacheService;
-        this.redisTemplate = redisTemplate;
-        this.keyGenerator = keyGenerator;
     }
 
     @Transactional
+    @CacheEvict(value = "geofencesPaged", allEntries = true)
     public Geofence createGeofence(Geofence geofence) {
-        geofence.setOrganizationId(TenantContext.getCurrentOrgId());
+        geofence.setOrganizationId(requireOrganizationId());
         Geofence saved = geofenceRepository.save(geofence);
 
         // Cache the geofence
         geofenceCacheService.cacheGeofence(saved);
-
-        // Invalidate pagination cache
-        invalidatePaginationCache();
 
         logger.info("Created geofence: {} for {} vehicles",
                 saved.getName(), saved.getVehicleIds().size());
@@ -67,6 +58,7 @@ public class GeofenceService {
 
     @Transactional(readOnly = true)
     public List<Geofence> getVehicleGeofences(String vehicleId) {
+        Long orgId = requireOrganizationId();
         // Try cache first
         List<Geofence> cached = geofenceCacheService.getVehicleGeofences(vehicleId);
         if (cached != null) {
@@ -75,7 +67,6 @@ public class GeofenceService {
         }
 
         // Cache miss - load from DB
-        Long orgId = TenantContext.getCurrentOrgId();
         List<Geofence> geofences = geofenceRepository.findByVehicleId(vehicleId, orgId);
 
         // Cache the result
@@ -85,114 +76,35 @@ public class GeofenceService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "geofencesPaged")
     public PagedResponse<GeofenceResponse> getVehicleGeofencesPaged(String vehicleId, SearchRequest searchRequest) {
-        String cacheKey = keyGenerator.getPaginatedGeofencesKey(
-                searchRequest.getPage(),
-                searchRequest.getSize(),
-                searchRequest.getSortBy(),
-                searchRequest.getSortDirection().name(),
-                searchRequest.getSearch(),
-                vehicleId,
-                null // Don't filter by active status
-        );
-
-        try {
-            // Try cache first
-            Object cached = redisTemplate.opsForValue().get(cacheKey);
-            if (cached != null && cached instanceof PagedResponse) {
-                logger.debug("Cache hit for paginated vehicle geofences");
-                return (PagedResponse<GeofenceResponse>) cached;
-            }
-        } catch (Exception e) {
-            logger.warn("Failed to get paginated vehicle geofences from cache", e);
-        }
-
-        // Cache miss - query database
         Pageable pageable = createPageable(searchRequest);
         Page<Geofence> page = geofenceRepository.findByVehicleId(vehicleId, TenantContext.getCurrentOrgId(), pageable);
 
         PagedResponse<GeofenceResponse> response = new PagedResponse<>(page.map(this::toResponse));
-
-        // Cache the result
-        try {
-            redisTemplate.opsForValue().set(cacheKey, response,
-                    RedisKeyGenerator.PAGINATION_CACHE_TTL, TimeUnit.SECONDS);
-        } catch (Exception e) {
-            logger.warn("Failed to cache paginated vehicle geofences", e);
-        }
 
         return response;
     }
 
     @Transactional(readOnly = true)
     public List<Geofence> getActiveGeofences(String vehicleId) {
-        return geofenceRepository.findByVehicleIdAndIsActive(vehicleId, TenantContext.getCurrentOrgId());
+        return geofenceRepository.findByVehicleIdAndIsActive(vehicleId, requireOrganizationId());
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "geofencesPaged")
     public PagedResponse<GeofenceResponse> getActiveGeofencesPaged(String vehicleId, SearchRequest searchRequest) {
-        String cacheKey = keyGenerator.getPaginatedGeofencesKey(
-                searchRequest.getPage(),
-                searchRequest.getSize(),
-                searchRequest.getSortBy(),
-                searchRequest.getSortDirection().name(),
-                searchRequest.getSearch(),
-                vehicleId,
-                true // Filter by active=true
-        );
-
-        try {
-            // Try cache first
-            Object cached = redisTemplate.opsForValue().get(cacheKey);
-            if (cached != null && cached instanceof PagedResponse) {
-                logger.debug("Cache hit for paginated active vehicle geofences");
-                return (PagedResponse<GeofenceResponse>) cached;
-            }
-        } catch (Exception e) {
-            logger.warn("Failed to get paginated active vehicle geofences from cache", e);
-        }
-
-        // Cache miss - query database
         Pageable pageable = createPageable(searchRequest);
         Page<Geofence> page = geofenceRepository.findByVehicleIdAndIsActive(vehicleId, TenantContext.getCurrentOrgId(), pageable);
 
         PagedResponse<GeofenceResponse> response = new PagedResponse<>(page.map(this::toResponse));
 
-        // Cache the result
-        try {
-            redisTemplate.opsForValue().set(cacheKey, response,
-                    RedisKeyGenerator.PAGINATION_CACHE_TTL, TimeUnit.SECONDS);
-        } catch (Exception e) {
-            logger.warn("Failed to cache paginated active vehicle geofences", e);
-        }
-
         return response;
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "geofencesPaged")
     public PagedResponse<GeofenceResponse> searchGeofences(SearchRequest searchRequest) {
-        String cacheKey = keyGenerator.getPaginatedGeofencesKey(
-                searchRequest.getPage(),
-                searchRequest.getSize(),
-                searchRequest.getSortBy(),
-                searchRequest.getSortDirection().name(),
-                searchRequest.getSearch(),
-                searchRequest.getVehicleId(),
-                searchRequest.getActive()
-        );
-
-        try {
-            // Try cache first
-            Object cached = redisTemplate.opsForValue().get(cacheKey);
-            if (cached != null && cached instanceof PagedResponse) {
-                logger.debug("Cache hit for search geofences");
-                return (PagedResponse<GeofenceResponse>) cached;
-            }
-        } catch (Exception e) {
-            logger.warn("Failed to get search geofences from cache", e);
-        }
-
-        // Cache miss - query database
         Pageable pageable = createPageable(searchRequest);
         Page<Geofence> page = geofenceRepository.searchGeofences(
                 searchRequest.getVehicleId(),
@@ -203,20 +115,12 @@ public class GeofenceService {
 
         PagedResponse<GeofenceResponse> response = new PagedResponse<>(page.map(this::toResponse));
 
-        // Cache the result
-        try {
-            redisTemplate.opsForValue().set(cacheKey, response,
-                    RedisKeyGenerator.PAGINATION_CACHE_TTL, TimeUnit.SECONDS);
-        } catch (Exception e) {
-            logger.warn("Failed to cache search geofences", e);
-        }
-
         return response;
     }
 
     @Transactional(readOnly = true)
     public Geofence getGeofenceById(Long geofenceId) {
-        Long orgId = TenantContext.getCurrentOrgId();
+        Long orgId = requireOrganizationId();
         // Try cache first
         return geofenceCacheService.getGeofenceById(geofenceId)
                 .filter(g -> orgId.equals(g.getOrganizationId()))
@@ -233,13 +137,14 @@ public class GeofenceService {
     }
 
     @Transactional
+    @CacheEvict(value = "geofencesPaged", allEntries = true)
     public Geofence updateGeofence(Long geofenceId, Geofence updates) {
-        Long orgId = TenantContext.getCurrentOrgId();
+        Long orgId = requireOrganizationId();
         Geofence geofence = geofenceRepository.findByIdAndOrganizationId(geofenceId, orgId)
                 .orElseThrow(() -> new IllegalArgumentException("Geofence not found"));
 
         // Track affected vehicles for cache invalidation
-        Set<String> oldVehicleIds = geofence.getVehicleIds();
+        Set<String> oldVehicleIds = new HashSet<>(geofence.getVehicleIds());
         Set<String> newVehicleIds = updates.getVehicleIds() != null ?
                 updates.getVehicleIds() : oldVehicleIds;
 
@@ -273,12 +178,9 @@ public class GeofenceService {
         geofenceCacheService.cacheGeofence(updated);
 
         // Invalidate caches for all affected vehicles
-        Set<String> allAffected = oldVehicleIds;
+        Set<String> allAffected = new HashSet<>(oldVehicleIds);
         allAffected.addAll(newVehicleIds);
         geofenceCacheService.invalidateVehicleGeofenceCaches(allAffected);
-
-        // Invalidate pagination cache
-        invalidatePaginationCache();
 
         logger.info("Updated geofence: {} affecting {} vehicles",
                 geofenceId, allAffected.size());
@@ -286,8 +188,9 @@ public class GeofenceService {
     }
 
     @Transactional
+    @CacheEvict(value = "geofencesPaged", allEntries = true)
     public void deleteGeofence(Long geofenceId) {
-        Long orgId = TenantContext.getCurrentOrgId();
+        Long orgId = requireOrganizationId();
         Geofence geofence = geofenceRepository.findByIdAndOrganizationId(geofenceId, orgId)
                 .orElseThrow(() -> new IllegalArgumentException("Geofence not found"));
 
@@ -298,9 +201,6 @@ public class GeofenceService {
         geofenceCacheService.invalidateGeofence(geofenceId);
         geofenceCacheService.invalidateVehicleGeofenceCaches(affectedVehicles);
 
-        // Invalidate pagination cache
-        invalidatePaginationCache();
-
         logger.info("Deleted geofence: {} affecting {} vehicles",
                 geofenceId, affectedVehicles.size());
     }
@@ -310,7 +210,7 @@ public class GeofenceService {
                                                         Double latitude,
                                                         Double longitude) {
         return geofenceRepository.findNearbyGeofencesForVehicle(vehicleId, latitude, longitude,
-                TenantContext.getCurrentOrgId());
+                requireOrganizationId());
     }
 
     public void checkGeofenceViolations(String vehicleId, Double latitude, Double longitude) {
@@ -328,7 +228,7 @@ public class GeofenceService {
 
     @Transactional(readOnly = true)
     public boolean existsAndActive(Long geofenceId) {
-        Long orgId = TenantContext.getCurrentOrgId();
+        Long orgId = requireOrganizationId();
         return geofenceRepository.findByIdAndOrganizationId(geofenceId, orgId)
                 .map(g -> Boolean.TRUE.equals(g.getIsActive()))
                 .orElse(false);
@@ -341,16 +241,12 @@ public class GeofenceService {
         return PageRequest.of(searchRequest.getPage(), searchRequest.getSize(), sort);
     }
 
-    private void invalidatePaginationCache() {
-        try {
-            List<String> keys = RedisKeyScanner.scanKeys(redisTemplate, keyGenerator.getPaginatedGeofencesPattern());
-            if (!keys.isEmpty()) {
-                redisTemplate.delete(keys);
-                logger.debug("Invalidated pagination cache for geofences");
-            }
-        } catch (Exception e) {
-            logger.warn("Failed to invalidate pagination cache", e);
+    private Long requireOrganizationId() {
+        Long organizationId = TenantContext.getCurrentOrgId();
+        if (organizationId == null || organizationId <= 0) {
+            throw new IllegalStateException("Organization context is required for geofences");
         }
+        return organizationId;
     }
 
     private GeofenceResponse toResponse(Geofence geofence) {

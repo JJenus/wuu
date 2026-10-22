@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.jsontype.PolymorphicTypeValidator;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fasterxml.jackson.module.paramnames.ParameterNamesModule;
 import com.jjenus.tracker.shared.domain.ConnectionInfo;
+import com.jjenus.tracker.shared.redis.RedisJsonSerializer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -55,7 +56,7 @@ public class AppConfig {
         template.setKeySerializer(new StringRedisSerializer());
 
         GenericJackson2JsonRedisSerializer serializer =
-            new GenericJackson2JsonRedisSerializer(objectMapper);
+            RedisJsonSerializer.create(objectMapper);
         template.setValueSerializer(serializer);
         template.setHashValueSerializer(serializer);
 

@@ -6,6 +6,7 @@ import com.jjenus.tracker.alerting.domain.IAlertRule;
 import com.jjenus.tracker.alerting.domain.entity.AlertRule;
 import com.jjenus.tracker.alerting.infrastructure.repository.AlertRuleRepository;
 import com.jjenus.tracker.shared.redis.RedisKeyScanner;
+import com.jjenus.tracker.shared.security.TenantContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.RedisCallback;
@@ -42,10 +43,11 @@ public class AlertRuleCacheService {
      */
     public void loadAllActiveRules(Long organizationId) {
         try {
+            if (TransactionalCacheInvalidation.defer(redisTemplate, keyGenerator.getAllRuleKeysPattern(organizationId))) return;
             List<AlertRule> activeRules = ruleRepository.findActiveRulesOrderedByPriority(organizationId);
 
             // Clear existing cache
-            redisTemplate.delete(keyGenerator.getAllActiveRulesKey());
+            redisTemplate.delete(keyGenerator.getAllActiveRulesKey(organizationId));
 
             // Store each rule
             for (AlertRule rule : activeRules) {
@@ -66,7 +68,7 @@ public class AlertRuleCacheService {
         try {
             // Get all rule keys from the active rules set
             Set<Object> ruleKeys = redisTemplate.opsForSet()
-                    .members(keyGenerator.getAllActiveRulesKey());
+                    .members(keyGenerator.getAllActiveRulesKey(organizationId));
 
             if (ruleKeys == null || ruleKeys.isEmpty()) {
                 return loadAllActiveRulesAndReturn(organizationId);
@@ -77,13 +79,15 @@ public class AlertRuleCacheService {
                         for (Object ruleKeyObj : ruleKeys) {
                             String ruleKey = (String) ruleKeyObj;
                             connection.stringCommands().get(
-                                    keyGenerator.getRuleDetailKey(ruleKey).getBytes()
+                                    keyGenerator.getRuleDetailKey(ruleKey, organizationId)
+                                        .getBytes(java.nio.charset.StandardCharsets.UTF_8)
                             );
                         }
                         return null;
                     }).stream()
                     .filter(Objects::nonNull)
-                    .map(data -> objectMapper.convertValue(data, AlertRule.class))
+                    .map(data -> data instanceof AlertRule rule ? rule : objectMapper.convertValue(data, AlertRule.class))
+                    .filter(rule -> organizationId.equals(rule.getOrganizationId()))
                     .sorted(Comparator.comparingInt(AlertRule::getPriority).reversed())
                     .collect(Collectors.toList());
 
@@ -98,11 +102,13 @@ public class AlertRuleCacheService {
      */
     public void cacheRule(AlertRule rule) {
         try {
+            if (TransactionalCacheInvalidation.defer(redisTemplate,
+                    keyGenerator.getAllRuleKeysPattern(rule.getOrganizationId()))) return;
             String ruleKey = rule.getRuleKey();
 
             // Store rule details with TTL
             redisTemplate.opsForValue().set(
-                    keyGenerator.getRuleDetailKey(ruleKey),
+                    keyGenerator.getRuleDetailKey(ruleKey, rule.getOrganizationId()),
                     rule,
                     RedisKeyGenerator.RULE_DETAIL_TTL,
                     TimeUnit.SECONDS
@@ -111,15 +117,18 @@ public class AlertRuleCacheService {
             // Add to active rules set if enabled
             if (Boolean.TRUE.equals(rule.isEnabled())) {
                 redisTemplate.opsForSet().add(
-                        keyGenerator.getAllActiveRulesKey(),
+                        keyGenerator.getAllActiveRulesKey(rule.getOrganizationId()),
                         ruleKey
                 );
                 // Set TTL on the set
                 redisTemplate.expire(
-                        keyGenerator.getAllActiveRulesKey(),
+                        keyGenerator.getAllActiveRulesKey(rule.getOrganizationId()),
                         RedisKeyGenerator.RULE_DETAIL_TTL,
                         TimeUnit.SECONDS
                 );
+            } else {
+                redisTemplate.opsForSet().remove(
+                    keyGenerator.getAllActiveRulesKey(rule.getOrganizationId()), ruleKey);
             }
 
             logger.debug("Cached rule: {}", ruleKey);
@@ -134,6 +143,7 @@ public class AlertRuleCacheService {
      */
     public void evictRule(String ruleKey) {
         try {
+            if (TransactionalCacheInvalidation.defer(redisTemplate, keyGenerator.getAllRuleKeysPattern())) return;
             // Remove from active rules set
             redisTemplate.opsForSet().remove(
                     keyGenerator.getAllActiveRulesKey(),
@@ -158,7 +168,7 @@ public class AlertRuleCacheService {
             AlertRule rule = (AlertRule) redisTemplate.opsForValue()
                     .get(keyGenerator.getRuleDetailKey(ruleKey));
 
-            if (rule != null) {
+            if (rule != null && Objects.equals(TenantContext.getCurrentOrgId(), rule.getOrganizationId())) {
                 // Refresh TTL
                 redisTemplate.expire(
                         keyGenerator.getRuleDetailKey(ruleKey),
@@ -179,8 +189,9 @@ public class AlertRuleCacheService {
      */
     public void clearAllCache() {
         try {
+            if (TransactionalCacheInvalidation.defer(redisTemplate, keyGenerator.getAllRuleKeysPattern())) return;
             // Get all cache keys matching the pattern
-            List<String> keys = RedisKeyScanner.scanKeys(redisTemplate, "alerting:*");
+            List<String> keys = RedisKeyScanner.scanKeys(redisTemplate, keyGenerator.getAllRuleKeysPattern());
             if (!keys.isEmpty()) {
                 redisTemplate.delete(keys);
                 logger.info("Cleared all alert rule cache entries");

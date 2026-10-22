@@ -10,9 +10,8 @@ import com.jjenus.tracker.shared.security.TenantContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.CacheConfig;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -30,6 +29,7 @@ import java.util.stream.Collectors;
 
 @Service
 @Transactional
+@CacheConfig(cacheResolver = "tenantAlertRuleCacheResolver", keyGenerator = "alertCacheKeyGenerator")
 public class AlertService {
 
     private static final Logger logger = LoggerFactory.getLogger(AlertService.class);
@@ -48,13 +48,7 @@ public class AlertService {
     // ========== CRUD OPERATIONS ==========
 
     @Transactional
-    @Caching(
-            evict = {
-                    @CacheEvict(value = "alerts", key = "'active_' + #request.vehicleId"),
-                    @CacheEvict(value = "alerts", key = "'recent_' + #request.vehicleId"),
-                    @CacheEvict(value = "alertStats", allEntries = true)
-            }
-    )
+    @CacheEvict(value = {"alerts", "alertsPaged", "alertStats"}, allEntries = true)
     public AlertResponse createAlert(CreateAlertRequest request) {
         logger.info("Creating alert for vehicle: {}, type: {}",
                 request.getVehicleId(), request.getAlertType());
@@ -91,15 +85,14 @@ public class AlertService {
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(value = "alerts", key = "#alertId", unless = "#result == null")
+    @Cacheable(value = "alerts", unless = "#result == null")
     public AlertResponse getAlertById(Long alertId) {
-        TrackerAlert alert = alertRepository.findById(alertId)
-                .orElseThrow(() -> AlertException.alertNotFound(alertId));
+        TrackerAlert alert = findOrgScopedAlert(alertId);
         return toResponse(alert);
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(value = "alertsPaged", key = "'search_' + #searchRequest.hashCode()")
+    @Cacheable(value = "alertsPaged")
     public PagedResponse<AlertResponse> searchAlerts(AlertSearchRequest searchRequest) {
         Pageable pageable = createPageable(searchRequest);
         Page<TrackerAlert> page = alertRepository.searchAlerts(
@@ -119,7 +112,7 @@ public class AlertService {
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(value = "alerts", key = "'active_' + #vehicleId")
+    @Cacheable(value = "alerts")
     public List<AlertResponse> getActiveAlerts(String vehicleId) {
         List<TrackerAlert> alerts = alertRepository.findActiveVehicleAlerts(vehicleId, TenantContext.getCurrentOrgId());
         return alerts.stream()
@@ -128,7 +121,7 @@ public class AlertService {
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(value = "alertsPaged", key = "'activePaged_' + #page + '_' + #size")
+    @Cacheable(value = "alertsPaged")
     public PagedResponse<AlertResponse> getActiveAlertsPaged(int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "severity", "triggeredAt"));
         Page<TrackerAlert> pageResult = alertRepository.findActiveAlerts(TenantContext.getCurrentOrgId(), pageable);
@@ -138,13 +131,7 @@ public class AlertService {
     // ========== ALERT MANAGEMENT ==========
 
     @Transactional
-    @Caching(
-            put = @CachePut(value = "alerts", key = "#alertId"),
-            evict = {
-                    @CacheEvict(value = "alerts", key = "'active_' + #result.vehicleId"),
-                    @CacheEvict(value = "alertStats", allEntries = true)
-            }
-    )
+    @CacheEvict(value = {"alerts", "alertsPaged", "alertStats"}, allEntries = true)
     public AlertResponse acknowledgeAlert(Long alertId, AcknowledgeAlertRequest request) {
         logger.info("Acknowledging alert: {} by {}", alertId, request.getAcknowledgedBy());
 
@@ -163,13 +150,7 @@ public class AlertService {
     }
 
     @Transactional
-    @Caching(
-            put = @CachePut(value = "alerts", key = "#alertId"),
-            evict = {
-                    @CacheEvict(value = "alerts", key = "'active_' + #result.vehicleId"),
-                    @CacheEvict(value = "alertStats", allEntries = true)
-            }
-    )
+    @CacheEvict(value = {"alerts", "alertsPaged", "alertStats"}, allEntries = true)
     public AlertResponse resolveAlert(Long alertId, ResolveAlertRequest request) {
         logger.info("Resolving alert: {} by {}", alertId, request.getResolvedBy());
 
@@ -270,12 +251,12 @@ public class AlertService {
             if (id == null) continue;
             batch.add(id);
             if (batch.size() >= FIND_ALL_BY_ID_BATCH_SIZE) {
-                result.addAll(alertRepository.findAllById(batch));
+                result.addAll(alertRepository.findByIds(batch, TenantContext.getCurrentOrgId()));
                 batch.clear();
             }
         }
         if (!batch.isEmpty()) {
-            result.addAll(alertRepository.findAllById(batch));
+            result.addAll(alertRepository.findByIds(batch, TenantContext.getCurrentOrgId()));
         }
         return result;
     }
@@ -337,7 +318,7 @@ public class AlertService {
     // ========== BUSINESS METHODS ==========
 
     @Transactional(readOnly = true)
-    @Cacheable(value = "alertStats", key = "'hasCritical_' + #vehicleId")
+    @Cacheable(value = "alertStats")
     public boolean hasCriticalUnacknowledgedAlerts(String vehicleId) {
         List<TrackerAlert> criticalAlerts = alertRepository.findBySeverityAndAcknowledgedAndOrganizationId(
                 AlertSeverity.CRITICAL, false, TenantContext.getCurrentOrgId());
@@ -348,7 +329,7 @@ public class AlertService {
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(value = "alertStats", key = "'unacknowledgedCounts'")
+    @Cacheable(value = "alertStats")
     public Map<String, Long> getUnacknowledgedCountBySeverity() {
         Map<String, Long> counts = Map.of(
                 "INFO", alertRepository.countUnacknowledgedBySeverity(AlertSeverity.INFO, TenantContext.getCurrentOrgId()),
@@ -359,7 +340,7 @@ public class AlertService {
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(value = "alerts", key = "'recent_' + #vehicleId + '_' + #limit")
+    @Cacheable(value = "alerts")
     public List<AlertResponse> getRecentAlerts(String vehicleId, int limit) {
         Instant startTime = clock.instant().minusSeconds(24 * 60 * 60);
         List<TrackerAlert> alerts = alertRepository.findVehicleAlertsInRange(
@@ -404,6 +385,7 @@ public class AlertService {
 
     @Service
     @Transactional(readOnly = true)
+    @CacheConfig(cacheResolver = "tenantAlertRuleCacheResolver", keyGenerator = "alertCacheKeyGenerator")
     public static class AlertQueryService {
 
         private final TrackerAlertRepository alertRepository;
@@ -412,13 +394,16 @@ public class AlertService {
             this.alertRepository = alertRepository;
         }
 
-        @Cacheable(value = "alerts", key = "#alertId")
         public TrackerAlert getAlertById(Long alertId) {
-            return alertRepository.findById(alertId)
+            Long organizationId = TenantContext.getCurrentOrgId();
+            if (organizationId == null || organizationId <= 0) {
+                throw new IllegalStateException("Organization context is required for alerts");
+            }
+            return alertRepository.findByIdAndOrganizationId(alertId, TenantContext.getCurrentOrgId())
                     .orElseThrow(() -> AlertException.alertNotFound(alertId));
         }
 
-        @Cacheable(value = "alertStats", key = "'statistics_' + #startDate.toString()")
+        @Cacheable(value = "alertStats")
         public Map<String, Long> getAlertStatistics(Instant startDate, Instant endDate) {
             List<Object[]> stats = alertRepository.getAlertTypeStatistics(TenantContext.getCurrentOrgId(), startDate);
             return stats.stream()

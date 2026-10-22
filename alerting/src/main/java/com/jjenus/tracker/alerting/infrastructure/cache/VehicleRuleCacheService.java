@@ -6,6 +6,7 @@ import com.jjenus.tracker.shared.redis.RedisKeyScanner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.connection.DataType;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -35,12 +36,20 @@ public class VehicleRuleCacheService {
      */
     public List<AlertRule> getActiveRulesForVehicle(String vehicleId, Long organizationId) {
         try {
-            String cacheKey = keyGenerator.getVehicleRulesKey(vehicleId);
+            String cacheKey = keyGenerator.getVehicleRulesKey(vehicleId, organizationId);
+
+            // Empty markers are STRING keys; positive entries are LIST keys.
+            if (DataType.STRING.equals(redisTemplate.type(cacheKey))
+                    && "EMPTY".equals(redisTemplate.opsForValue().get(cacheKey))) {
+                return Collections.emptyList();
+            }
 
             // Check cache first
             List<Object> cachedRules = redisTemplate.opsForList().range(cacheKey, 0, -1);
 
-            if (cachedRules != null && !cachedRules.isEmpty()) {
+            if (cachedRules != null && !cachedRules.isEmpty()
+                    && cachedRules.stream().allMatch(obj -> obj instanceof AlertRule rule
+                        && organizationId.equals(rule.getOrganizationId()))) {
                 return cachedRules.stream()
                         .map(obj -> (AlertRule) obj)
                         .collect(Collectors.toList());
@@ -64,7 +73,7 @@ public class VehicleRuleCacheService {
 
             if (rules.isEmpty()) {
                 // Cache empty result with short TTL
-                cacheEmptyResult(vehicleId);
+                cacheEmptyResult(vehicleId, organizationId);
                 return Collections.emptyList();
             }
 
@@ -73,7 +82,7 @@ public class VehicleRuleCacheService {
                     .sorted(Comparator.comparingInt(AlertRule::getPriority).reversed())
                     .collect(Collectors.toList());
 
-            cacheRules(vehicleId, sortedRules);
+            cacheRules(vehicleId, sortedRules, organizationId);
 
             logger.debug("Loaded {} rules for vehicle {}", sortedRules.size(), vehicleId);
 
@@ -88,9 +97,10 @@ public class VehicleRuleCacheService {
     /**
      * Cache rules for vehicle
      */
-    private void cacheRules(String vehicleId, List<AlertRule> rules) {
+    private void cacheRules(String vehicleId, List<AlertRule> rules, Long organizationId) {
         try {
-            String cacheKey = keyGenerator.getVehicleRulesKey(vehicleId);
+            if (TransactionalCacheInvalidation.defer(redisTemplate, keyGenerator.getAllRuleKeysPattern(organizationId))) return;
+            String cacheKey = keyGenerator.getVehicleRulesKey(vehicleId, organizationId);
 
             // Delete existing
             redisTemplate.delete(cacheKey);
@@ -113,9 +123,10 @@ public class VehicleRuleCacheService {
     /**
      * Cache empty result (no rules for this vehicle)
      */
-    private void cacheEmptyResult(String vehicleId) {
+    private void cacheEmptyResult(String vehicleId, Long organizationId) {
         try {
-            String cacheKey = keyGenerator.getVehicleRulesKey(vehicleId);
+            if (TransactionalCacheInvalidation.defer(redisTemplate, keyGenerator.getAllRuleKeysPattern(organizationId))) return;
+            String cacheKey = keyGenerator.getVehicleRulesKey(vehicleId, organizationId);
 
             // Store special marker for empty result with short TTL
             redisTemplate.opsForValue().set(cacheKey, "EMPTY", 5, TimeUnit.MINUTES);
@@ -131,24 +142,7 @@ public class VehicleRuleCacheService {
      * Check if vehicle has any active rules (quick cache check)
      */
     public boolean hasActiveRules(String vehicleId, Long organizationId) {
-        try {
-            String cacheKey = keyGenerator.getVehicleRulesKey(vehicleId);
-            Object cached = redisTemplate.opsForValue().get(cacheKey);
-
-            if (cached != null) {
-                if ("EMPTY".equals(cached)) {
-                    return false;
-                }
-                return redisTemplate.opsForList().size(cacheKey) > 0;
-            }
-
-            // Cache miss - check if we should even try
-            return !getActiveRulesForVehicle(vehicleId, organizationId).isEmpty();
-
-        } catch (Exception e) {
-            logger.error("Failed to check rules for vehicle {}", vehicleId, e);
-            return false; // Be conservative - assume no rules
-        }
+        return !getActiveRulesForVehicle(vehicleId, organizationId).isEmpty();
     }
 
     /**
@@ -157,9 +151,12 @@ public class VehicleRuleCacheService {
     public Set<String> getVehiclesWithActiveRules(Long organizationId) {
         try {
             Set<String> vehiclesWithRules = ruleRepository.findVehiclesWithActiveRules(organizationId);
+            if (TransactionalCacheInvalidation.defer(redisTemplate, keyGenerator.getAllRuleKeysPattern(organizationId))) {
+                return vehiclesWithRules;
+            }
 
             // Cache this set as well for quick reference
-            String key = keyGenerator.getVehiclesWithRulesKey();
+            String key = keyGenerator.getVehiclesWithRulesKey(organizationId);
             redisTemplate.delete(key);
 
             if (!vehiclesWithRules.isEmpty()) {
@@ -182,7 +179,9 @@ public class VehicleRuleCacheService {
         try {
             String key = keyGenerator.getVehiclesWithRulesKey();
             Boolean hasRule = redisTemplate.opsForSet().isMember(key, vehicleId);
-            return Boolean.TRUE.equals(hasRule);
+            // Index absence is a cache miss, not evidence that a vehicle has no rules.
+            return Boolean.TRUE.equals(hasRule) || hasActiveRules(vehicleId,
+                com.jjenus.tracker.shared.security.TenantContext.getCurrentOrgId());
         } catch (Exception e) {
             logger.error("Failed to check cached rules index for vehicle {}", vehicleId, e);
             return false;
@@ -194,6 +193,7 @@ public class VehicleRuleCacheService {
      */
     public void invalidateVehicleRules(String vehicleId) {
         try {
+            if (TransactionalCacheInvalidation.defer(redisTemplate, keyGenerator.getAllRuleKeysPattern())) return;
             String cacheKey = keyGenerator.getVehicleRulesKey(vehicleId);
             redisTemplate.delete(cacheKey);
 
@@ -212,6 +212,7 @@ public class VehicleRuleCacheService {
      */
     public void invalidateAllVehicleRules() {
         try {
+            if (TransactionalCacheInvalidation.defer(redisTemplate, keyGenerator.getAllRuleKeysPattern())) return;
             List<String> keys = RedisKeyScanner.scanKeys(redisTemplate, keyGenerator.getVehicleRulesKey("*"));
             if (!keys.isEmpty()) {
                 redisTemplate.delete(keys);

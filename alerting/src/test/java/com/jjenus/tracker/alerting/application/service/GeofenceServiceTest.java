@@ -2,7 +2,6 @@ package com.jjenus.tracker.alerting.application.service;
 
 import com.jjenus.tracker.alerting.domain.entity.Geofence;
 import com.jjenus.tracker.alerting.infrastructure.cache.GeofenceCacheService;
-import com.jjenus.tracker.alerting.infrastructure.cache.RedisKeyGenerator;
 import com.jjenus.tracker.alerting.infrastructure.repository.GeofenceRepository;
 import com.jjenus.tracker.shared.security.TenantContext;
 import org.junit.jupiter.api.AfterEach;
@@ -11,8 +10,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
 
 import java.util.Optional;
 
@@ -21,7 +18,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -35,20 +31,13 @@ class GeofenceServiceTest {
     private GeofenceRepository geofenceRepository;
     @Mock
     private GeofenceCacheService geofenceCacheService;
-    @Mock
-    private RedisTemplate<String, Object> redisTemplate;
-    @Mock
-    private RedisKeyGenerator keyGenerator;
-    @Mock
-    private ValueOperations<String, Object> valueOperations;
 
     private GeofenceService service;
 
     @BeforeEach
     void setUp() {
         TenantContext.setCurrentOrgId(ORG_ID);
-        service = new GeofenceService(geofenceRepository, geofenceCacheService, redisTemplate, keyGenerator);
-        lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        service = new GeofenceService(geofenceRepository, geofenceCacheService);
     }
 
     @AfterEach

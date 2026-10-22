@@ -16,16 +16,15 @@ import com.jjenus.tracker.alerting.exception.AlertException;
 import com.jjenus.tracker.alerting.infrastructure.cache.AlertRuleCacheService;
 import com.jjenus.tracker.alerting.infrastructure.cache.RedisKeyGenerator;
 import com.jjenus.tracker.alerting.infrastructure.cache.VehicleRuleCacheService;
+import com.jjenus.tracker.alerting.infrastructure.cache.TransactionalCacheInvalidation;
 import com.jjenus.tracker.alerting.infrastructure.repository.AlertRuleRepository;
-import com.jjenus.tracker.alerting.infrastructure.cache.GeofenceCacheService;
 import com.jjenus.tracker.shared.redis.RedisKeyScanner;
 import com.jjenus.tracker.shared.security.TenantContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.CacheConfig;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -45,6 +44,7 @@ import java.util.stream.Collectors;
 
 @Service
 @Transactional
+@CacheConfig(cacheResolver = "tenantAlertRuleCacheResolver", keyGenerator = "alertRuleCacheKeyGenerator")
 public class AlertRuleService {
 
     private static final Logger logger = LoggerFactory.getLogger(AlertRuleService.class);
@@ -52,9 +52,7 @@ public class AlertRuleService {
     private final AlertRuleRepository ruleRepository;
     private final AlertRuleCacheService ruleCacheService;
     private final VehicleRuleCacheService vehicleRuleCacheService;
-    private final GeofenceCacheService geofenceCacheService;
     private final GeofenceRuleValidator geofenceRuleValidator;
-    private final GeofenceService geofenceService;
     private final ObjectMapper objectMapper;
     private final RedisTemplate<String, Object> redisTemplate;
     private final RedisKeyGenerator keyGenerator;
@@ -65,9 +63,7 @@ public class AlertRuleService {
             AlertRuleRepository ruleRepository,
             AlertRuleCacheService ruleCacheService,
             VehicleRuleCacheService vehicleRuleCacheService,
-            GeofenceCacheService geofenceCacheService,
             GeofenceRuleValidator geofenceRuleValidator,
-            GeofenceService geofenceService,
             ObjectMapper objectMapper,
             RedisTemplate<String, Object> redisTemplate,
             RedisKeyGenerator keyGenerator,
@@ -76,9 +72,7 @@ public class AlertRuleService {
         this.ruleRepository = ruleRepository;
         this.ruleCacheService = ruleCacheService;
         this.vehicleRuleCacheService = vehicleRuleCacheService;
-        this.geofenceCacheService = geofenceCacheService;
         this.geofenceRuleValidator = geofenceRuleValidator;
-        this.geofenceService = geofenceService;
         this.objectMapper = objectMapper;
         this.redisTemplate = redisTemplate;
         this.keyGenerator = keyGenerator;
@@ -89,7 +83,7 @@ public class AlertRuleService {
     // ========== TEMPLATE METHODS ==========
 
     @Transactional
-    @CacheEvict(value = {"alertRules", "alertRulesPaged"}, allEntries = true)
+    @CacheEvict(value = {"alertRules", "alertRulesPaged", "vehicleRules"}, allEntries = true)
     public AlertRuleResponse createOverspeedRule(OverspeedRuleTemplateRequest request) {
         logger.info("Creating overspeed rule: {}", request.getRuleKey());
 
@@ -116,7 +110,7 @@ public class AlertRuleService {
     }
 
     @Transactional
-    @CacheEvict(value = {"alertRules", "alertRulesPaged"}, allEntries = true)
+    @CacheEvict(value = {"alertRules", "alertRulesPaged", "vehicleRules"}, allEntries = true)
     public AlertRuleResponse createIdleTimeoutRule(IdleTimeoutRuleTemplateRequest request) {
         logger.info("Creating idle timeout rule: {}", request.getRuleKey());
 
@@ -139,7 +133,7 @@ public class AlertRuleService {
     }
 
     @Transactional
-    @CacheEvict(value = {"alertRules", "alertRulesPaged"}, allEntries = true)
+    @CacheEvict(value = {"alertRules", "alertRulesPaged", "vehicleRules"}, allEntries = true)
     public AlertRuleResponse createGeofenceRule(GeofenceRuleTemplateRequest request) {
         logger.info("Creating geofence rule: {}", request.getRuleKey());
 
@@ -172,7 +166,7 @@ public class AlertRuleService {
     // ========== CRUD METHODS ==========
 
     @Transactional
-    @CacheEvict(value = {"alertRules", "alertRulesPaged"}, allEntries = true)
+    @CacheEvict(value = {"alertRules", "alertRulesPaged", "vehicleRules"}, allEntries = true)
     public AlertRuleResponse createRule(CreateAlertRuleRequest request) {
         logger.info("Creating custom alert rule: {}", request.getRuleKey());
 
@@ -207,7 +201,7 @@ public class AlertRuleService {
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(value = "alertRules", key = "'all'")
+    @Cacheable("alertRules")
     public List<AlertRuleResponse> getAllRules() {
         List<AlertRuleResponse> result = new ArrayList<>();
         findAllBatched(PageRequest.of(0, 500), rule -> result.add(toResponse(rule)));
@@ -225,7 +219,7 @@ public class AlertRuleService {
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(value = "alertRulesPaged", key = "'search_' + #searchRequest.hashCode()")
+    @Cacheable("alertRulesPaged")
     public PagedResponse<AlertRuleResponse> getAllRulesPaged(SearchRequest searchRequest) {
         String cacheKey = keyGenerator.getPaginatedRulesKey(
                 searchRequest.getPage(),
@@ -261,8 +255,10 @@ public class AlertRuleService {
 
         // Cache the result
         try {
-            redisTemplate.opsForValue().set(cacheKey, response,
-                    RedisKeyGenerator.PAGINATION_CACHE_TTL, TimeUnit.SECONDS);
+            if (!TransactionalCacheInvalidation.defer(redisTemplate, keyGenerator.getAllRuleKeysPattern())) {
+                redisTemplate.opsForValue().set(cacheKey, response,
+                        RedisKeyGenerator.PAGINATION_CACHE_TTL, TimeUnit.SECONDS);
+            }
         } catch (Exception e) {
             logger.warn("Failed to cache paginated rules", e);
         }
@@ -271,7 +267,7 @@ public class AlertRuleService {
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(value = "alertRules", key = "'enabled_' + #root.target.getCurrentOrgId()")
+    @Cacheable("alertRules")
     public List<AlertRuleResponse> getEnabledRules() {
         return ruleRepository.findByIsEnabledAndOrganizationId(true, TenantContext.getCurrentOrgId()).stream()
                 .map(this::toResponse)
@@ -279,14 +275,14 @@ public class AlertRuleService {
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(value = "alertRulesPaged", key = "'enabled_' + #searchRequest.hashCode()")
+    @Cacheable("alertRulesPaged")
     public PagedResponse<AlertRuleResponse> getEnabledRulesPaged(SearchRequest searchRequest) {
         searchRequest.setEnabled(true); // Force enabled=true
         return getAllRulesPaged(searchRequest);
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(value = "alertRules", key = "'rule_' + #ruleKey")
+    @Cacheable("alertRules")
     public AlertRuleResponse getRuleByKey(String ruleKey) {
         // Try cache first
         var cachedRule = ruleCacheService.getRuleByKey(ruleKey);
@@ -306,14 +302,7 @@ public class AlertRuleService {
     }
 
     @Transactional
-    @Caching(
-            put = @CachePut(value = "alertRules", key = "'rule_' + #ruleKey"),
-            evict = {
-                    @CacheEvict(value = "alertRules", key = "'all'"),
-                    @CacheEvict(value = "alertRules", key = "'enabled'"),
-                    @CacheEvict(value = "alertRulesPaged", allEntries = true)
-            }
-    )
+    @CacheEvict(value = {"alertRules", "alertRulesPaged", "vehicleRules"}, allEntries = true)
     public AlertRuleResponse updateRule(String ruleKey, UpdateAlertRuleRequest request) {
         logger.info("Updating alert rule: {}", ruleKey);
 
@@ -371,6 +360,10 @@ public class AlertRuleService {
                 allAffectedVehicles.forEach(vehicleRuleCacheService::invalidateVehicleRules);
             }
 
+            if (!ruleKey.equals(updated.getRuleKey())) {
+                ruleCacheService.evictRule(ruleKey);
+            }
+
             // Invalidate pagination cache
             invalidatePaginationCache();
 
@@ -383,14 +376,7 @@ public class AlertRuleService {
     }
 
     @Transactional
-    @Caching(
-            put = @CachePut(value = "alertRules", key = "'rule_' + #ruleKey"),
-            evict = {
-                    @CacheEvict(value = "alertRules", key = "'all'"),
-                    @CacheEvict(value = "alertRules", key = "'enabled'"),
-                    @CacheEvict(value = "alertRulesPaged", allEntries = true)
-            }
-    )
+    @CacheEvict(value = {"alertRules", "alertRulesPaged", "vehicleRules"}, allEntries = true)
     public void enableRule(String ruleKey) {
         logger.info("Enabling alert rule: {}", ruleKey);
 
@@ -418,14 +404,7 @@ public class AlertRuleService {
     }
 
     @Transactional
-    @Caching(
-            evict = {
-                    @CacheEvict(value = "alertRules", key = "'rule_' + #ruleKey"),
-                    @CacheEvict(value = "alertRules", key = "'all'"),
-                    @CacheEvict(value = "alertRules", key = "'enabled'"),
-                    @CacheEvict(value = "alertRulesPaged", allEntries = true)
-            }
-    )
+    @CacheEvict(value = {"alertRules", "alertRulesPaged", "vehicleRules"}, allEntries = true)
     public void disableRule(String ruleKey) {
         logger.info("Disabling alert rule: {}", ruleKey);
 
@@ -453,14 +432,7 @@ public class AlertRuleService {
     }
 
     @Transactional
-    @Caching(
-            evict = {
-                    @CacheEvict(value = "alertRules", key = "'rule_' + #ruleKey"),
-                    @CacheEvict(value = "alertRules", key = "'all'"),
-                    @CacheEvict(value = "alertRules", key = "'enabled'"),
-                    @CacheEvict(value = "alertRulesPaged", allEntries = true)
-            }
-    )
+    @CacheEvict(value = {"alertRules", "alertRulesPaged", "vehicleRules"}, allEntries = true)
     public void deleteRule(String ruleKey) {
         logger.info("Deleting alert rule: {}", ruleKey);
 
@@ -492,6 +464,7 @@ public class AlertRuleService {
 
     private void invalidatePaginationCache() {
         try {
+            if (TransactionalCacheInvalidation.defer(redisTemplate, keyGenerator.getAllRuleKeysPattern())) return;
             List<String> keys = RedisKeyScanner.scanKeys(redisTemplate, keyGenerator.getPaginatedRulesPattern());
             if (!keys.isEmpty()) {
                 redisTemplate.delete(keys);
@@ -774,7 +747,7 @@ public class AlertRuleService {
 
     // ========== RESPONSE CONVERSION ==========
 
-    public AlertRuleResponse toResponse(AlertRule rule) {
+    private AlertRuleResponse toResponse(AlertRule rule) {
         AlertRuleResponse response = new AlertRuleResponse();
         response.setRuleKey(rule.getRuleKey());
         response.setRuleName(rule.getRuleName());
@@ -790,7 +763,7 @@ public class AlertRuleService {
     // ========== BATCH OPERATIONS ==========
 
     @Transactional
-    @CacheEvict(value = {"alertRules", "alertRulesPaged"}, allEntries = true)
+    @CacheEvict(value = {"alertRules", "alertRulesPaged", "vehicleRules"}, allEntries = true)
     public List<AlertRuleResponse> batchCreateRules(List<CreateAlertRuleRequest> requests) {
         logger.info("Batch creating {} alert rules", requests.size());
 
@@ -814,7 +787,7 @@ public class AlertRuleService {
     }
 
     @Transactional
-    @CacheEvict(value = {"alertRules", "alertRulesPaged"}, allEntries = true)
+    @CacheEvict(value = {"alertRules", "alertRulesPaged", "vehicleRules"}, allEntries = true)
     public void batchEnableRules(Set<String> ruleKeys) {
         logger.info("Batch enabling {} alert rules", ruleKeys.size());
 
@@ -833,7 +806,7 @@ public class AlertRuleService {
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(value = "vehicleRules", key = "'rulesByVehicle_' + #vehicleIds.hashCode()")
+    @Cacheable("vehicleRules")
     public Map<String, List<AlertRuleResponse>> getRulesByVehicleIds(Set<String> vehicleIds) {
         Map<String, List<AlertRuleResponse>> result = new HashMap<>();
 

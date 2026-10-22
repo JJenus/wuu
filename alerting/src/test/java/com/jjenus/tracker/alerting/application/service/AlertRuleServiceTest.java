@@ -16,9 +16,9 @@ import com.jjenus.tracker.alerting.infrastructure.cache.VehicleRuleCacheService;
 import com.jjenus.tracker.alerting.infrastructure.repository.AlertRuleRepository;
 import com.jjenus.tracker.shared.security.TenantContext;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
@@ -63,7 +63,6 @@ class AlertRuleServiceTest {
     @Mock
     private RedisKeyGenerator keyGenerator;
 
-    @InjectMocks
     private AlertRuleService alertRuleService;
 
     private AlertRule testRule;
@@ -76,9 +75,7 @@ class AlertRuleServiceTest {
             ruleRepository,
             ruleCacheService,
             vehicleRuleCacheService,
-            null, // GeofenceCacheService
             geofenceRuleValidator,
-            null, // GeofenceService
             objectMapper,
             redisTemplate,
             keyGenerator,
@@ -95,6 +92,203 @@ class AlertRuleServiceTest {
             .geofenceId(1L)
             .vehicleId("vehicle-001")
             .build();
+    }
+
+    @AfterEach
+    void tearDown() {
+        TenantContext.clear();
+    }
+
+    @Test
+    void createRule_validRequest_preservesTenantVehiclesAndTimestamps() throws JsonProcessingException {
+        // given
+        CreateAlertRuleRequest request = new CreateAlertRuleRequest();
+        request.setRuleKey("tenant-rule");
+        request.setRuleName("Tenant rule");
+        request.setRuleType("speed");
+        request.setParameters("{\"speedLimit\":80,\"vehicleIds\":[\"vehicle-001\"]}");
+        request.setPriority(3);
+        request.setEnabled(true);
+        when(objectMapper.readValue(anyString(), any(com.fasterxml.jackson.core.type.TypeReference.class)))
+            .thenReturn(Map.of("speedLimit", 80, "vehicleIds", List.of("vehicle-001")));
+        when(ruleRepository.save(any(AlertRule.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // when
+        AlertRuleResponse result = alertRuleService.createRule(request);
+
+        // then
+        var saved = org.mockito.ArgumentCaptor.forClass(AlertRule.class);
+        verify(ruleRepository).save(saved.capture());
+        assertThat(saved.getValue().getOrganizationId()).isEqualTo(1L);
+        assertThat(saved.getValue().getVehicleIds()).containsExactly("vehicle-001");
+        assertThat(result.getRuleKey()).isEqualTo("tenant-rule");
+        assertThat(result.getRuleType()).isEqualTo(AlertRuleType.SPEED);
+        assertThat(result.getPriority()).isEqualTo(3);
+        assertThat(result.isEnabled()).isTrue();
+        // Custom rules retain the entity's existing creation timestamp default.
+        assertThat(result.getCreatedAt()).isEqualTo(Instant.EPOCH);
+        assertThat(result.getUpdatedAt()).isEqualTo(FIXED_CLOCK.instant());
+        verify(ruleCacheService).cacheRule(saved.getValue());
+        verify(vehicleRuleCacheService).invalidateVehicleRules("vehicle-001");
+    }
+
+    @Test
+    void getAllRules_multiplePages_readsOnlyCurrentOrganization() {
+        // given
+        var first = PageRequest.of(0, 500);
+        var second = PageRequest.of(1, 500);
+        when(ruleRepository.findByOrganizationId(1L, first))
+            .thenReturn(new PageImpl<>(List.of(testRule), first, 501));
+        when(ruleRepository.findByOrganizationId(1L, second))
+            .thenReturn(new PageImpl<>(List.of(testRule), second, 501));
+
+        // when
+        List<AlertRuleResponse> result = alertRuleService.getAllRules();
+
+        // then
+        assertThat(result).extracting(AlertRuleResponse::getRuleKey)
+            .containsExactly("test-rule", "test-rule");
+        verify(ruleRepository, never()).findAll(any(org.springframework.data.domain.Pageable.class));
+    }
+
+    @Test
+    void getEnabledRules_currentOrganization_returnsEnabledRules() {
+        // given
+        when(ruleRepository.findByIsEnabledAndOrganizationId(true, 1L)).thenReturn(List.of(testRule));
+
+        // when
+        List<AlertRuleResponse> result = alertRuleService.getEnabledRules();
+
+        // then
+        assertThat(result).extracting(AlertRuleResponse::getRuleKey).containsExactly("test-rule");
+    }
+
+    @Test
+    void getRuleByKey_cachedRule_avoidsRepositoryLookup() {
+        // given
+        when(ruleCacheService.getRuleByKey("test-rule")).thenReturn(Optional.of(testRule));
+
+        // when
+        AlertRuleResponse result = alertRuleService.getRuleByKey("test-rule");
+
+        // then
+        assertThat(result.getRuleKey()).isEqualTo("test-rule");
+        verifyNoInteractions(ruleRepository);
+    }
+
+    @Test
+    void getAllRulesPaged_cachedPage_avoidsRepositoryLookup() {
+        // given
+        SearchRequest request = new SearchRequest();
+        PagedResponse<AlertRuleResponse> cached = new PagedResponse<>(Page.empty());
+        var values = mock(org.springframework.data.redis.core.ValueOperations.class);
+        when(redisTemplate.opsForValue()).thenReturn(values);
+        when(keyGenerator.getPaginatedRulesKey(anyInt(), anyInt(), anyString(), anyString(), any(), any(), any()))
+            .thenReturn("cached-page");
+        when(values.get("cached-page")).thenReturn(cached);
+
+        // when
+        PagedResponse<AlertRuleResponse> result = alertRuleService.getAllRulesPaged(request);
+
+        // then
+        assertThat(result).isSameAs(cached);
+        verifyNoInteractions(ruleRepository);
+    }
+
+    @Test
+    void getAllRulesPaged_cacheUnavailable_returnsRepositoryResults() {
+        // given
+        SearchRequest request = new SearchRequest();
+        when(redisTemplate.opsForValue()).thenThrow(new IllegalStateException("Redis unavailable"));
+        when(ruleRepository.searchAlertRules(eq(1L), any(), any(), any(), any()))
+            .thenReturn(new PageImpl<>(List.of(testRule)));
+
+        // when
+        PagedResponse<AlertRuleResponse> result = alertRuleService.getAllRulesPaged(request);
+
+        // then
+        assertThat(result.getContent()).extracting(AlertRuleResponse::getRuleKey).containsExactly("test-rule");
+    }
+
+    @Test
+    void getEnabledRulesPaged_requestWithoutFilter_forcesEnabledFilter() {
+        // given
+        SearchRequest request = new SearchRequest();
+        when(ruleRepository.searchAlertRules(eq(1L), any(), any(), eq(true), any()))
+            .thenReturn(new PageImpl<>(List.of(testRule)));
+
+        // when
+        PagedResponse<AlertRuleResponse> result = alertRuleService.getEnabledRulesPaged(request);
+
+        // then
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(request.getEnabled()).isTrue();
+    }
+
+    @Test
+    void updateRule_vehicleAssociationsChanged_invalidatesOldAndNewVehicles() {
+        // given
+        testRule.setParameters(new HashMap<>(Map.of("speedLimit", 80)));
+        UpdateAlertRuleRequest request = new UpdateAlertRuleRequest();
+        request.setParameters(Map.of("vehicleIds", List.of("vehicle-002")));
+        when(ruleRepository.findByRuleKeyAndOrganizationId("test-rule", 1L)).thenReturn(Optional.of(testRule));
+        when(ruleRepository.save(testRule)).thenReturn(testRule);
+
+        // when
+        AlertRuleResponse result = alertRuleService.updateRule("test-rule", request);
+
+        // then
+        assertThat(testRule.getVehicleIds()).containsExactly("vehicle-002");
+        assertThat(result.getParameters()).containsEntry("speedLimit", 80);
+        assertThat(result.getUpdatedAt()).isEqualTo(FIXED_CLOCK.instant());
+        verify(vehicleRuleCacheService).invalidateVehicleRules("vehicle-001");
+        verify(vehicleRuleCacheService).invalidateVehicleRules("vehicle-002");
+    }
+
+    @Test
+    void updateRule_emptyRequest_preservesRuleWithoutSaving() {
+        // given
+        when(ruleRepository.findByRuleKeyAndOrganizationId("test-rule", 1L)).thenReturn(Optional.of(testRule));
+
+        // when
+        AlertRuleResponse result = alertRuleService.updateRule("test-rule", new UpdateAlertRuleRequest());
+
+        // then
+        assertThat(result.getRuleKey()).isEqualTo("test-rule");
+        verify(ruleRepository, never()).save(any());
+        verifyNoInteractions(ruleCacheService, vehicleRuleCacheService);
+    }
+
+    @Test
+    void getRulesByVehicleIds_currentOrganization_groupsRulesIncludingEmptyResults() {
+        // given
+        when(ruleRepository.findActiveRulesForVehicleAndOrganizationId("vehicle-001", 1L))
+            .thenReturn(List.of(testRule));
+        when(ruleRepository.findActiveRulesForVehicleAndOrganizationId("vehicle-002", 1L))
+            .thenReturn(List.of());
+
+        // when
+        Map<String, List<AlertRuleResponse>> result = alertRuleService.getRulesByVehicleIds(
+            Set.of("vehicle-001", "vehicle-002"));
+
+        // then
+        assertThat(result.get("vehicle-001")).extracting(AlertRuleResponse::getRuleKey).containsExactly("test-rule");
+        assertThat(result.get("vehicle-002")).isEmpty();
+    }
+
+    @Test
+    void batchEnableRules_missingRule_continuesWithRemainingRules() {
+        // given
+        testRule.setIsEnabled(false);
+        when(ruleRepository.findByRuleKeyAndOrganizationId("missing", 1L)).thenReturn(Optional.empty());
+        when(ruleRepository.findByRuleKeyAndOrganizationId("test-rule", 1L)).thenReturn(Optional.of(testRule));
+
+        // when
+        alertRuleService.batchEnableRules(new LinkedHashSet<>(List.of("missing", "test-rule")));
+
+        // then
+        assertThat(testRule.isEnabled()).isTrue();
+        verify(ruleRepository).save(testRule);
     }
 
     @Test

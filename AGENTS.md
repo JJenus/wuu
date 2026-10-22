@@ -1,107 +1,37 @@
-# AGENTS.md — Tracking Engine
+# Tracking Engine
 
-## Project Overview
+## Build and focused verification
 
-Java 21 + Maven multi-module Spring Boot 3.5.9 DDD tracking engine.
-Uses the `./mvnw` wrapper (pins Maven 3.9.9 + Java 21 automatically).
+- Run commands from this directory, not its parent workspace. Use `./mvnw`: this custom wrapper selects an **installed Java 21** and downloads Maven 3.9.9 (first run needs network, curl/wget, and unzip). It does not install Java.
+- Full build: `./mvnw -B clean install`; tests only: `./mvnw -B test`. Surefire already defaults to `forkCount=0` in the parent POM.
+- Module plus prerequisites: `./mvnw -B -pl core-tracking -am test` (substitute the module). Maven orders dependencies; no separate shared-first build is needed with `-am`.
+- Single test, including prerequisites: `./mvnw -B -pl core-tracking -am -Dtest=VehicleTest -Dsurefire.failIfNoSpecifiedTests=false test`. Use `ClassName#methodName` to narrow further.
+- Module-only runs without `-am` require installed sibling artifacts: `./mvnw -B -DskipTests install` first.
+- Run the composed app after installing siblings: `./mvnw -pl main-app spring-boot:run`. `exec:java` has no configured main class. The Boot plugin has no repackage execution, so plain `package` does not produce an executable Boot jar.
+- Custom parent imports the Spring Boot 3.5.9 BOM; there is no Boot parent. Plugin management alone does not activate plugins/executions.
 
-## Modules & Dependency Graph
+## Tests
 
-```
-shared (foundation: events, exceptions, SPI interfaces, Redis tracker)
-  ↑
-core-tracking (depends on shared)
-  ↑
-device-comm  alerting (both depend on shared; device-comm is pure transport, no business logic)
-  ↑
-  notification (depends on shared; consumer of Alerting events)
-  ↑
-  main-app (depends on ALL; composition root, Spring Boot entrypoint)
-```
+- Before adding/changing tests, read `TESTING_GUIDELINES.md` for naming, builders, given/when/then, AssertJ, deterministic time/IDs, and mocking rules. `TESTING.md` is a scope reference, not build configuration.
+- Surefire discovers `*Test` and `*IntegrationTest`, but not `*IT` by default; no Failsafe execution is configured. Run `*IT` explicitly with `-Dtest=ClassNameIT` and check its infrastructure requirements.
+- Coverage percentages in the guidelines are targets, **not enforced build gates**. JaCoCo is only in plugin management; in-process Surefire does not attach its forked-JVM agent. Do not claim coverage from `test jacoco:report` without checking instrumentation and execution data.
 
-**Rule**: Build `shared` first. `./mvnw -B -DskipTests install` from root before running module-specific tests.
+## Actual wiring and pitfalls
 
-## Build & Run
+- `main-app/.../TrackingEngineApplication.java` is the active Boot entrypoint: it scans all modules, entities, and repositories. Each business module (`core-tracking`, `alerting`, `notification`, `user-auth`) and `device-comm` depends on `shared`; `main-app` depends on all of them. README dependency diagrams are stale.
+- Runtime defaults live in `main-app/src/main/resources/application.yaml`: H2 in-memory, external Redis (`localhost:6379`), native Artemis (`localhost:61616`), TCP port 8888. That YAML currently repeats the top-level `management` key; investigate this before assuming startup works.
+- Flyway migrations in `main-app/src/main/resources/db/migration/` own the composed app schema; Hibernate uses `ddl-auto: validate`. Entity changes need corresponding migrations, not Hibernate schema generation.
+- Telemetry flows `LocationDataEvent` → core tracking → `VehicleUpdatedEvent` → alerting → `AlertRaisedEvent` → notification via Artemis. `ArtemisEventPublisher` derives topic names from lowercased Java simple class names; `JmsConfig` uses `_type` message headers. Renaming/moving events can break consumers/serialization.
+- Spring `@EventListener` and JMS `@JmsListener` are distinct delivery mechanisms. Trace the actual publisher and listener before changing a flow; `FuelCutCommandHandler` listens in-process, while `VehicleEventHandler` also has a JMS fuel-cut handler that republishes the same event.
+- Tenant scoping uses `shared/security/TenantContext` (ThreadLocal), set/cleared by `JwtAuthFilter`. Preserve organization filters in repository access; HTTP tenant context does not automatically cross JMS, scheduler, or Reactor execution seams.
+- `Vehicle` and `Trip` are JPA entities in `core/domain/entity`; keep their business methods rather than recreating parallel pure-POJO models.
 
-```bash
-# Use the project wrapper (pins Java 21 + Maven 3.9.9)
-./mvnw clean install
+## Design direction and device constraint
 
-# Run all tests (in-process, no fork)
-./mvnw -B test -DforkCount=0
-
-# Single module tests
-./mvnw -pl core-tracking -B test -DforkCount=0
-
-# Coverage report
-./mvnw test jacoco:report
-# Report: target/site/jacoco/index.html
-
-# Run application
-cd main-app && ../mvnw exec:java
-# Main class: com.jjenus.tracker.main.TrackingEngineApplication
-```
-
-## Testing
-
-**Authoritative test rules**: `TESTING_GUIDELINES.md` (naming, structure, mocking, anti-patterns). `TESTING.md` is the scope map.
-
-### Key conventions
-
-- **Test class naming**: `<ClassName>Test` (unit), `<ClassName>IT` or `<ClassName>IntegrationTest` (integration)
-- **Test method naming**: `methodUnderTest_condition_expectedResult` (lowercase, underscores, no "test")
-- **Structure**: `given` / `when` / `then` blocks
-- **Assertions**: AssertJ only
-- **Test data**: Builders required (`*TestBuilder`) — never inline large constructors
-- **Determinism**: `Clock.fixed()`, `UUID.fromString(...)` — no `Thread.sleep`, no random, no current time
-
-### Mocking rules
-
-- **Domain tests (entities, VOs, rules, factories)**: NO mocks. Pure logic.
-- **Service tests**: Mock repositories, publishers, external services
-- **Never mock**: value objects, domain entities, simple DTOs
-- **Integration tests**: Use `@DataJpaTest + Testcontainers` for DB; `@WebMvcTest` for controllers; `@SpringBootTest` only for cross-layer wiring
-
-### Coverage thresholds (build fails if not met)
-
-- Domain: 100%
-- Services: 95–100%
-- Controllers: 90%+
-- Repositories: critical paths
-- Config/DTO/POJO getters-setters: ignored
-
-### Test stack
-
-JUnit 5, Mockito, Spring Boot Test, Testcontainers (DB/Redis/JMS), AssertJ, Jacoco.
-
-## Architecture Notes
-
-- **No Spring Boot parent POM** — this is a custom parent pom with imported `spring-boot-dependencies` BOM
-- **No Lombok** — use explicit getters/setters/constructors
-- Event bus pattern: `LocationDataEvent` (Device-Comm → Core-Tracking), `VehicleUpdatedEvent` (Core-Tracking → Alerting), `AlertRaisedEvent` (Alerting → Notification)
-- `main-app` uses `scanBasePackages = "com.jjenus.tracker.**"` to auto-discover all beans
-- Alerting module uses H2 database (primary for now); notification module uses H2
-- `shared` module contains events, exception hierarchy, pubsub interfaces (including `DeviceCommandTransport`, `DeviceCommandBuilder` SPI), Redis tracker
-- **device-comm is pure transport** — no business logic. Commands go through `FuelCutCommandHandler` in core-tracking, which delegates to `DeviceCommandTransport` (implemented by `ReactiveTcpCommandTransport` in device-comm)
-- **Vehicle and Trip are JPA entities** — business methods are on the entity, not on pure POJOs (pure POJOs deleted)
-- **AlertRuleFactory** lives in `alerting/application/factory/` (application layer, not domain), registered via `FactoryConfig`
-
-## Important Files
-
-| File | Purpose |
-|------|---------|
-| `pom.xml` | Root parent; Java 21, dependency management |
-| `mvnw` | Project wrapper — pins Java 21 + Maven 3.9.9 |
-| `TESTING_GUIDELINES.md` | Authoritative test rules (naming, mocking, structure) |
-| `TESTING.md` | Module → test mapping / scope |
-| `README.md` | Architecture overview |
-| `main-app/src/main/resources/application.yaml` | Full app config (H2, Redis, Artemis, JMS) |
-
-## Gotchas
-
-- Use `./mvnw` (not system `mvn`) — pins Java 21 automatically
-- `./mvnw -B test -DforkCount=0` runs tests in-process (required for Java 21 compatibility)
-- `shared` must be built first due to dependency chain
-- Alerting's `spring-boot-starter` deps are `provided` scope (main-app provides runtime)
-- No CI workflows exist in this repo — build verification is manual
-- Python protocol simulators live in `tools/python-simulators/` (gt06-device, autoseeker-device) — no Python deps needed
+- The owner is considering a simpler **modular monolith** for the business modules; this is a direction to evaluate, not authorization for a repository-wide collapse.
+- Keep `device-comm` unchanged when simplifying business modules: its independent deployment is required. Preserve protocol parsing, TCP sessions, and command transport there; retain business validation and command persistence in core tracking.
+- Independent deployment is **not wired today**: `main-app` embeds `device-comm`, its POM has no standalone Boot launcher, and `FuelCutCommandHandler` injects the in-process `DeviceCommandTransport` plus protocol builders. Do not describe this as an already deployable separate process or replace the device seam with direct business-module calls.
+- For business-module simplification, assess **depth** at the interface, not Maven-module count. Hide persistence/cache/messaging orchestration behind small use-case interfaces; keep implementation private and tests at the same seam as callers. Add an adapter seam where behavior actually varies, not a pass-through per class.
+- `AlertRuleService` is the single alert-rule management interface used by `AlertRuleController`; the unused command/query duplicates were removed. Keep response mapping and cache orchestration internal rather than recreating parallel implementations.
+- Rule caches use versioned organization namespaces in both Spring and manual Redis paths. Preserve `AlertRuleService`'s cache resolver/key generator and explicit organization IDs for background reads; a missing vehicle index is a cache miss, not proof that no rules exist. Run `AlertRuleCachingIntegrationTest` for proxy-level isolation/invalidation coverage.
+- `shared` currently mixes event/command interfaces with Redis, JMS, Reactor Netty, and tenant context. Keep business implementation out of it; business-module consolidation must not pull business dependencies into the device-facing interface.

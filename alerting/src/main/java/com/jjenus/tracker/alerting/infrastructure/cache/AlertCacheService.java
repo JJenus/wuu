@@ -2,6 +2,7 @@ package com.jjenus.tracker.alerting.infrastructure.cache;
 
 import com.jjenus.tracker.alerting.domain.entity.TrackerAlert;
 import com.jjenus.tracker.shared.redis.RedisKeyScanner;
+import com.jjenus.tracker.shared.security.TenantContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -30,7 +31,9 @@ public class AlertCacheService {
     // Cache individual alerts
     public void cacheAlert(TrackerAlert alert) {
         try {
-            String cacheKey = keyGenerator.getAlertDetailKey(alert.getAlertId());
+            if (TransactionalCacheInvalidation.defer(redisTemplate,
+                    keyGenerator.getAllAlertKeysPattern(alert.getOrganizationId()))) return;
+            String cacheKey = keyGenerator.getAlertDetailKey(alert.getAlertId(), alert.getOrganizationId());
             redisTemplate.opsForValue().set(
                     cacheKey,
                     alert,
@@ -46,7 +49,8 @@ public class AlertCacheService {
         try {
             String cacheKey = keyGenerator.getAlertDetailKey(alertId);
             TrackerAlert alert = (TrackerAlert) redisTemplate.opsForValue().get(cacheKey);
-            return Optional.ofNullable(alert);
+            return Optional.ofNullable(alert).filter(value -> value.getOrganizationId() != null
+                && value.getOrganizationId().equals(TenantContext.getCurrentOrgId()));
         } catch (Exception e) {
             logger.error("Failed to get alert from cache: {}", alertId, e);
             return Optional.empty();
@@ -56,7 +60,10 @@ public class AlertCacheService {
     // Cache active alerts for vehicle
     public void cacheActiveVehicleAlerts(String vehicleId, List<TrackerAlert> alerts) {
         try {
+            if (TransactionalCacheInvalidation.defer(redisTemplate, keyGenerator.getAllAlertKeysPattern())) return;
             String cacheKey = keyGenerator.getActiveVehicleAlertsKey(vehicleId);
+            if (alerts.stream().anyMatch(alert -> !java.util.Objects.equals(
+                    alert.getOrganizationId(), TenantContext.getCurrentOrgId()))) return;
             redisTemplate.delete(cacheKey);
 
             if (!alerts.isEmpty()) {
@@ -74,6 +81,10 @@ public class AlertCacheService {
             List<Object> cached = redisTemplate.opsForList().range(cacheKey, 0, -1);
 
             if (cached != null && !cached.isEmpty()) {
+                if (cached.stream().anyMatch(value -> !(value instanceof TrackerAlert alert)
+                        || !java.util.Objects.equals(alert.getOrganizationId(), TenantContext.getCurrentOrgId()))) {
+                    return null;
+                }
                 return cached.stream()
                         .map(obj -> (TrackerAlert) obj)
                         .collect(Collectors.toList());
@@ -88,6 +99,7 @@ public class AlertCacheService {
     // Cache statistics
     public void cacheAlertStatistics(String key, Object statistics) {
         try {
+            if (TransactionalCacheInvalidation.defer(redisTemplate, keyGenerator.getAllAlertKeysPattern())) return;
             redisTemplate.opsForValue().set(
                     keyGenerator.getAlertStatisticsKey(key),
                     statistics,
@@ -113,6 +125,7 @@ public class AlertCacheService {
     // Invalidation methods
     public void invalidateAlert(Long alertId) {
         try {
+            if (TransactionalCacheInvalidation.defer(redisTemplate, keyGenerator.getAllAlertKeysPattern())) return;
             String detailKey = keyGenerator.getAlertDetailKey(alertId);
             redisTemplate.delete(detailKey);
 
@@ -125,6 +138,7 @@ public class AlertCacheService {
 
     public void invalidateVehicleAlerts(String vehicleId) {
         try {
+            if (TransactionalCacheInvalidation.defer(redisTemplate, keyGenerator.getAllAlertKeysPattern())) return;
             String activeKey = keyGenerator.getActiveVehicleAlertsKey(vehicleId);
             String recentKey = keyGenerator.getRecentVehicleAlertsKey(vehicleId);
             redisTemplate.delete(java.util.Arrays.asList(activeKey, recentKey));
@@ -135,6 +149,7 @@ public class AlertCacheService {
 
     public void invalidateStatistics() {
         try {
+            if (TransactionalCacheInvalidation.defer(redisTemplate, keyGenerator.getAllAlertKeysPattern())) return;
             String pattern = keyGenerator.getAlertStatisticsPattern();
             List<String> keys = RedisKeyScanner.scanKeys(redisTemplate, pattern);
             if (!keys.isEmpty()) {
@@ -148,6 +163,7 @@ public class AlertCacheService {
     // Clear all alert cache
     public void clearAll() {
         try {
+            if (TransactionalCacheInvalidation.defer(redisTemplate, keyGenerator.getAllAlertKeysPattern())) return;
             String pattern = keyGenerator.getAllAlertKeysPattern();
             List<String> keys = RedisKeyScanner.scanKeys(redisTemplate, pattern);
             if (!keys.isEmpty()) {

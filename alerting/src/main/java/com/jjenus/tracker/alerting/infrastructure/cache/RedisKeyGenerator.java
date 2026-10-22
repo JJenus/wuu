@@ -1,9 +1,7 @@
 package com.jjenus.tracker.alerting.infrastructure.cache;
 
 import org.springframework.stereotype.Component;
-
-import java.time.DayOfWeek;
-import java.time.LocalDateTime;
+import com.jjenus.tracker.shared.security.TenantContext;
 
 @Component
 public class RedisKeyGenerator {
@@ -19,9 +17,6 @@ public class RedisKeyGenerator {
 
     // ========== ALERT RULE CACHE KEYS ==========
     private static final String RULE_PREFIX = PREFIX + "rule:";
-    public static final String RULE_DETAIL_KEY_PREFIX = RULE_PREFIX + "detail:";
-    public static final String ALL_ACTIVE_RULES_KEY = RULE_PREFIX + "active:all";
-    public static final String VEHICLES_WITH_RULES_KEY = RULE_PREFIX + "vehicles:with:rules";
     public static final long RULE_DETAIL_TTL = 3600L;
     public static final long VEHICLE_RULE_CACHE_TTL = 300L;
     public static final long INDEX_CACHE_TTL = 600L;
@@ -38,98 +33,158 @@ public class RedisKeyGenerator {
 
     // ========== ALERT RULE METHODS ==========
     public String getRuleDetailKey(String ruleKey) {
-        return buildKey(RULE_DETAIL_KEY_PREFIX + ruleKey);
+        return getRuleDetailKey(ruleKey, TenantContext.getCurrentOrgId());
+    }
+
+    public String getRuleDetailKey(String ruleKey, Long organizationId) {
+        return rulePrefix(organizationId) + "detail:" + ruleKey;
     }
 
     public String getAllActiveRulesKey() {
-        return ALL_ACTIVE_RULES_KEY;
+        return getAllActiveRulesKey(TenantContext.getCurrentOrgId());
+    }
+
+    public String getAllActiveRulesKey(Long organizationId) {
+        return rulePrefix(organizationId) + "active:all";
     }
 
     public String getVehicleRulesKey(String vehicleId) {
-        return buildKey(RULE_PREFIX + "vehicle:" + vehicleId);
+        return getVehicleRulesKey(vehicleId, TenantContext.getCurrentOrgId());
+    }
+
+    public String getVehicleRulesKey(String vehicleId, Long organizationId) {
+        return rulePrefix(organizationId) + "vehicle:" + vehicleId;
     }
 
     public String getVehiclesWithRulesKey() {
-        return VEHICLES_WITH_RULES_KEY;
+        return getVehiclesWithRulesKey(TenantContext.getCurrentOrgId());
+    }
+
+    public String getVehiclesWithRulesKey(Long organizationId) {
+        return rulePrefix(organizationId) + "vehicles:with:rules";
+    }
+
+    public String getAllRuleKeysPattern() {
+        return getAllRuleKeysPattern(TenantContext.getCurrentOrgId());
+    }
+
+    public String getAllRuleKeysPattern(Long organizationId) {
+        return rulePrefix(organizationId) + "*";
     }
 
     // ========== ALERT METHODS ==========
     public String getAlertDetailKey(Long alertId) {
-        return buildKey(ALERT_DETAIL_KEY_PREFIX + alertId);
+        return getAlertDetailKey(alertId, TenantContext.getCurrentOrgId());
+    }
+
+    public String getAlertDetailKey(Long alertId, Long organizationId) {
+        return tenantPrefix(ALERT_PREFIX, organizationId) + "detail:" + alertId;
     }
 
     public String getActiveVehicleAlertsKey(String vehicleId) {
-        return buildKey(ACTIVE_VEHICLE_ALERTS_KEY_PREFIX + vehicleId);
+        return tenantPrefix(ALERT_PREFIX, TenantContext.getCurrentOrgId()) + "vehicle:active:" + vehicleId;
     }
 
     public String getRecentVehicleAlertsKey(String vehicleId) {
-        return buildKey(RECENT_VEHICLE_ALERTS_KEY_PREFIX + vehicleId);
+        return tenantPrefix(ALERT_PREFIX, TenantContext.getCurrentOrgId()) + "vehicle:recent:" + vehicleId;
     }
 
     public String getAlertStatisticsKey(String key) {
-        return buildKey(ALERT_STATISTICS_KEY_PREFIX + key);
+        return tenantPrefix(ALERT_PREFIX, TenantContext.getCurrentOrgId()) + "stats:" + key;
     }
 
     public String getAlertStatisticsPattern() {
-        return buildKey(ALERT_STATISTICS_KEY_PREFIX + "*");
+        return tenantPrefix(ALERT_PREFIX, TenantContext.getCurrentOrgId()) + "stats:*";
     }
 
     public String getAllAlertKeysPattern() {
-        return buildKey(ALERT_PREFIX + "*");
+        return getAllAlertKeysPattern(TenantContext.getCurrentOrgId());
+    }
+
+    public String getAllAlertKeysPattern(Long organizationId) {
+        return tenantPrefix(ALERT_PREFIX, organizationId) + "*";
     }
 
     // ========== GEOFENCE METHODS ==========
     public String getGeofenceDetailKey(Long geofenceId) {
-        return buildKey(GEOFENCE_DETAIL_KEY_PREFIX + geofenceId);
+        return getGeofenceDetailKey(geofenceId, TenantContext.getCurrentOrgId());
+    }
+
+    public String getGeofenceDetailKey(Long geofenceId, Long organizationId) {
+        return tenantPrefix(GEOFENCE_PREFIX, organizationId) + "detail:" + geofenceId;
     }
 
     public String getGeofenceDetailKey(String geofenceId) {
-        return buildKey(GEOFENCE_DETAIL_KEY_PREFIX + geofenceId);
+        return tenantPrefix(GEOFENCE_PREFIX, TenantContext.getCurrentOrgId()) + "detail:" + geofenceId;
     }
 
     public String getVehicleGeofencesKey(String vehicleId) {
-        return buildKey(VEHICLE_GEOFENCES_KEY_PREFIX + vehicleId);
+        return getVehicleGeofencesKey(vehicleId, TenantContext.getCurrentOrgId());
+    }
+
+    public String getVehicleGeofencesKey(String vehicleId, Long organizationId) {
+        return tenantPrefix(GEOFENCE_PREFIX, organizationId) + "vehicle:" + vehicleId;
     }
 
     public String getActiveVehicleGeofencesKey(String vehicleId) {
-        return buildKey(ACTIVE_VEHICLE_GEOFENCES_KEY_PREFIX + vehicleId);
+        return getActiveVehicleGeofencesKey(vehicleId, TenantContext.getCurrentOrgId());
+    }
+
+    public String getActiveVehicleGeofencesKey(String vehicleId, Long organizationId) {
+        return tenantPrefix(GEOFENCE_PREFIX, organizationId) + "vehicle:active:" + vehicleId;
+    }
+
+    public String getAllGeofenceKeysPattern() {
+        return getAllGeofenceKeysPattern(TenantContext.getCurrentOrgId());
+    }
+
+    public String getAllGeofenceKeysPattern(Long organizationId) {
+        return tenantPrefix(GEOFENCE_PREFIX, organizationId) + "*";
     }
 
     public String getPaginatedGeofencesKey(int page, int size, String sortBy, String sortDir,
                                             String search, String vehicleId, Boolean active) {
-        String key = buildKey(PAGINATED_GEOFENCES_KEY_PREFIX +
-                hashKey(page + "|" + size + "|" + sortBy + "|" + sortDir + "|" +
-                        (search != null ? search : "") + "|" +
-                        (vehicleId != null ? vehicleId : "") + "|" +
-                        (active != null ? active.toString() : "")));
-        return key;
+        StringBuilder query = new StringBuilder();
+        for (Object field : java.util.Arrays.asList(page, size, sortBy, sortDir, search, vehicleId, active)) {
+            String value = field == null ? null : field.toString();
+            query.append(value == null ? "-1:" : value.length() + ":" + value);
+        }
+        return tenantPrefix(GEOFENCE_PREFIX, TenantContext.getCurrentOrgId()) + "paginated:" + query;
     }
 
     public String getPaginatedGeofencesPattern() {
-        return buildKey(PAGINATED_GEOFENCES_KEY_PREFIX + "*");
+        return tenantPrefix(GEOFENCE_PREFIX, TenantContext.getCurrentOrgId()) + "paginated:*";
     }
 
     public String getPaginatedRulesKey(Integer page, Integer size, String sortBy, String sortDir,
                                         String search, String ruleType, Boolean enabled) {
-        String key = buildKey(RULE_PREFIX + "paginated:" +
-                hashKey((page != null ? page : 0) + "|" + (size != null ? size : 0) + "|" +
-                        (sortBy != null ? sortBy : "") + "|" + (sortDir != null ? sortDir : "") + "|" +
-                        (search != null ? search : "") + "|" +
-                        (ruleType != null ? ruleType : "") + "|" +
-                        (enabled != null ? enabled.toString() : "")));
-        return key;
+        StringBuilder query = new StringBuilder();
+        for (Object field : java.util.Arrays.asList(page, size, sortBy, sortDir, search, ruleType, enabled)) {
+            if (field == null) {
+                query.append("-1:");
+            } else {
+                String value = field.toString();
+                query.append(value.length()).append(':').append(value);
+            }
+        }
+        return rulePrefix(TenantContext.getCurrentOrgId()) + "paginated:" + query;
     }
 
     public String getPaginatedRulesPattern() {
-        return buildKey(RULE_PREFIX + "paginated:*");
+        return rulePrefix(TenantContext.getCurrentOrgId()) + "paginated:*";
     }
 
-    // ========== UTILITY ==========
-    private String buildKey(String key) {
-        return key;
+    private String rulePrefix(Long organizationId) {
+        if (organizationId == null || organizationId <= 0) {
+            throw new IllegalStateException("Organization context is required for alert-rule caching");
+        }
+        return RULE_PREFIX + "v2:org:" + organizationId + ":";
     }
 
-    private String hashKey(String input) {
-        return Integer.toHexString(input.hashCode());
+    private String tenantPrefix(String family, Long organizationId) {
+        if (organizationId == null || organizationId <= 0) {
+            throw new IllegalStateException("Organization context is required for alert caching");
+        }
+        return family + "v2:org:" + organizationId + ":";
     }
 }

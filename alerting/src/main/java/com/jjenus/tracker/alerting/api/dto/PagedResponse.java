@@ -13,6 +13,8 @@ public class PagedResponse<T> {
     private boolean last;
     private boolean empty;
 
+    public PagedResponse() {}
+
     public PagedResponse(Page<T> page) {
         this.content = page.getContent();
         this.pageNumber = page.getNumber();

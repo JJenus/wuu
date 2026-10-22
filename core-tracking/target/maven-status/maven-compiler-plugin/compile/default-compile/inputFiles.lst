@@ -16,8 +16,8 @@
 /home/jjenus/workspace/apps/tracker/sidie/core-tracking/src/main/java/com/jjenus/tracker/core/api/dto/PagedResponse.java
 /home/jjenus/workspace/apps/tracker/sidie/core-tracking/src/main/java/com/jjenus/tracker/core/api/dto/DeviceCommandResponse.java
 /home/jjenus/workspace/apps/tracker/sidie/core-tracking/src/main/java/com/jjenus/tracker/core/api/DeviceCommandController.java
-/home/jjenus/workspace/apps/tracker/sidie/core-tracking/src/main/java/com/jjenus/tracker/core/application/service/DeviceCommandService.java
 /home/jjenus/workspace/apps/tracker/sidie/core-tracking/src/main/java/com/jjenus/tracker/core/infrastructure/repository/TrackerLocationRepository.java
+/home/jjenus/workspace/apps/tracker/sidie/core-tracking/src/main/java/com/jjenus/tracker/core/application/service/DeviceCommandService.java
 /home/jjenus/workspace/apps/tracker/sidie/core-tracking/src/main/java/com/jjenus/tracker/core/application/service/VehicleService.java
 /home/jjenus/workspace/apps/tracker/sidie/core-tracking/src/main/java/com/jjenus/tracker/core/domain/entity/Vehicle.java
 /home/jjenus/workspace/apps/tracker/sidie/core-tracking/src/main/java/com/jjenus/tracker/core/api/dto/TripResponse.java
@@ -40,13 +40,13 @@
 /home/jjenus/workspace/apps/tracker/sidie/core-tracking/src/main/java/com/jjenus/tracker/core/infrastructure/repository/TrackerRepository.java
 /home/jjenus/workspace/apps/tracker/sidie/core-tracking/src/main/java/com/jjenus/tracker/core/application/VehicleQueryService.java
 /home/jjenus/workspace/apps/tracker/sidie/core-tracking/src/main/java/com/jjenus/tracker/core/application/VehicleEventHandler.java
-/home/jjenus/workspace/apps/tracker/sidie/core-tracking/src/main/java/com/jjenus/tracker/core/domain/entity/DeviceCommand.java
 /home/jjenus/workspace/apps/tracker/sidie/core-tracking/src/main/java/com/jjenus/tracker/core/infrastructure/repository/TrackerAssignmentRepository.java
+/home/jjenus/workspace/apps/tracker/sidie/core-tracking/src/main/java/com/jjenus/tracker/core/domain/entity/DeviceCommand.java
 /home/jjenus/workspace/apps/tracker/sidie/core-tracking/src/main/java/com/jjenus/tracker/core/application/TripExportService.java
 /home/jjenus/workspace/apps/tracker/sidie/core-tracking/src/main/java/com/jjenus/tracker/core/api/dto/LocationResponse.java
 /home/jjenus/workspace/apps/tracker/sidie/core-tracking/src/main/java/com/jjenus/tracker/core/api/dto/CreateTrackerRequest.java
 /home/jjenus/workspace/apps/tracker/sidie/core-tracking/src/main/java/com/jjenus/tracker/core/api/TripExportController.java
 /home/jjenus/workspace/apps/tracker/sidie/core-tracking/src/main/java/com/jjenus/tracker/core/domain/FuelCutRequestedEvent.java
-/home/jjenus/workspace/apps/tracker/sidie/core-tracking/src/main/java/com/jjenus/tracker/core/api/dto/VehicleResponse.java
 /home/jjenus/workspace/apps/tracker/sidie/core-tracking/src/main/java/com/jjenus/tracker/core/api/dto/CreateVehicleRequest.java
+/home/jjenus/workspace/apps/tracker/sidie/core-tracking/src/main/java/com/jjenus/tracker/core/api/dto/VehicleResponse.java
 /home/jjenus/workspace/apps/tracker/sidie/core-tracking/src/main/java/com/jjenus/tracker/core/exception/TripException.java

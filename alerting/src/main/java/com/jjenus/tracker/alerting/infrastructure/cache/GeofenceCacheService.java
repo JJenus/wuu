@@ -2,6 +2,7 @@ package com.jjenus.tracker.alerting.infrastructure.cache;
 
 import com.jjenus.tracker.alerting.domain.entity.Geofence;
 import com.jjenus.tracker.shared.redis.RedisKeyScanner;
+import com.jjenus.tracker.shared.security.TenantContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -31,7 +32,9 @@ public class GeofenceCacheService {
 
     public void cacheGeofence(Geofence geofence) {
         try {
-            String detailKey = keyGenerator.getGeofenceDetailKey(geofence.getGeofenceId());
+            if (TransactionalCacheInvalidation.defer(redisTemplate,
+                    keyGenerator.getAllGeofenceKeysPattern(geofence.getOrganizationId()))) return;
+            String detailKey = keyGenerator.getGeofenceDetailKey(geofence.getGeofenceId(), geofence.getOrganizationId());
             redisTemplate.opsForValue().set(
                     detailKey,
                     geofence,
@@ -40,7 +43,11 @@ public class GeofenceCacheService {
             );
 
             // Invalidate vehicle caches
-            invalidateVehicleGeofenceCaches(geofence.getVehicleIds());
+            for (String vehicleId : geofence.getVehicleIds()) {
+                redisTemplate.delete(Arrays.asList(
+                    keyGenerator.getVehicleGeofencesKey(vehicleId, geofence.getOrganizationId()),
+                    keyGenerator.getActiveVehicleGeofencesKey(vehicleId, geofence.getOrganizationId())));
+            }
 
         } catch (Exception e) {
             logger.error("Failed to cache geofence: {}", geofence.getGeofenceId(), e);
@@ -51,6 +58,8 @@ public class GeofenceCacheService {
         try {
             String cacheKey = keyGenerator.getGeofenceDetailKey(geofenceId);
             Geofence geofence = (Geofence) redisTemplate.opsForValue().get(cacheKey);
+            if (geofence != null && !java.util.Objects.equals(
+                    geofence.getOrganizationId(), TenantContext.getCurrentOrgId())) return Optional.empty();
 
             if (geofence != null) {
                 // Refresh TTL on access
@@ -69,7 +78,10 @@ public class GeofenceCacheService {
 
     public void cacheVehicleGeofences(String vehicleId, List<Geofence> geofences) {
         try {
+            if (TransactionalCacheInvalidation.defer(redisTemplate, keyGenerator.getAllGeofenceKeysPattern())) return;
             String cacheKey = keyGenerator.getVehicleGeofencesKey(vehicleId);
+            if (geofences.stream().anyMatch(geofence -> !java.util.Objects.equals(
+                    geofence.getOrganizationId(), TenantContext.getCurrentOrgId()))) return;
 
             // Delete existing cache
             redisTemplate.delete(cacheKey);
@@ -93,6 +105,10 @@ public class GeofenceCacheService {
             List<Object> cached = redisTemplate.opsForList().range(cacheKey, 0, -1);
 
             if (cached != null && !cached.isEmpty()) {
+                if (cached.stream().anyMatch(value -> !(value instanceof Geofence geofence)
+                        || !java.util.Objects.equals(geofence.getOrganizationId(), TenantContext.getCurrentOrgId()))) {
+                    return null;
+                }
                 return cached.stream()
                         .map(obj -> (Geofence) obj)
                         .collect(Collectors.toList());
@@ -108,6 +124,7 @@ public class GeofenceCacheService {
 
     public void invalidateGeofence(Long geofenceId) {
         try {
+            if (TransactionalCacheInvalidation.defer(redisTemplate, keyGenerator.getAllGeofenceKeysPattern())) return;
             String detailKey = keyGenerator.getGeofenceDetailKey(geofenceId);
             redisTemplate.delete(detailKey);
         } catch (Exception e) {
@@ -117,6 +134,7 @@ public class GeofenceCacheService {
 
     public void invalidateVehicleGeofenceCache(String vehicleId) {
         try {
+            if (TransactionalCacheInvalidation.defer(redisTemplate, keyGenerator.getAllGeofenceKeysPattern())) return;
             String allKey = keyGenerator.getVehicleGeofencesKey(vehicleId);
             String activeKey = keyGenerator.getActiveVehicleGeofencesKey(vehicleId);
             List<String> keysToDelete = Arrays.asList(allKey, activeKey);
@@ -139,7 +157,8 @@ public class GeofenceCacheService {
 
     public void clearAll() {
         try {
-            List<String> keys = RedisKeyScanner.scanKeys(redisTemplate, "geofence:*");
+            if (TransactionalCacheInvalidation.defer(redisTemplate, keyGenerator.getAllGeofenceKeysPattern())) return;
+            List<String> keys = RedisKeyScanner.scanKeys(redisTemplate, keyGenerator.getAllGeofenceKeysPattern());
             if (!keys.isEmpty()) {
                 redisTemplate.delete(keys);
             }
