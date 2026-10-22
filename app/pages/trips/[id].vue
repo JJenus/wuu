@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { useWorkspace } from '~/features/workspace/composables/useWorkspace'
 import { useTripExport } from '~/features/workspace/composables/useTripExport'
+import TripReplay from '~/features/tracking/components/TripReplay.vue'
 const route = useRoute()
 const { trips, vehicles } = useWorkspace()
 const { exportTrips } = useTripExport()
 const trip = computed(() => trips.value.find((t) => t.id === route.params.id))
 const vehicle = computed(() => vehicles.value.find((v) => v.id === trip.value?.vehicleId))
 useHead(() => ({
-  title: `${trip.value ? `Journey ${trip.value.id}` : 'Trip not found'} — Wayline`,
+  title: `${trip.value ? `Journey ${trip.value.id}` : 'Trip not found'} — Wuu`,
 }))
 </script>
 
@@ -82,16 +83,12 @@ useHead(() => ({
               </li>
             </ol>
           </section>
-          <section class="panel">
-            <div class="section-body playback-unavailable">
-              <span class="vehicle-icon"><UIcon name="i-lucide-route" /></span>
-              <h2>Route playback is unavailable</h2>
-              <p>
-                We have journey endpoints, not a recorded GPS path. A real route replay needs
-                verified historical telemetry; no invented track is displayed here.
-              </p>
-            </div>
-          </section>
+          <TripReplay
+            :key="trip.id"
+            :trip-id="trip.id"
+            :vehicle="vehicle"
+            :in-progress="trip.status === 'in progress'"
+          />
         </div>
         <div class="detail-stack">
           <section class="panel">

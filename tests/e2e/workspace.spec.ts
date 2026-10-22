@@ -23,12 +23,17 @@ test('overview renders, filters fleet, and map markers expose vehicle details', 
   await page.getByRole('button', { name: 'Offline 1' }).click()
   await expect(page.getByRole('table').getByRole('row')).toHaveCount(2)
   await expect(page.getByRole('table')).toContainText('Transit 06')
-  await page.getByRole('button', { name: 'Transit 02, moving', exact: true }).click()
+  const marker = page.getByRole('button', { name: 'Transit 02, moving', exact: true })
+  // Compact maps group nearby assets; expand the group before selecting its child.
+  for (let i = 0; i < 4 && (await marker.count()) === 0; i++) {
+    await page.getByRole('button', { name: /vehicles\. Zoom or expand group:.*Transit 02/ }).click()
+  }
+  await marker.click()
   await expect(page.getByRole('link', { name: 'View Transit 02', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Zoom in', exact: true }).click()
-  await expect(page.locator('.map-canvas')).toHaveAttribute('style', /scale\(1\.2\)/)
+  await expect(page.locator('.geographic-map-canvas')).toHaveAttribute('data-map-ready', 'true')
   await page.getByRole('button', { name: 'Reset map view' }).click()
-  await expect(page.locator('.map-canvas')).toHaveAttribute('style', /scale\(1\)/)
+  await expect(page.locator('.geographic-map-canvas')).toHaveAttribute('data-map-zoom', '12')
   await page.getByRole('button', { name: 'Toggle map legend' }).click()
   await expect(page.locator('.map-legend')).not.toBeVisible()
   await page.getByRole('button', { name: 'Toggle map legend' }).click()
@@ -101,7 +106,7 @@ test('trip export downloads the filtered sample data', async ({ page }) => {
   const downloadPromise = page.waitForEvent('download')
   await page.getByRole('button', { name: 'Export preview CSV' }).click()
   const download = await downloadPromise
-  expect(download.suggestedFilename()).toBe('wayline-preview-trips.csv')
+  expect(download.suggestedFilename()).toBe('wuu-preview-trips.csv')
   const stream = await download.createReadStream()
   const chunks: Buffer[] = []
   for await (const chunk of stream!) chunks.push(chunk)

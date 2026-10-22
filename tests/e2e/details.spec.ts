@@ -31,7 +31,7 @@ test('trip details link to the correct vehicle and export one journey', async ({
   await navigate(page, '/trips')
   await page.getByRole('link', { name: 'Open trip TR-1048' }).click()
   await expect(page.getByRole('heading', { name: 'Journey TR-1048' })).toBeVisible()
-  await expect(page.getByText('Route playback is unavailable', { exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Illustrative trip replay' })).toBeVisible()
   const downloadPromise = page.waitForEvent('download')
   await page.getByRole('button', { name: 'Export this preview trip' }).click()
   const download = await downloadPromise
@@ -41,20 +41,29 @@ test('trip details link to the correct vehicle and export one journey', async ({
   const csv = Buffer.concat(chunks).toString()
   expect(csv).toContain('TR-1048')
   expect(csv).not.toContain('TR-1047')
-  await page.getByRole('link', { name: 'View Transit 01' }).click()
+  await page
+    .locator('section')
+    .filter({ has: page.getByRole('heading', { name: 'Vehicle & driver', exact: true }) })
+    .getByRole('link', { name: 'View Transit 01' })
+    .click()
   await page.getByRole('link', { name: 'Journey TR-1048', exact: true }).click()
   await expect(page).toHaveURL(/\/trips\/TR-1048$/)
   await page.reload()
   await expect(page.getByRole('heading', { name: 'Journey TR-1048' })).toBeVisible()
 })
 
-test('geofence details show illustrative membership without editing controls', async ({ page }) => {
+test('geofence details show illustrative membership and a preview editing route', async ({
+  page,
+}) => {
   await navigate(page, '/geofences')
   await page.getByRole('link', { name: 'View Dogpatch depot' }).click()
   await expect(page).toHaveURL(/\/geofences\/GF-001$/)
   await expect(page.getByRole('heading', { name: 'Dogpatch depot', exact: true })).toBeVisible()
   await expect(page.getByText('Illustrative membership, not live containment.')).toBeVisible()
-  await expect(page.getByRole('button', { name: /save|delete|edit/i })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: 'Edit geofence' })).toHaveAttribute(
+    'href',
+    '/geofences/GF-001/edit',
+  )
   await page.getByRole('link', { name: 'View Cargo 05' }).click()
   await expect(page).toHaveURL(/\/vehicles\/VH-005$/)
 })

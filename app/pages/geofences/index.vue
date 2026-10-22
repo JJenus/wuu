@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { useWorkspace } from '~/features/workspace/composables/useWorkspace'
+import { geometrySummary } from '~/features/geofences/domain/geofence'
 const { geofences } = useWorkspace()
-useHead({ title: 'Geofences — Wayline' })
+useHead({ title: 'Geofences — Wuu' })
 </script>
 
 <template>
@@ -11,13 +12,13 @@ useHead({ title: 'Geofences — Wayline' })
       description="Draw a little context around the places that matter."
       eyebrow="GEOFENCES"
     >
-      <span class="subtle-badge">Read-only concept preview</span>
+      <UButton to="/geofences/new" icon="i-lucide-plus">Create geofence</UButton>
     </UiPageHeading>
     <div class="info-banner">
       <UIcon name="i-lucide-info" />
       <p>
-        These zones illustrate the geofence experience. Creating or editing zones will be enabled
-        after the backend geometry and vehicle-scoping contracts are verified.
+        Draw, edit, and assign sample geofences in this session. Changes reset on reload. No real
+        boundary monitoring or notifications are activated.
       </p>
     </div>
     <div class="card-grid">
@@ -28,7 +29,9 @@ useHead({ title: 'Geofences — Wayline' })
         <h3>{{ zone.name }}<span class="preview-tag">Sample zone</span></h3>
         <p>{{ zone.description }}</p>
         <footer>
-          <span>{{ zone.radius }} radius · {{ zone.vehicleIds.length }} sample vehicles</span
+          <span
+            >{{ geometrySummary(zone.geometry) }} · {{ zone.vehicleIds.length }} linked
+            vehicles</span
           ><UButton
             :to="`/geofences/${zone.id}`"
             icon="i-lucide-arrow-up-right"

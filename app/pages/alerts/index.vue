@@ -23,7 +23,7 @@ async function change(id: string, status: AlertState) {
     busy.value = null
   }
 }
-useHead({ title: 'Alerts — Wayline' })
+useHead({ title: 'Alerts — Wuu' })
 </script>
 
 <template>

@@ -12,7 +12,7 @@ function clearFilters() {
   status.value = 'all'
 }
 const filtered = computed(() => filterVehicles(vehicles.value, search.value, status.value))
-useHead({ title: 'Vehicles — Wayline' })
+useHead({ title: 'Vehicles — Wuu' })
 </script>
 
 <template>

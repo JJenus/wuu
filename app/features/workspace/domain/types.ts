@@ -1,4 +1,5 @@
 import type { NewVehicle, Vehicle } from '../../fleet/domain/fleet'
+import type { GeofenceDraft, Geometry } from '../../geofences/domain/geofence'
 
 export type AlertState = 'active' | 'acknowledged' | 'resolved'
 export interface FleetAlert {
@@ -29,7 +30,7 @@ export interface Preferences {
   push: boolean
   weekly: boolean
 }
-export interface Geofence {
+export interface Geofence extends GeofenceDraft {
   id: string
   name: string
   description: string
@@ -38,6 +39,7 @@ export interface Geofence {
   location: string
   events: string
   vehicleIds: string[]
+  geometry: Geometry
 }
 export interface Workspace {
   vehicles: Vehicle[]
@@ -51,4 +53,6 @@ export interface WorkspaceService {
   addVehicle(input: NewVehicle): Promise<void>
   updateAlert(id: string, status: AlertState): Promise<void>
   savePreferences(input: Preferences): Promise<void>
+  createGeofence(input: GeofenceDraft): Promise<string>
+  updateGeofence(id: string, input: GeofenceDraft): Promise<void>
 }

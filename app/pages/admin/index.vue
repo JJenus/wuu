@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import MetricCard from '~/features/workspace/components/MetricCard.vue'
-useHead({ title: 'Platform preview — Wayline' })
+useHead({ title: 'Platform preview — Wuu' })
 const capabilities = [
   {
     name: 'Organizations',

@@ -29,6 +29,9 @@ shared UI components ← props/events only
 - Navigation uses genuine routes; back links are ordinary links.
 - Production organization IDs must be server-validated and included in query keys. Clear identity/tenant caches at logout or context switch; never trust a client tenant override.
 - Preferences and mutations last only until reload. No localStorage credentials or token persistence.
+- Geofence form drafts and undo history belong to the editor composable, separate from the saved workspace cache. Only validated saves reach the preview adapter. `GeofenceMap` is props/events only; it owns viewport/pointer state, not persistence. Domain geometry rules live in `features/geofences/domain/geofence.ts`.
+- Tracking fixture paths belong to `features/tracking/api/preview-tracks.ts`. Composables own the opt-in clock and computed geographic positions; they never write simulated telemetry into workspace records/exports. Playback pauses in hidden tabs, cancels on unmount and starts paused. Mock paths are not recorded GPS or routed journeys.
+- Leaflet/markercluster rendering is shared by fleet, vehicle, replay and geofence views. `useGeographicMap` owns client-only initialization, tiles, keyed layers, gestures, resize and teardown. Domain contracts accept geographic positions, never screen percentages. Components accept injected search/data-state props and emit selection/navigation/retry. Search adapters own network/catalog contracts, not UI. `maps-integration.md` records provider configuration and remaining backend release gates.
 
 ## Future integration rules
 
@@ -36,7 +39,7 @@ shared UI components ← props/events only
 2. Map backend DTOs/pagination/errors to frontend models inside adapters—not pages.
 3. Preview and real mode must be explicit. A failed live request must never fall back to fictional data.
 4. Model permission denial and expired-session states; server must enforce all actions and resource scoping.
-5. MapLibre/provider integration should replace the map adapter, not couple API fetching to map rendering.
+5. Geographic rendering is implemented using Leaflet; provider configuration is runtime-driven. Keep fleet API transport/search adapters independent of the rendering engine.
 6. Do not interpret a notification WebSocket as an authenticated GPS stream. Verify contracts first.
 
 ## No hidden service sprawl

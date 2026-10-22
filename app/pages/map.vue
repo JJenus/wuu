@@ -1,12 +1,32 @@
 <script setup lang="ts">
 import { useWorkspace } from '~/features/workspace/composables/useWorkspace'
 import FleetMap from '~/features/fleet/components/FleetMap.vue'
-const { vehicles, summary } = useWorkspace()
+import { useTrackingPreview } from '~/features/tracking/composables/useTrackingPreview'
+import { formatElapsed } from '~/features/tracking/domain/playback'
+const { vehicles, summary, isPending, isError, refetch } = useWorkspace()
+const mapDataState = computed(() => ({
+  source: 'preview' as const,
+  status: isPending.value
+    ? ('loading' as const)
+    : isError.value
+      ? ('error' as const)
+      : ('ready' as const),
+  message: isError.value ? 'Unable to load map vehicles. Retry the workspace request.' : undefined,
+}))
+const { positions, seconds, playing, speed, play, pause, restart, trail } =
+  useTrackingPreview(vehicles)
+const selectedId = ref<string | null>('VH-001')
+const follow = ref(false)
+const fleetMap = ref<InstanceType<typeof FleetMap>>()
 const status = ref('all')
 const visible = computed(() =>
-  vehicles.value.filter((v) => status.value === 'all' || v.status === status.value),
+  positions.value.filter((v) => status.value === 'all' || v.status === status.value),
 )
-useHead({ title: 'Fleet map — Wayline' })
+const selected = computed(() => visible.value.find((v) => v.id === selectedId.value))
+watch(status, () => {
+  if (!visible.value.some((v) => v.id === selectedId.value)) selectedId.value = null
+})
+useHead({ title: 'Fleet map — Wuu' })
 </script>
 
 <template>
@@ -26,10 +46,86 @@ useHead({ title: 'Fleet map — Wayline' })
     <div class="info-banner">
       <UIcon name="i-lucide-info" />
       <p>
-        This is an interactive, illustrated preview map—not a live GPS feed. Select a vehicle marker
-        to see its details. Map zoom and status filters work locally.
+        Real geographic map with sample vehicle positions—not live GPS. Only sample moving vehicles
+        animate; idle, parked, and offline vehicles stay still. Nothing is written to fleet records.
       </p>
     </div>
-    <section class="panel"><FleetMap :vehicles="visible" full /></section>
+    <section class="panel tracking-panel">
+      <div class="panel-heading">
+        <div>
+          <h2>Simulated tracking</h2>
+          <p class="form-hint">Opt-in movement preview · 2-minute loop</p>
+        </div>
+        <span class="tracking-state"
+          ><span role="status">{{ playing ? 'Simulation running' : 'Simulation paused' }}</span> ·
+          {{ formatElapsed(seconds) }}</span
+        >
+      </div>
+      <div class="tracking-toolbar playback-controls">
+        <UButton
+          :icon="playing ? 'i-lucide-pause' : 'i-lucide-play'"
+          @click="playing ? pause() : play()"
+          >{{ playing ? 'Pause simulation' : 'Start simulation' }}</UButton
+        >
+        <UButton icon="i-lucide-rotate-ccw" color="neutral" variant="outline" @click="restart"
+          >Reset simulation</UButton
+        >
+        <label class="playback-speed"
+          >Speed<select v-model.number="speed" class="native-select" aria-label="Simulation speed">
+            <option v-for="rate in [1, 2, 4, 8]" :key="rate" :value="rate">{{ rate }}×</option>
+          </select></label
+        >
+        <UButton
+          icon="i-lucide-locate-fixed"
+          color="neutral"
+          :variant="follow ? 'soft' : 'outline'"
+          :aria-pressed="follow"
+          :disabled="!selected"
+          @click="follow = !follow"
+          >Follow selected vehicle</UButton
+        >
+      </div>
+      <FleetMap
+        ref="fleetMap"
+        :vehicles="visible"
+        :focus-id="selectedId"
+        :follow="follow"
+        :route-points="[]"
+        :trail-points="selectedId ? trail(selectedId) : []"
+        :data-state="mapDataState"
+        full
+        @select="selectedId = $event"
+        @navigate="follow = false"
+        @retry="refetch()"
+      />
+    </section>
+    <section class="panel mt-6">
+      <div class="panel-heading">
+        <h2>Vehicles in this view</h2>
+        <span class="preview-tag">{{ visible.length }} sample vehicles</span>
+      </div>
+      <div class="tracking-vehicle-grid section-body">
+        <button
+          v-for="vehicle in visible"
+          :key="vehicle.id"
+          class="tracking-vehicle-card"
+          :class="{ active: selectedId === vehicle.id }"
+          :aria-pressed="selectedId === vehicle.id"
+          @click="fleetMap?.focusVehicle(vehicle.id)"
+        >
+          <span
+            ><strong>{{ vehicle.name }}</strong
+            ><small>{{ vehicle.driver }}</small></span
+          ><span
+            ><UiStatusBadge :status="vehicle.status" /><small>{{
+              vehicle.status === 'offline'
+                ? 'No simulated updates'
+                : `${vehicle.speed} km/h · Sample`
+            }}</small></span
+          >
+        </button>
+        <p v-if="!visible.length" class="muted">No sample vehicles match this filter.</p>
+      </div>
+    </section>
   </div>
 </template>

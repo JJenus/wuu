@@ -26,6 +26,8 @@ function isActive(path: string) {
   )
 }
 const detailLabel = computed(() => {
+  if (route.path === '/geofences/new') return 'Create geofence'
+  if (route.path.startsWith('/geofences/') && route.path.endsWith('/edit')) return 'Edit geofence'
   if (route.path.startsWith('/alerts/')) return 'Alert details'
   if (route.path.startsWith('/trips/')) return 'Trip details'
   if (route.path.startsWith('/geofences/')) return 'Geofence details'
@@ -97,24 +99,26 @@ watch(mobileOpen, async (open) => {
       :class="{ 'is-open': mobileOpen }"
       :inert="isMobile && !mobileOpen"
     >
-      <NuxtLink to="/" class="brand" aria-label="Wayline home"
-        ><span class="brand-mark"
-          ><svg viewBox="0 0 32 32" fill="none">
-            <path
-              d="m5 9 5 15 6-12 6 12 5-15"
-              stroke="currentColor"
-              stroke-width="2.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            /></svg></span
-        >wayline<span class="brand-period">.</span></NuxtLink
-      >
+      <NuxtLink to="/" class="brand" aria-label="Wuu home">
+        <picture class="brand-mark">
+          <source type="image/webp" srcset="/brand/logo-96.webp 1x, /brand/logo-192.webp 2x" />
+          <img
+            src="/brand/logo-96.png"
+            srcset="/brand/logo-192.png 2x"
+            width="44"
+            height="44"
+            alt="Wuu logo"
+            decoding="async"
+          />
+        </picture>
+        <span>Wuu</span>
+      </NuxtLink>
       <UPopover :content="{ align: 'start' }">
         <button class="organization-switch">
           <span class="org-icon"
             ><UIcon :name="admin ? 'i-lucide-shield-check' : 'i-lucide-building-2'" /></span
           ><span
-            ><strong>{{ admin ? 'Wayline platform' : 'Northstar Logistics' }}</strong
+            ><strong>{{ admin ? 'Wuu platform' : 'Northstar Logistics' }}</strong
             ><small>{{ admin ? 'Administration preview' : 'Business workspace' }}</small></span
           ><UIcon name="i-lucide-chevrons-up-down" class="org-chevron" />
         </button>
@@ -200,7 +204,7 @@ watch(mobileOpen, async (open) => {
           }}</strong>
         </div>
         <div class="topbar-actions">
-          <button class="search-trigger" @click="searchOpen = true">
+          <button class="search-trigger" aria-label="Search anything" @click="searchOpen = true">
             <UIcon name="i-lucide-search" /><span>Search anything...</span><kbd>⌘ K</kbd></button
           ><span class="topbar-divider" /><UPopover
             v-model:open="notificationsOpen"
@@ -237,7 +241,7 @@ watch(mobileOpen, async (open) => {
       <main id="main-content" class="main-content"><slot /></main>
       <footer class="workspace-footer">
         <span><span class="footer-dot" />Preview environment · No live vehicles connected</span
-        ><span>Made for the road ahead.<span class="footer-brand">wayline.</span></span>
+        ><span>Made for the road ahead.<span class="footer-brand">Wuu</span></span>
       </footer>
     </div>
     <UModal

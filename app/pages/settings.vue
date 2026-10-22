@@ -92,7 +92,7 @@ async function save() {
           </div>
           <div class="section-body !pt-0">
             <p class="section-description">
-              Wayline is a calmer place to manage the road ahead. You’re exploring sample vehicles,
+              Wuu is a calmer place to manage the road ahead. You’re exploring sample vehicles,
               trips, and alerts for Northstar Logistics. No live backend is connected.
             </p>
             <p class="section-description mt-3">

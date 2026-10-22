@@ -42,7 +42,7 @@ function show(slug: string) {
   <div>
     <UiPageHeading
       title="Room for every business."
-      description="A clear view of the organizations that call Wayline home."
+      description="A clear view of the organizations that call Wuu home."
       eyebrow="ORGANIZATIONS"
       ><span class="subtle-badge">Illustrative data only</span></UiPageHeading
     >

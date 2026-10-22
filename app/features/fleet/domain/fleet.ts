@@ -12,8 +12,7 @@ export interface Vehicle {
   location: string
   updated: string
   distance: number
-  x: number
-  y: number
+  position: Coordinate | null
 }
 export interface NewVehicle {
   name: string
@@ -48,3 +47,4 @@ export function validateVehicle(input: NewVehicle, vehicles: Vehicle[]): string 
     return 'This registration already exists in your fleet.'
   return null
 }
+import type { Coordinate } from '../../maps/domain/geographic'

@@ -1,7 +1,22 @@
 export default defineNuxtConfig({
   compatibilityDate: '2026-10-01',
   modules: ['@nuxt/ui'],
-  css: ['~/assets/css/main.css'],
+  css: [
+    'leaflet/dist/leaflet.css',
+    'leaflet.markercluster/dist/MarkerCluster.css',
+    '~/assets/css/main.css',
+    '~/assets/css/maps.css',
+  ],
+  runtimeConfig: {
+    public: {
+      mapTiles: {
+        url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+        attribution: 'OpenStreetMap contributors',
+        attributionUrl: 'https://www.openstreetmap.org/copyright',
+        maxZoom: 19,
+      },
+    },
+  },
   ui: { fonts: false },
   colorMode: { preference: 'light' },
   devtools: { enabled: false },

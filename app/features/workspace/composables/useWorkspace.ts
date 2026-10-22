@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { fleetSummary, type NewVehicle } from '../../fleet/domain/fleet'
 import type { AlertState, Preferences } from '../domain/types'
+import type { GeofenceDraft } from '../../geofences/domain/geofence'
 
 export function useWorkspace() {
   const { $workspaceService: service } = useNuxtApp()
@@ -27,6 +28,15 @@ export function useWorkspace() {
     await service.savePreferences(input)
     await refresh()
   }
+  async function createGeofence(input: GeofenceDraft) {
+    const id = await service.createGeofence(input)
+    await refresh()
+    return id
+  }
+  async function updateGeofence(id: string, input: GeofenceDraft) {
+    await service.updateGeofence(id, input)
+    await refresh()
+  }
   return {
     ...query,
     vehicles,
@@ -37,5 +47,7 @@ export function useWorkspace() {
     addVehicle,
     updateAlert,
     savePreferences,
+    createGeofence,
+    updateGeofence,
   }
 }

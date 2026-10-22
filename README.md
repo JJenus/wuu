@@ -1,4 +1,10 @@
-# Wayline
+# Wuu
+
+## Logo assets
+
+The supplied blue logo is used in the navigation with transparent 96/192px PNG and lossless WebP variants. The app also ships a 512px transparent master, 16/32/48px ICO, 32px PNG favicon, 180px Apple icon and 192/512px manifest icons. The manifest does not add offline support.
+
+To regenerate, run `python3 tools/prepare-brand.py` with Pillow installed in your Python environment, or pass another source-image path as its argument. The supplied `public/photo_2026-10-21_20-47-14.jpg` is preserved unchanged. No source PNG or vector was present, so these are cleaned raster derivatives, not vector artwork. Asset details are in `docs/design-system.md`.
 
 **Your fleet, in focus.** A responsive, map-led fleet workspace built with Nuxt 4, Vue 3, TypeScript, and Nuxt UI v4.
 
@@ -16,7 +22,7 @@ Open http://localhost:3000. No backend services, API keys, account, or real cred
 ## What works today
 
 - Responsive overview with counts derived from the sample fleet.
-- Interactive illustrated map: vehicle selection, details, status filters, zoom, reset, legend.
+- Real geographic Leaflet maps: tile rendering/attribution, highlighted status markers, clustering/expansion, geographic paths/boundaries, drag/pinch/keyboard navigation, search, fit/reset and tile-error recovery. Fleet positions are mocked, not live GPS.
 - Searchable/filterable vehicle list and detail routes.
 - Validated vehicle creation in the isolated preview session.
 - Alert acknowledgment/resolution, reflected in overview and notifications.
@@ -30,7 +36,7 @@ Open http://localhost:3000. No backend services, API keys, account, or real cred
 
 **This release is an interactive frontend preview, not a production-connected fleet application.** All records are fictional; `example.com` addresses are placeholders. Changes reset on reload. No network adapter connects to the Java backend. There is no authentication or production authorization. Administration routes intentionally show only sample information.
 
-The map is a locally rendered geographic illustration, not a navigation-grade map or live GPS service. Mini-charts are illustrative and do not imply historical analytics. Remote commands, invitations, role editing, billing, ride-hailing, and live updates are unavailable.
+The map renders actual geographic tiles, independent of mock fleet data. Default OpenStreetMap public tiles have no SLA; configure an approved production provider using the runtime variables documented in [maps integration](docs/maps-integration.md). Real GPS transport, authenticated sessions and server authorization remain release gates—this is not yet a production-release-ready application. Mini-charts are illustrative and do not imply historical analytics. Remote commands, invitations, role editing, billing, ride-hailing, and live updates are unavailable.
 
 The active backend in `../sidie/` was not checked out, stashed, reset, or edited. A byte-verified local snapshot was created before initializing this independent orphan branch. See [progress](docs/progress.md).
 

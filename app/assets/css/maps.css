@@ -1,0 +1,263 @@
+/* Leaflet owns projection and layers; overlay controls use application tokens. */
+.geographic-fleet-map {
+  isolation: isolate;
+}
+.geographic-map-surface {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 260px;
+}
+.geographic-map-canvas {
+  width: 100%;
+  height: 100%;
+  background: var(--ui-bg-muted);
+  font: inherit;
+}
+.geographic-map-canvas:focus-visible {
+  outline: 3px solid var(--ui-primary);
+  outline-offset: -3px;
+}
+.geographic-map-canvas.is-drawing {
+  cursor: crosshair;
+}
+.geographic-geofence-map {
+  height: 480px;
+}
+.geographic-fleet-map > .geographic-map-surface {
+  position: absolute;
+  inset: 0;
+}
+.geographic-fleet-map .map-controls,
+.geographic-fleet-map .map-legend,
+.geographic-fleet-map .map-vehicle-popup,
+.geographic-fleet-map .map-location-chip,
+.geographic-fleet-map .map-interaction-hint {
+  z-index: 800;
+}
+.geographic-fleet-map .fleet-map-search {
+  z-index: 850;
+}
+.geographic-fleet-map .map-layer-panel {
+  z-index: 860;
+}
+.geographic-fleet-map .map-data-state {
+  z-index: 900;
+}
+.geographic-fleet-map .map-vehicle-popup {
+  left: 15px;
+  bottom: 92px;
+  max-width: calc(100% - 30px);
+}
+.geographic-fleet-map .map-vehicle-popup::before {
+  display: none;
+}
+.geographic-fleet-map .map-vehicle-popup > button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  color: var(--ui-text-muted);
+}
+.geographic-fleet-map .map-legend {
+  bottom: 42px;
+}
+.geographic-fleet-map .map-interaction-hint {
+  bottom: 74px;
+  right: 8px;
+  left: auto;
+}
+.geo-marker-shell,
+.geo-handle-shell {
+  background: none;
+  border: 0;
+}
+.geo-cluster-shell {
+  background: none;
+  border: 0;
+}
+.geo-cluster-button {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 3px solid var(--ui-bg);
+  outline: 5px solid var(--wayline-tint);
+  background: var(--ui-primary);
+  color: var(--ui-bg);
+  font-weight: 750;
+  font-size: 15px;
+  cursor: pointer;
+  box-shadow: 0 2px 7px #0005;
+}
+.geo-cluster-button.is-selected {
+  outline: 4px solid var(--ui-primary);
+  outline-offset: 3px;
+}
+.geo-cluster-button:focus-visible {
+  outline: 3px solid var(--ui-text-highlighted);
+  outline-offset: 5px;
+}
+.geo-vehicle-marker {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 3px solid var(--ui-bg);
+  background: var(--ui-primary);
+  color: var(--ui-bg);
+  display: grid;
+  place-items: center;
+  box-shadow: 0 2px 7px #0005;
+  cursor: pointer;
+}
+.geo-marker-symbol {
+  font-size: 19px;
+  font-weight: 750;
+  line-height: 1;
+}
+.geo-vehicle-marker.idle {
+  background: var(--ui-warning);
+  color: var(--ui-bg-inverted);
+}
+.geo-vehicle-marker.parked {
+  background: var(--ui-info);
+  color: var(--ui-bg-inverted);
+}
+.geo-vehicle-marker.offline {
+  background: var(--ui-bg-inverted);
+  color: var(--ui-bg);
+  border-style: dashed;
+}
+.geo-vehicle-marker:hover {
+  outline: 3px solid var(--ui-primary);
+  outline-offset: 3px;
+}
+.geo-vehicle-marker.is-selected {
+  outline: 4px solid var(--ui-primary);
+  outline-offset: 4px;
+  box-shadow:
+    0 0 0 10px var(--wayline-tint),
+    0 3px 10px #0007;
+}
+.geo-vehicle-marker:focus-visible,
+.geo-edit-handle:focus-visible {
+  outline: 3px solid var(--ui-text-highlighted);
+  outline-offset: 5px;
+}
+.geo-marker-label {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  padding: 5px 8px;
+  border-radius: 5px;
+  border: 1px solid var(--ui-border);
+  color: var(--ui-text-highlighted);
+  background: var(--ui-bg);
+  font: 600 11px/1.4 var(--font-sans);
+  pointer-events: none;
+}
+.geo-vehicle-marker:hover .geo-marker-label,
+.geo-vehicle-marker:focus-visible .geo-marker-label,
+.geo-vehicle-marker.is-selected .geo-marker-label,
+.geo-vehicle-marker.show-label .geo-marker-label {
+  display: block;
+}
+.geo-edit-handle {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--ui-primary);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--ui-bg);
+  color: var(--ui-text-highlighted);
+  font-weight: 700;
+  cursor: move;
+  box-shadow: 0 1px 5px #0004;
+}
+.geographic-map-canvas .leaflet-control-attribution {
+  background: var(--ui-bg);
+  color: var(--ui-text-muted);
+  font-size: 10px;
+  max-width: calc(100vw - 45px);
+}
+.geographic-map-canvas .leaflet-control-attribution a {
+  color: var(--ui-primary);
+}
+.geographic-map-canvas .leaflet-control-scale-line {
+  background: var(--ui-bg);
+  color: var(--ui-text-highlighted);
+  border-color: var(--ui-text-muted);
+  text-shadow: none;
+  font-size: 10px;
+}
+.geo-engine-error {
+  position: absolute;
+  inset: 0;
+  z-index: 900;
+  padding: 30px;
+  background: var(--ui-bg-muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  text-align: center;
+  font-size: 12px;
+}
+.geo-tile-notice {
+  position: absolute;
+  z-index: 820;
+  left: 12px;
+  right: 60px;
+  top: 70px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--ui-bg);
+  border: 1px solid var(--ui-border);
+  border-radius: 6px;
+  font-size: 11px;
+}
+.geo-loading {
+  position: absolute;
+  top: 75px;
+  left: 15px;
+  z-index: 780;
+  padding: 6px 10px;
+  background: var(--ui-bg);
+  border: 1px solid var(--ui-border);
+  border-radius: 4px;
+  color: var(--ui-text-muted);
+  font-size: 11px;
+}
+.geo-missing-message {
+  position: absolute;
+  top: 76px;
+  left: 15px;
+  right: 60px;
+  z-index: 790;
+  padding: 10px;
+  border: 1px solid var(--ui-border);
+  background: var(--ui-bg);
+  border-radius: 5px;
+  font-size: 11px;
+}
+@media (max-width: 600px) {
+  .geographic-geofence-map {
+    height: 390px;
+  }
+  .geographic-fleet-map .map-vehicle-popup {
+    left: 10px;
+    bottom: 100px;
+  }
+  .geographic-fleet-map .map-interaction-hint {
+    bottom: 77px;
+    font-size: 8px;
+  }
+}

@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { useWorkspace } from '~/features/workspace/composables/useWorkspace'
+import GeofenceMap from '~/features/geofences/components/GeofenceMap.vue'
+import { geometryArea, geometrySummary } from '~/features/geofences/domain/geofence'
 const route = useRoute()
 const { geofences, vehicles } = useWorkspace()
 const zone = computed(() => geofences.value.find((z) => z.id === route.params.id))
 const members = computed(() => vehicles.value.filter((v) => zone.value?.vehicleIds.includes(v.id)))
-useHead(() => ({ title: `${zone.value?.name || 'Geofence not found'} — Wayline` }))
+useHead(() => ({ title: `${zone.value?.name || 'Geofence not found'} — Wuu` }))
 </script>
 
 <template>
@@ -14,13 +16,15 @@ useHead(() => ({ title: `${zone.value?.name || 'Geofence not found'} — Wayline
     >
     <template v-if="zone">
       <UiPageHeading :title="zone.name" :description="zone.description" eyebrow="GEOFENCE DETAILS"
-        ><span class="subtle-badge">Read-only concept preview</span></UiPageHeading
+        ><UButton :to="`/geofences/${zone.id}/edit`" icon="i-lucide-pencil"
+          >Edit geofence</UButton
+        ></UiPageHeading
       >
       <div class="info-banner">
         <UIcon name="i-lucide-info" />
         <p>
-          This zone is a fictional illustration. Its radius, monitoring settings, and vehicle
-          membership are not backed by stored geometry or live position checks.
+          Session-only geofence geometry on a real geographic basemap. No server monitoring or
+          notification is active. Reloading resets your changes.
         </p>
       </div>
       <div class="detail-layout">
@@ -30,21 +34,16 @@ useHead(() => ({ title: `${zone.value?.name || 'Geofence not found'} — Wayline
               <h2>A little context for this place</h2>
               <span class="preview-tag">{{ zone.id }}</span>
             </div>
+            <GeofenceMap :key="JSON.stringify(zone.geometry)" :model-value="zone.geometry" />
             <div class="section-body">
-              <div class="zone-illustration zone-detail-art" aria-hidden="true">
-                <span><UIcon :name="zone.icon" /></span>
-              </div>
-              <p class="form-hint mt-3">
-                Concept illustration only · No geographic boundary is plotted
-              </p>
               <dl class="detail-info mt-6">
                 <div>
                   <dt>Location</dt>
                   <dd>{{ zone.location }}</dd>
                 </div>
                 <div>
-                  <dt>Illustrative radius</dt>
-                  <dd>{{ zone.radius }}</dd>
+                  <dt>Boundary</dt>
+                  <dd>{{ geometrySummary(zone.geometry) }}</dd>
                 </div>
                 <div>
                   <dt>Proposed monitoring</dt>
@@ -54,7 +53,56 @@ useHead(() => ({ title: `${zone.value?.name || 'Geofence not found'} — Wayline
                   <dt>Data source</dt>
                   <dd>Preview fixture</dd>
                 </div>
+                <div>
+                  <dt>Approximate area</dt>
+                  <dd>{{ (geometryArea(zone.geometry) / 1_000_000).toFixed(3) }} km²</dd>
+                </div>
+                <div>
+                  <dt>Configuration</dt>
+                  <dd>{{ zone.active ? 'Enabled in preview' : 'Disabled in preview' }}</dd>
+                </div>
               </dl>
+              <details class="mt-6">
+                <summary class="text-link cursor-pointer">Boundary coordinates</summary>
+                <dl v-if="zone.geometry.type === 'circle'" class="detail-info mt-6">
+                  <div>
+                    <dt>Center latitude</dt>
+                    <dd>{{ zone.geometry.center.lat.toFixed(6) }}</dd>
+                  </div>
+                  <div>
+                    <dt>Center longitude</dt>
+                    <dd>{{ zone.geometry.center.lng.toFixed(6) }}</dd>
+                  </div>
+                  <div>
+                    <dt>Radius</dt>
+                    <dd>{{ zone.geometry.radiusMeters }} meters</dd>
+                  </div>
+                </dl>
+                <div
+                  v-else
+                  class="table-scroll mt-6"
+                  role="region"
+                  aria-label="Boundary coordinate records"
+                  tabindex="0"
+                >
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Vertex</th>
+                        <th>Latitude</th>
+                        <th>Longitude</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="(point, i) in zone.geometry.vertices" :key="i">
+                        <td>{{ i + 1 }}</td>
+                        <td>{{ point.lat.toFixed(6) }}</td>
+                        <td>{{ point.lng.toFixed(6) }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </details>
             </div>
           </section>
           <section class="panel">
@@ -87,8 +135,8 @@ useHead(() => ({ title: `${zone.value?.name || 'Geofence not found'} — Wayline
           <div class="panel-heading"><h2>Before this becomes operational</h2></div>
           <div class="section-body detail-stack">
             <p class="muted">
-              Zone editing, entry/exit history, and notification delivery are intentionally
-              unavailable.
+              You can edit this boundary in the preview. Live entry/exit history and notification
+              delivery remain unavailable.
             </p>
             <ul class="readiness-list">
               <li>Verify geometry and coordinate format.</li>

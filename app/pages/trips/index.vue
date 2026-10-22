@@ -20,7 +20,7 @@ function show(id: string) {
 function exportPreview() {
   exportTrips(visible.value)
 }
-useHead({ title: 'Trips — Wayline' })
+useHead({ title: 'Trips — Wuu' })
 </script>
 
 <template>

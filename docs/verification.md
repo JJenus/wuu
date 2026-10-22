@@ -1,10 +1,64 @@
-# Verification — Wayline preview
+# Verification — Wuu preview
 
-2026-10-21. This verifies the isolated frontend preview, **not backend integration or production readiness**.
+Updated 2026-10-22. This verifies the isolated frontend preview, **not backend integration or production readiness**. Older slice evidence below retains its original dates and artifact names.
 
 ## Commands and results
 
-### Detail routes and scrollbars — latest slice
+### Wuu rename and supplied logo — latest slice (2026-10-22)
+
+- User request: rename the app to Wuu and edit/resize/convert/use the logo in `public/`. Inspection found only the supplied blue mark in `photo_2026-10-21_20-47-14.jpg`, not a PNG. The original remains unchanged; SHA-256 before and after: `0c1436e1529fff27793d5193bf88f2d80a984dded4e25f33a3261f354782078d`.
+- `tools/prepare-brand.py` uses installed Pillow 10.2.0 to remove the white JPEG matte, suppress fringe noise, crop/pad without changing aspect ratio, and generate transparent PNG/lossless WebP plus platform icons. No runtime dependency or backend change. Sidebar logo: 44px display, 96/192px responsive sources. WebP payloads: **6,608 bytes / 17,468 bytes**. Master is 512px; ICO contains 16/32/48px, PNG favicon is 32px, Apple icon is 180px, manifest icons are 192/512px.
+- Updated UI wordmark/footer/platform copy, document titles, application metadata, package name, preview depot label, README/design/scope/progress docs, and CSV filename. Existing teal interface styling and internal `--wayline-*` token identifiers are intentionally retained; these are not user-visible branding. Historical screenshot filenames below are not renamed.
+- RED `3d51c78`: both new branding unit tests failed for missing assets and the old package name. GREEN asset checkpoint `969644c`: generated assets/config/package checks pass. These focused commits do not discard the existing uncommitted feature work.
+- `pnpm test:coverage`: **22/22 PASS**, including two asset/metadata tests. Existing configured pure-file coverage remains **99.04% lines/statements, 95.56% branches, 96.77% functions**; it does not measure image-processing code or the entire UI.
+- `pnpm typecheck`, `pnpm build`, `pnpm check:boundaries`, `pnpm format:check`, and `git diff --check`: **PASS**.
+- `PLAYWRIGHT_BASE_URL=http://localhost:3000 pnpm test:e2e`: **23/23 PASS in 2.2 minutes**. New browser target: Wuu page titles, loaded supplied logo, business/admin navigation, dark theme, 375px navigation without overflow, manifest identity and icon HTTP responses. Existing download test verifies `wuu-preview-trips.csv`.
+- Visually inspected `test-results/wuu-desktop-dark.png` and `test-results/wuu-mobile-logo.png`: readable wordmark and clean transparent logo on dark surfaces. Existing full suite also passed light-theme and automated accessibility checks. No committed visual-regression baseline or native iOS/home-screen/favicon-cache validation.
+- Ports 3000/3001 were checked and active listeners stopped before edits. Preview is restarted only for testing/delivery. The supplied JPEG is left untouched; generated outputs are separate files. No SVG was fabricated from the raster; a real vector source would be needed for a true scalable master. No service worker/offline support is claimed.
+
+Self-assessment: accuracy **4/5** (asset dimensions, headers, browser loading and original hash verified; cleanup remains JPEG-derived), completeness **4/5** (UI/metadata/download identity and web/platform formats covered; native launcher appearance untested), clarity **4/5** (original source and regeneration documented; legacy internal CSS names remain), actionability **4/5** (working app and generator; regeneration requires Pillow), conciseness **4/5** (single generator and existing layout; no extra branding framework). Overall **4.0/5**. Follow-ups: supplied vector/higher-resolution source, native-device icon checks, then visual-regression baselines.
+
+### Simulated tracking and trip replay — previous slice
+
+User journeys/acceptance: `detail-pages-plan.md`, tracking movement and trip replay. Frontend-only, no new dependencies; active backend inspected read-only. Ports 3000/3001 were checked and active preview listeners stopped before each edit batch, per user instruction.
+
+- RED checkpoint `c530b40`: new unit target failed because `features/tracking/domain/playback` did not exist. GREEN core checkpoint `e435358`: the same target passed **5 tests**. Checkpoints are on `frontend-app`; unrelated prior geofence work was not discarded or included in those focused commits.
+- `pnpm test:coverage`: **20/20 unit tests PASS**; **99.04% lines/statements, 95.56% branches, 96.77% functions** in the configured pure-file scope. New tracking domain/preview-track modules each have 100% coverage. Vue/composable lifecycle code remains outside unit coverage.
+- `pnpm typecheck`, `pnpm build`, `pnpm check:boundaries`: PASS on final source. `pnpm format:check` and `git diff --check` passed during verification.
+- Final rebuilt production run: `PLAYWRIGHT_BASE_URL=http://localhost:3000 pnpm test:e2e` — **22/22 PASS in 1.8 minutes**.
+
+| Guarantee                                                                                                                    | Target                        | Evidence                        |
+| ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------- | ------------------------------- |
+| Interpolation, endpoint clamping, detached trails, bounded/looping clock math and unknown-trip fail-closed behavior          | `tests/unit/playback.test.ts` | 5 tests PASS                    |
+| Only moving fixtures move; pause is stable; selected camera follow, speed/filter/reset controls work                         | `tests/e2e/tracking.spec.ts`  | Tracking browser case PASS      |
+| Replay plays/pauses/seeks, stops at end, restarts/reloads paused, and pauses on visibility event                             | `tests/e2e/tracking.spec.ts`  | Replay browser case PASS        |
+| Reduced-motion preference gets no auto-play; 375px layouts and automated mobile/light plus desktop/dark accessibility checks | `tests/e2e/tracking.spec.ts`  | Accessibility browser case PASS |
+| Existing geofence, alert, fleet, export, search, details and theme workflows remain working                                  | Full browser suite            | 22/22 PASS                      |
+
+Early failures were corrected rather than skipped: SSR/client CSS serialization made raw style-string comparisons unsuitable, so position assertions now compare normalized coordinates. A new map detail link required the existing vehicle-detail test to scope its link to the vehicle panel. Mobile screenshot review caught a status span inheriting decorative badge-dot styling; it now has its own wrapping-safe status style. The full suite passed again afterward.
+
+Visually inspected artifacts: `test-results/tracking-mobile.png`, `test-results/replay-mobile.png`, `test-results/trip-replay-dark.png`. No committed visual baseline; these are current-state checks, not automated visual-regression comparisons. A targeted scan found no raw HTML rendering, debug logs, or obvious credential patterns in the new feature; no dependency audit was performed.
+
+Limits: this is **not live tracking or recorded GPS history**. Dedicated sample tracks use illustrated-canvas percentages and invented speeds. They do not write to workspace records or exported aggregates. Hidden-tab pausing is browser-tested via a dispatched visibility event, not OS-level backgrounding. Manual screen-reader testing, real touch devices, browser-engine diversity, production stream reconnection/staleness/gaps, GPS accuracy and backend authorization remain unverified.
+
+Self-assessment: accuracy **4/5** (passing checks; intentionally approximate/invented paths), completeness **4/5** (preview movement/replay controls delivered; real GPS integration remains gated), clarity **4/5** (visible simulation labels; no geographic accuracy), actionability **4/5** (working map and trip-detail controls; opt-in playback required), conciseness **4/5** (shared map/clock/domain core; component controls could be further consolidated). Overall **4.0/5**. Highest-value follow-ups: real-device/assistive-technology checks, dedicated composable lifecycle tests, then separately authorized telemetry/history contracts. This assessment describes a sample-data preview, not a live tracking release.
+
+### Geofence creation and editing — previous slice
+
+- RED checkpoint `17a55a1`: geometry/editor acceptance tests added first; unit target failed because the geofence domain module did not exist.
+- `pnpm typecheck`, `pnpm check:boundaries`, and `pnpm build`: PASS.
+- `pnpm format:check` and `git diff --check`: PASS. Targeted source scan found no raw HTML rendering, debug logs, or obvious credential patterns in the geofence feature; this is not a dependency/security audit.
+- `pnpm test:coverage`: **15 unit tests PASS**; configured pure domain/policy/adapter/CSV scope: **98.62% lines/statements, 94.3% branches, 96% functions**. Vue templates and composables are outside this measurement.
+- `PLAYWRIGHT_BASE_URL=http://localhost:3001 pnpm test:e2e`: **19 tests PASS in 1.5 minutes** against the rebuilt production bundle. All original workflows remain green.
+- Restarted the primary preview at `http://localhost:3000`; editor suite rerun there: **4/4 PASS in 19.8 seconds**.
+- New browser coverage: create/save/reload reset, edit/save, polygon drawing and undo, pointer and keyboard vertex movement, pan without geometry mutation, zoom/fit, duplicate/radius validation, cancel/keep/discard, internal-navigation guard, missing edit IDs, 375px/light and 1440px/dark editor layout/accessibility checks.
+- Browser failures corrected before the final full run: exact accessible name for the required name field; exact-match vertex locator ("Move" also matched "Remove"); mobile global-search button lacked a name when its text was hidden.
+- Visually inspected desktop/mobile screenshots: `test-results/geofence-editor-inspect-{desktop,mobile}.png`; final automated screenshots: `test-results/geofence-editor-{375,1440}.png`.
+- Self-review: saved state remains adapter-owned, drafts are copied, geometry validation runs again inside the adapter, map viewport changes never write geometry, and text uses Vue interpolation. No HTTP integration, backend changes, or new dependencies. The unrelated untracked photograph remains untouched.
+- Limits: Chromium only; real touch-device gestures, native beforeunload dialogs, manual screen-reader use, injected adapter failures, and real GIS precision were not verified. No server persistence, actual monitoring, or notification delivery is claimed.
+- Delivery self-assessment: accuracy **4/5** (build and tests verified; projection is approximate); completeness **4/5** (requested preview workflows delivered; touch-device behavior remains unverified); clarity **4/5** (session-only/map limitations are visible; coordinate editing is still technical); actionability **4/5** (working create/edit routes; changes intentionally reset); conciseness **4/5** (shared map and workflow modules; numeric field markup could be consolidated later). Overall **4.0/5**. Highest-value improvements: real-device gesture/assistive-technology checks, injected save-failure coverage, then separately scoped live-contract integration. These limits should match the user's experience of a polished preview, not production GIS software.
+
+### Detail routes and scrollbars — previous slice
 
 Source plan: `detail-pages-plan.md`, slice 1. No backend changes or new dependencies.
 
@@ -100,3 +154,46 @@ Preview UX is verified; the production integration remains a separate workstream
 | Conciseness   | 4/5   | Agent entrypoint is brief with scoped document pointers; canonical docs intentionally retain integration evidence                |
 
 Overall: 3.8/5. Highest-impact follow-up: verified effective-permission/tenant contracts, then secure sessions and a read-only fleet adapter. That gap cannot safely be closed by changing this frontend alone. A production user should not mistake this preview assessment for release approval.
+
+# Real geographic rendering — 2026-10-22
+
+Supersedes the illustrated-renderer limitation recorded in the earlier map slice below. User requirement: mock fleet data is acceptable; actual map rendering, production-quality interactions and marker highlighting are mandatory.
+
+## TDD evidence and guarantees
+
+| Guarantee                                                                           | Test/evidence                                             | Actual result                                                                  |
+| ----------------------------------------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Coordinates are geographic, nullable and validated; tile config is HTTPS/attributed | `tests/unit/geographic-map.test.ts`                       | RED missing module (`80b9cc0`); GREEN contract (`36ead5c`)                     |
+| Boundaries work outside San Francisco; area is measured in square meters            | Same suite                                                | RED London rejected (`084be62`); GREEN spherical/global validation (`7b74482`) |
+| Missing vehicle positions stay missing                                              | `tests/unit/map-search-provider.test.ts`, preview adapter | PASS; newly added vehicles have no invented position                           |
+| Geographic tiles actually load and provider attribution is visible                  | `tests/e2e/geographic-map.spec.ts`                        | PASS against real OpenStreetMap tiles, not intercepted success fixtures        |
+| Tile failure is visible and retry restores real tiles                               | Same suite                                                | PASS with blocked provider requests followed by actual provider recovery       |
+| Selected markers/list/details agree; low-zoom clusters expand                       | Same suite                                                | PASS on desktop and mobile                                                     |
+| Map gestures, search, follow release, layers and geofence viewport isolation        | `tests/e2e/maps.spec.ts`                                  | PASS, including Chromium native touch-event pinch                              |
+| Existing editing, trip replay and workspace flows remain operational                | Full browser suite                                        | PASS                                                                           |
+
+## Final outcomes
+
+- `pnpm test:coverage`: **30 tests passed**, 8 files. Selected-file coverage **99.30% lines/statements, 96.07% branches, 97.56% functions**. Four obsolete illustrated-camera tests were removed with that implementation; geographic, global-boundary and missing-position coverage replaced it. This is not whole-UI/engine coverage.
+- `pnpm typecheck`, `pnpm check:boundaries`, `pnpm format:check`, `git diff --check`: passed.
+- `pnpm build`: passed. The harness restart cancelled one final verification attempt and left an empty generated server entry; rebuilding restored the artifact successfully. No implementation work was lost.
+- Final `PLAYWRIGHT_BASE_URL=http://localhost:3000 pnpm test:e2e`: **30/30 Chromium tests passed in 2.2 minutes** against the rebuilt production server.
+- Inspected `test-results/geographic-map-desktop.png` (fully loaded tiles) and `test-results/geographic-map-mobile.png` (real tiles, clustered assets, selection/details, attribution and responsive controls). Existing light/dark automated accessibility suites passed.
+- Early browser runs caught a circle-fit lifecycle error and overlapping small-screen hit targets. Geographic circle fitting and native marker clustering corrected them. Compact-map tests now expand groups before selecting children instead of assuming unclustered marker DOM.
+
+## Release limits
+
+The renderer is real Leaflet/markercluster, not a geographic illustration. Mock positions and journeys remain explicitly fictional; no backend file or snapshot was modified. Runtime provider settings, public-tile no-SLA terms, privacy/attribution requirements, supported geographic limits and authenticated API gates are documented in `maps-integration.md`. Global address geocoding, live fleet transport, server-authoritative persistence/authorization and whole-application production release remain unimplemented. Real-device/manual screen-reader, non-Chromium, large-fleet performance and provider-specific deployment checks remain unverified.
+
+## Delivery self-evaluation
+
+Accuracy 4/5: real tile loading and interaction tests pass; non-Chromium/device behavior remains unverified. Completeness 3/5: the real-renderer requirement is delivered, but the broader production-ready-app objective still has explicit authentication, API and provider deployment gates. Clarity 4/5: provider/data-source distinctions and runtime settings are documented; historical preview notes remain below as history. Actionability 4/5: runnable app and deployment variables are supplied, but production provider approval is still required. Conciseness 4/5: operational limits are explicit, although integration documentation is longer than a quick-start. Overall **3.8/5**. Highest-impact follow-ups: verified server authorization/session boundary, approved provider capacity/configuration, then cross-browser/device and fleet-scale measurement. User-agreement check: do not call the entire application production-ready merely because the maps and mock-data workflows pass.
+
+# Earlier maneuverable illustrated-map slice — 2026-10-22 (superseded renderer)
+
+- RED: new camera/search suite failed because the viewport/provider modules did not exist (`4226392`). GREEN: seven camera/provider/workflow tests passed (`838f893`).
+- Final `pnpm typecheck`, `pnpm build`, `pnpm check:boundaries`, and `pnpm format:check`: passed.
+- `pnpm test:coverage`: 29 tests passed; configured coverage 99.34% lines/statements, 95.93% branches, 97.82% functions. Coverage includes selected domain/policy/adapter files and the map-search workflow, not the whole UI or gesture composable.
+- `PLAYWRIGHT_BASE_URL=http://localhost:3000 pnpm test:e2e`: all 27 Chromium tests passed in 2.1 minutes, including four map tests, touch-event pinch/pan, keyboard/wheel/drag/search/layers, follow release, geofence search isolation, mobile layout and automated light/dark accessibility checks.
+- Inspected `test-results/maps-mobile.png`. Chromium touch emulation is not real-device verification; manual screen-reader, non-Chromium and actual touch-device checks remain unverified.
+- Read-only backend DTO recheck and provider limitations: `maps-integration.md`. No backend edits, new dependencies, external map traffic or live API connections. Illustrated positions are not GPS. Geographic rendering, global geocoding, secure transport and subscription handling remain unimplemented.

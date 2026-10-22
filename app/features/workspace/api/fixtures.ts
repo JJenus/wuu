@@ -16,8 +16,7 @@ export const previewWorkspace: Workspace = {
       location: 'Market St, San Francisco',
       updated: '12 sec ago',
       distance: 128.4,
-      x: 46,
-      y: 51,
+      position: { lat: 37.7786, lng: -122.4148 },
     },
     {
       id: 'VH-002',
@@ -32,8 +31,7 @@ export const previewWorkspace: Workspace = {
       location: 'Embarcadero, San Francisco',
       updated: '8 sec ago',
       distance: 146.8,
-      x: 72,
-      y: 35,
+      position: { lat: 37.7955, lng: -122.3937 },
     },
     {
       id: 'VH-003',
@@ -48,8 +46,7 @@ export const previewWorkspace: Workspace = {
       location: 'Mission St, San Francisco',
       updated: '24 sec ago',
       distance: 92.6,
-      x: 42,
-      y: 73,
+      position: { lat: 37.7599, lng: -122.4182 },
     },
     {
       id: 'VH-004',
@@ -64,8 +61,7 @@ export const previewWorkspace: Workspace = {
       location: 'Broadway, San Francisco',
       updated: '5 sec ago',
       distance: 183.2,
-      x: 52,
-      y: 26,
+      position: { lat: 37.7985, lng: -122.4112 },
     },
     {
       id: 'VH-005',
@@ -77,11 +73,10 @@ export const previewWorkspace: Workspace = {
       status: 'parked',
       speed: 0,
       fuel: 91,
-      location: 'Wayline depot, Dogpatch',
+      location: 'Wuu depot, Dogpatch',
       updated: '1 min ago',
       distance: 67.1,
-      x: 58,
-      y: 84,
+      position: { lat: 37.755, lng: -122.387 },
     },
     {
       id: 'VH-006',
@@ -96,8 +91,7 @@ export const previewWorkspace: Workspace = {
       location: 'Richmond District',
       updated: '32 min ago',
       distance: 104.7,
-      x: 19,
-      y: 36,
+      position: { lat: 37.78, lng: -122.47 },
     },
     {
       id: 'VH-007',
@@ -112,8 +106,7 @@ export const previewWorkspace: Workspace = {
       location: 'Hayes Valley, San Francisco',
       updated: '18 sec ago',
       distance: 156.3,
-      x: 32,
-      y: 57,
+      position: { lat: 37.7755, lng: -122.4241 },
     },
     {
       id: 'VH-008',
@@ -128,8 +121,7 @@ export const previewWorkspace: Workspace = {
       location: 'Potrero Hill, San Francisco',
       updated: '40 sec ago',
       distance: 89.5,
-      x: 67,
-      y: 68,
+      position: { lat: 37.7598, lng: -122.403 },
     },
   ],
   alerts: [
@@ -244,6 +236,8 @@ export const previewWorkspace: Workspace = {
   geofences: [
     {
       id: 'GF-001',
+      active: true,
+      geometry: { type: 'circle', center: { lat: 37.755, lng: -122.387 }, radiusMeters: 500 },
       name: 'Dogpatch depot',
       description: 'The starting point for a day on the road.',
       icon: 'i-lucide-warehouse',
@@ -254,6 +248,8 @@ export const previewWorkspace: Workspace = {
     },
     {
       id: 'GF-002',
+      active: true,
+      geometry: { type: 'circle', center: { lat: 37.794, lng: -122.401 }, radiusMeters: 1200 },
       name: 'Financial District',
       description: 'Deliveries in the heart of the city.',
       icon: 'i-lucide-building-2',
@@ -264,6 +260,16 @@ export const previewWorkspace: Workspace = {
     },
     {
       id: 'GF-003',
+      active: true,
+      geometry: {
+        type: 'polygon',
+        vertices: [
+          { lat: 37.768, lng: -122.428 },
+          { lat: 37.769, lng: -122.41 },
+          { lat: 37.75, lng: -122.408 },
+          { lat: 37.749, lng: -122.426 },
+        ],
+      },
       name: 'Mission delivery zone',
       description: 'A neighborhood we know like the back of our hand.',
       icon: 'i-lucide-map-pinned',

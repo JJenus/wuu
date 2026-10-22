@@ -26,7 +26,7 @@ async function change(status: AlertState) {
     busy.value = false
   }
 }
-useHead(() => ({ title: `${alert.value?.title || 'Alert not found'} — Wayline` }))
+useHead(() => ({ title: `${alert.value?.title || 'Alert not found'} — Wuu` }))
 </script>
 
 <template>

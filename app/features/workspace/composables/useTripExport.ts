@@ -9,7 +9,7 @@ export function useTripExport() {
       url = URL.createObjectURL(new Blob([tripsCsv(trips)], { type: 'text/csv;charset=utf-8;' }))
       const anchor = document.createElement('a')
       anchor.href = url
-      anchor.download = 'wayline-preview-trips.csv'
+      anchor.download = 'wuu-preview-trips.csv'
       document.body.append(anchor)
       anchor.click()
       anchor.remove()

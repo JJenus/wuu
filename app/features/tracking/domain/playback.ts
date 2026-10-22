@@ -1,8 +1,8 @@
-// Coordinates are percentages on an illustrated canvas, not geographic positions.
+// Geographic samples; preview routes are fictional, not recorded GPS or road routing.
 export interface TrackPoint {
   seconds: number
-  x: number
-  y: number
+  lat: number
+  lng: number
   speed: number
 }
 export function sampleTrack(track: readonly TrackPoint[], seconds: number): TrackPoint | null {
@@ -18,8 +18,8 @@ export function sampleTrack(track: readonly TrackPoint[], seconds: number): Trac
   const ratio = (time - a.seconds) / (b.seconds - a.seconds)
   return {
     seconds: time,
-    x: a.x + (b.x - a.x) * ratio,
-    y: a.y + (b.y - a.y) * ratio,
+    lat: a.lat + (b.lat - a.lat) * ratio,
+    lng: a.lng + (b.lng - a.lng) * ratio,
     speed: a.speed + (b.speed - a.speed) * ratio,
   }
 }
