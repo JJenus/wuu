@@ -6,7 +6,7 @@ import { useWorkspace } from '~/features/workspace/composables/useWorkspace'
 import type { AlertState } from '~/features/workspace/domain/types'
 const route = useRoute()
 const source = useDataSource()
-const { alerts, vehicles, updateAlert, isPending, isError, error, refetch } = useWorkspace()
+const { alerts, vehicles, updateAlert, isPending, isError, error, refetch } = useWorkspace('alerts')
 const alert = computed(() => alerts.value.find((a) => a.id === route.params.id))
 const vehicle = computed(() => vehicles.value.find((v) => v.id === alert.value?.vehicleId))
 const busy = ref(false)

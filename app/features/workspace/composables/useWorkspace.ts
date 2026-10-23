@@ -8,7 +8,7 @@ import type { AlertState } from '../domain/types'
 import type { AlertTransitionContext } from '../../alerts/services/alert-service'
 import { useWorkspaceContextValue, useWorkspaceServices } from './useWorkspaceServices'
 
-export function useWorkspace() {
+export function useWorkspace(domain?: 'fleet' | 'alerts' | 'trips' | 'geofences') {
   const services = useWorkspaceServices()
   const context = useWorkspaceContextValue()
   const queryClient = useQueryClient()
@@ -48,13 +48,16 @@ export function useWorkspace() {
   const trips = computed(() => tripsQuery.data.value ?? [])
   const geofences = computed(() => geofencesQuery.data.value ?? [])
   const summary = computed(() => fleetSummary(vehicles.value))
-  const pendingStates = [
-    fleetQuery.isPending,
-    alertsQuery.isPending,
-    tripsQuery.isPending,
-    geofencesQuery.isPending,
-  ]
-  const errorStates = [fleetQuery.error, alertsQuery.error, tripsQuery.error, geofencesQuery.error]
+  // An unrelated 403 must never hide resources the server did permit this user to read.
+  const queries = {
+    fleet: fleetQuery,
+    alerts: alertsQuery,
+    trips: tripsQuery,
+    geofences: geofencesQuery,
+  }
+  const activeQueries = domain ? [queries[domain]] : Object.values(queries)
+  const pendingStates = activeQueries.map((query) => query.isPending)
+  const errorStates = activeQueries.map((query) => query.error)
   const isPending = computed(() => pendingStates.some((state) => state.value))
   const isFetching = computed(
     () =>

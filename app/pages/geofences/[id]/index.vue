@@ -5,7 +5,7 @@ import GeofenceMap from '~/features/geofences/components/GeofenceMap.vue'
 import { geometryArea, geometrySummary } from '~/features/geofences/domain/geofence'
 const route = useRoute()
 const source = useDataSource()
-const { geofences, vehicles, isPending, isError, error, refetch } = useWorkspace()
+const { geofences, vehicles, isPending, isError, error, refetch } = useWorkspace('geofences')
 const zone = computed(() => geofences.value.find((z) => z.id === route.params.id))
 const circle = computed(() => {
   const geometry = zone.value?.geometry

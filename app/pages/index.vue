@@ -7,7 +7,8 @@ import VehicleTable from '~/features/fleet/components/VehicleTable.vue'
 import AddVehicleModal from '~/features/fleet/components/AddVehicleModal.vue'
 import MetricCard from '~/features/workspace/components/MetricCard.vue'
 const source = useDataSource()
-const { vehicles, alerts, summary, isPending, isError, error, refetch } = useWorkspace()
+const { vehicles, alerts, summary, isPending, isError, error, refetch, alertsQuery } =
+  useWorkspace('fleet')
 const addOpen = ref(false)
 const status = ref('all')
 const visible = computed(() =>
@@ -139,7 +140,7 @@ const tabs = computed(() => [
               >Open map<UIcon name="i-lucide-arrow-up-right"
             /></NuxtLink>
           </div>
-          <FleetMap :vehicles="vehicles" />
+          <FleetMap :vehicles="vehicles" :data-state="{ source: source.mode, status: 'ready' }" />
         </article>
         <article class="panel attention-panel">
           <div class="panel-heading">
@@ -164,7 +165,12 @@ const tabs = computed(() => [
               </div>
               <UIcon name="i-lucide-chevron-right" /></NuxtLink
             ><UiEmptyState
-              v-if="!activeAlerts.length"
+              v-if="alertsQuery.isError.value"
+              title="Alerts are unavailable"
+              description="The alert service did not permit or complete this request."
+            />
+            <UiEmptyState
+              v-else-if="!activeAlerts.length"
               title="All clear"
               description="Your fleet has no active alerts."
               icon="i-lucide-circle-check"

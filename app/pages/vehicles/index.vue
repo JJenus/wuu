@@ -5,7 +5,7 @@ import { filterVehicles } from '~/features/fleet/domain/fleet'
 import VehicleTable from '~/features/fleet/components/VehicleTable.vue'
 import AddVehicleModal from '~/features/fleet/components/AddVehicleModal.vue'
 const source = useDataSource()
-const { vehicles, isPending, isError, error, refetch } = useWorkspace()
+const { vehicles, isPending, isError, error, refetch } = useWorkspace('fleet')
 const search = ref('')
 const status = ref('all')
 const addOpen = ref(false)

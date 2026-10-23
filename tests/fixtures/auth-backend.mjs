@@ -67,7 +67,8 @@ createServer(async (request, response) => {
       ]),
     )
   }
-  if (path === '/api/v1/trips' && email === 'fleet-only@example.com') return send(403, { code: 'FORBIDDEN' })
+  if (path === '/api/v1/trips' && email === 'fleet-only@example.com')
+    return send(403, { code: 'FORBIDDEN' })
   if (['/api/v1/trips', '/alerts', '/alerts/geofences'].includes(path)) return send(200, page([]))
   return send(404, { code: 'NOT_FOUND' })
 }).listen(18080, '127.0.0.1')

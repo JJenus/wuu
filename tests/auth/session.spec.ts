@@ -1,6 +1,8 @@
 import { expect, test, type Page } from '@playwright/test'
+import AxeBuilder from '@axe-core/playwright'
 
 async function signIn(page: Page, email = 'operator@example.com') {
+  await expect(page.locator('[data-workspace-ready]')).toHaveAttribute('data-workspace-ready', 'true')
   await page.getByLabel('Email', { exact: true }).fill(email)
   await page.getByLabel('Password', { exact: true }).fill('test-only-password')
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
@@ -70,6 +72,7 @@ test('invalid credentials and rate limiting stay errors without preview fallback
   page,
 }) => {
   await page.goto('/sign-in')
+  await expect(page.locator('[data-workspace-ready]')).toHaveAttribute('data-workspace-ready', 'true')
   await page.getByLabel('Email', { exact: true }).fill('operator@example.com')
   await page.getByLabel('Password', { exact: true }).fill('wrong-password')
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
@@ -110,4 +113,70 @@ test('revoked backend sessions force reauthentication rather than using cached i
   await page.reload()
   await expect(page).toHaveURL(/sign-in/)
   await second.close()
+})
+
+test('tampered cookies and oversized or malformed login requests fail closed', async ({
+  page,
+  context,
+}) => {
+  await page.goto('/sign-in')
+  await context.addCookies([
+    { name: 'wuu_session', value: 'not-a-real-sealed-session', url: 'http://localhost:3001' },
+  ])
+  expect((await page.request.get('/api/auth/session')).status()).toBe(401)
+  const headers = { origin: 'http://localhost:3001' }
+  expect(
+    (
+      await page.request.post('/api/auth/login', { headers, data: { email: 'bad', password: '' } })
+    ).status(),
+  ).toBe(400)
+  expect(
+    (
+      await page.request.post('/api/auth/login', {
+        headers,
+        data: { email: 'operator@example.com', password: 'x'.repeat(5000) },
+      })
+    ).status(),
+  ).toBe(413)
+  expect(
+    (
+      await page.request.post('/api/auth/login', {
+        headers: { ...headers, 'content-type': 'text/plain' },
+        data: 'not-json',
+      })
+    ).status(),
+  ).toBe(415)
+})
+
+test('an expired active read returns to sign-in instead of showing sample data', async ({
+  page,
+}) => {
+  await page.goto('/sign-in?next=/vehicles')
+  await page.route('**/api/_wuu/vehicles*', (route) =>
+    route.fulfill({
+      status: 401,
+      contentType: 'application/json',
+      body: '{"code":"UNAUTHENTICATED"}',
+    }),
+  )
+  await signIn(page, 'expired@example.com')
+  await expect(page).toHaveURL('/sign-in?expired=1')
+  await expect(page.getByText('Your session expired. Sign in again to continue.')).toBeVisible()
+})
+
+test('sign-in fits mobile, supports dark mode, and has no automated accessibility violations', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 812 })
+  const response = await page.goto('/sign-in')
+  expect(response?.headers()['cache-control']).toContain('no-store')
+  await expect(page.locator('[data-workspace-ready]')).toHaveAttribute(
+    'data-workspace-ready',
+    'true',
+  )
+  for (const dark of [false, true]) {
+    await page.evaluate((value) => document.documentElement.classList.toggle('dark', value), dark)
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  }
 })

@@ -21,9 +21,17 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 413, message: 'Sign-in request is too large.' })
   if (!getHeader(event, 'content-type')?.startsWith('application/json'))
     throw createError({ statusCode: 415, message: 'JSON is required.' })
-  const raw = await readRawBody(event)
-  if (!raw || Buffer.byteLength(raw) > 4096)
-    throw createError({ statusCode: 400, message: 'Invalid sign-in request.' })
+  const chunks: Buffer[] = []
+  let bytes = 0
+  for await (const chunk of event.node.req) {
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
+    bytes += buffer.length
+    if (bytes > 4096)
+      throw createError({ statusCode: 413, message: 'Sign-in request is too large.' })
+    chunks.push(buffer)
+  }
+  const raw = Buffer.concat(chunks).toString('utf8')
+  if (!raw) throw createError({ statusCode: 400, message: 'Invalid sign-in request.' })
   let body: unknown
   try {
     body = JSON.parse(raw)

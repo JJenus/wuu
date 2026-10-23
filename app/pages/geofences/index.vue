@@ -3,7 +3,7 @@ import { useDataSource } from '~/features/core/composables/useDataSource'
 import { useWorkspace } from '~/features/workspace/composables/useWorkspace'
 import { geometrySummary } from '~/features/geofences/domain/geofence'
 const source = useDataSource()
-const { geofences, isPending, isError, error, refetch } = useWorkspace()
+const { geofences, isPending, isError, error, refetch } = useWorkspace('geofences')
 useHead({ title: 'Geofences — Wuu' })
 </script>
 

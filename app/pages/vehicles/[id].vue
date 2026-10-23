@@ -4,7 +4,8 @@ import { useWorkspace } from '~/features/workspace/composables/useWorkspace'
 import FleetMap from '~/features/fleet/components/FleetMap.vue'
 const route = useRoute()
 const source = useDataSource()
-const { vehicles, alerts, trips, isPending, isError, error, refetch } = useWorkspace()
+const { vehicles, alerts, trips, isPending, isError, error, refetch, alertsQuery, tripsQuery } =
+  useWorkspace('fleet')
 const vehicle = computed(() => vehicles.value.find((v) => v.id === route.params.id))
 const relatedAlerts = computed(() =>
   alerts.value.filter((a) => a.vehicleId === vehicle.value?.id && a.status !== 'resolved'),
@@ -60,7 +61,7 @@ const sourceLabel = computed(() => (source.isPreview ? 'Sample data' : 'Live dat
               ><strong class="!text-base">{{ vehicle.driver ?? 'Not assigned' }}</strong>
             </div>
           </div>
-          <FleetMap :vehicles="[vehicle]" />
+          <FleetMap :vehicles="[vehicle]" :data-state="{ source: source.mode, status: 'ready' }" />
         </section>
         <div class="content-grid mt-6">
           <section class="panel">
@@ -97,7 +98,10 @@ const sourceLabel = computed(() => (source.isPreview ? 'Sample data' : 'Live dat
               /></NuxtLink>
             </div>
             <div class="section-body">
-              <p v-if="!relatedAlerts.length" class="section-description">
+              <p v-if="alertsQuery.isError.value" role="alert" class="muted">
+                Vehicle alerts are unavailable for this session.
+              </p>
+              <p v-else-if="!relatedAlerts.length" class="section-description">
                 Nothing needs your attention for this vehicle.
               </p>
               <NuxtLink
@@ -136,7 +140,12 @@ const sourceLabel = computed(() => (source.isPreview ? 'Sample data' : 'Live dat
               </div>
               <UIcon name="i-lucide-arrow-up-right"
             /></NuxtLink>
-            <p v-if="!relatedTrips.length" class="muted">No journeys are linked to this vehicle.</p>
+            <p v-if="tripsQuery.isError.value" role="alert" class="muted">
+              Related journeys are unavailable for this session.
+            </p>
+            <p v-else-if="!relatedTrips.length" class="muted">
+              No journeys are linked to this vehicle.
+            </p>
           </div>
         </section>
         <div class="info-banner mt-6">

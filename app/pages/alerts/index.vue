@@ -4,7 +4,7 @@ import { useDataSource } from '~/features/core/composables/useDataSource'
 import { useWorkspace } from '~/features/workspace/composables/useWorkspace'
 import type { AlertState } from '~/features/workspace/domain/types'
 const source = useDataSource()
-const { alerts, updateAlert, isPending, isError, error, refetch } = useWorkspace()
+const { alerts, updateAlert, isPending, isError, error, refetch } = useWorkspace('alerts')
 const filter = ref('active')
 const busy = ref<string | null>(null)
 const toast = useToast()

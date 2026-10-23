@@ -4,7 +4,7 @@ import { useWorkspace } from '~/features/workspace/composables/useWorkspace'
 import { useTripExport } from '~/features/workspace/composables/useTripExport'
 const source = useDataSource()
 const { exportTrips } = useTripExport()
-const { trips, isPending, isError, error, refetch } = useWorkspace()
+const { trips, isPending, isError, error, refetch } = useWorkspace('trips')
 const search = ref('')
 const selected = ref<string | null>(null)
 const detailOpen = ref(false)

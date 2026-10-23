@@ -5,7 +5,7 @@ import FleetMap from '~/features/fleet/components/FleetMap.vue'
 import { useTrackingPreview } from '~/features/tracking/composables/useTrackingPreview'
 import { formatElapsed } from '~/features/tracking/domain/playback'
 const source = useDataSource()
-const { vehicles, summary, isPending, isError, refetch } = useWorkspace()
+const { vehicles, summary, isPending, isError, refetch } = useWorkspace('fleet')
 const mapDataState = computed(() => ({
   source: source.mode,
   status: isPending.value

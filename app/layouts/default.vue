@@ -14,7 +14,7 @@ function updateViewport() {
 const searchOpen = ref(false)
 const search = ref('')
 const notificationsOpen = ref(false)
-const { vehicles, alerts } = useWorkspace()
+const { vehicles, alerts, alertsQuery, fleetQuery } = useWorkspace()
 const results = computed(() =>
   vehicles.value
     .filter((v) =>
@@ -300,7 +300,10 @@ watch(mobileOpen, async (open) => {
                     ><small>{{ alert.vehicle }} · {{ alert.time }}</small></span
                   ></NuxtLink
                 >
-                <p v-if="!activeAlerts.length" class="muted">You're all caught up.</p>
+                <p v-if="alertsQuery.isError.value" role="alert" class="muted">
+                  Notifications are unavailable. Open alerts to retry.
+                </p>
+                <p v-else-if="!activeAlerts.length" class="muted">You're all caught up.</p>
               </div></template
             ></UPopover
           ><UColorModeButton color="neutral" variant="ghost" class="theme-toggle" /><span
@@ -340,7 +343,12 @@ watch(mobileOpen, async (open) => {
               ><small>{{ vehicle.plate }} · {{ vehicle.driver }}</small></span
             ><UIcon name="i-lucide-arrow-up-right" /></NuxtLink
           ><UiEmptyState
-            v-if="!results.length"
+            v-if="fleetQuery.isError.value"
+            title="Search is unavailable"
+            description="Fleet records could not load. Open vehicles to retry."
+          />
+          <UiEmptyState
+            v-else-if="!results.length"
             title="No vehicles found"
             description="Try a different name, registration, or driver."
           /></div></template
