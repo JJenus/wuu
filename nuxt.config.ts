@@ -9,7 +9,7 @@ export default defineNuxtConfig({
   ],
   runtimeConfig: {
     apiOrigin: '',
-    apiBearerToken: '',
+    sessionPassword: '',
     public: {
       dataMode: process.env.NUXT_PUBLIC_DATA_MODE === 'live' ? 'live' : 'preview',
       workspaceOrganizationId: 'northstar',

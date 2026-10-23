@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { useDataSource } from '~/features/core/composables/useDataSource'
+import { useAuth } from '~/features/auth/composables/useAuth'
 import { useWorkspace } from '~/features/workspace/composables/useWorkspace'
 const route = useRoute()
 const source = useDataSource()
+const auth = useAuth()
 const mobileOpen = ref(false)
 const isMobile = ref(false)
 let mobileQuery: MediaQueryList | undefined
@@ -23,12 +25,24 @@ const results = computed(() =>
 const activeAlerts = computed(() => alerts.value.filter((a) => a.status === 'active'))
 const admin = computed(() => route.path.startsWith('/admin'))
 const workspaceName = computed(() =>
-  admin.value ? 'Wuu platform' : source.isPreview ? 'Northstar Logistics' : 'Configured workspace',
+  admin.value
+    ? 'Wuu platform'
+    : source.isPreview
+      ? 'Northstar Logistics'
+      : auth.user.value?.organization_id
+        ? `Workspace ${auth.user.value.organization_id}`
+        : 'Personal workspace',
 )
 const identity = computed(() =>
   source.isPreview
     ? { name: 'Alex Carter', detail: 'Workspace preview' }
-    : { name: admin.value ? 'Platform operator' : 'Workspace operator', detail: 'Live mode' },
+    : {
+        name:
+          [auth.user.value?.first_name, auth.user.value?.last_name].filter(Boolean).join(' ') ||
+          auth.user.value?.email ||
+          'Workspace operator',
+        detail: auth.user.value?.email || 'Live mode',
+      },
 )
 const footerStatus = computed(() =>
   source.isPreview
@@ -150,7 +164,7 @@ watch(mobileOpen, async (open) => {
               ><UIcon name="i-lucide-building-2" />{{
                 source.isPreview ? 'Northstar Logistics' : 'Configured workspace'
               }}</NuxtLink
-            ><NuxtLink to="/admin"
+            ><NuxtLink v-if="source.isPreview" to="/admin"
               ><UIcon name="i-lucide-shield-check" />Platform administration</NuxtLink
             >
             <p>
@@ -207,7 +221,10 @@ watch(mobileOpen, async (open) => {
             ><span />{{ source.isPreview ? 'Interactive preview' : 'Live mode' }}</span
           >
         </div>
-        <NuxtLink :to="admin ? '/' : '/admin'" class="nav-item platform-link"
+        <NuxtLink
+          v-if="source.isPreview"
+          :to="admin ? '/' : '/admin'"
+          class="nav-item platform-link"
           ><UIcon :name="admin ? 'i-lucide-arrow-left' : 'i-lucide-shield-check'" />{{
             admin ? 'Business workspace' : 'Platform preview'
           }}<UIcon name="i-lucide-arrow-up-right"
@@ -223,6 +240,15 @@ watch(mobileOpen, async (open) => {
             ><UIcon name="i-lucide-settings"
           /></NuxtLink>
         </div>
+        <UButton
+          v-if="source.isLive"
+          color="neutral"
+          variant="ghost"
+          icon="i-lucide-log-out"
+          :loading="auth.busy.value"
+          @click="auth.signOut"
+          >Sign out all sessions</UButton
+        >
       </div>
     </aside>
     <div class="workspace-body" :inert="isMobile && mobileOpen">

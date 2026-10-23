@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { responseApiError, toApiError, ApiError, type FieldIssue } from '../domain/errors'
+import { normalizeWireKeys } from './wire-format'
 
 export interface GatewayRequestOptions {
   signal?: AbortSignal
@@ -21,6 +22,7 @@ export interface GatewayClient {
 export type GatewayFetch = typeof globalThis.fetch
 
 export interface GatewayClientOptions {
+  onUnauthorized?: () => void
   baseUrl?: string
   fetchImpl?: GatewayFetch
   timeoutMs?: number
@@ -108,17 +110,20 @@ export function createGatewayClient(options: GatewayClientOptions = {}): Gateway
         )
         const body = await responseBody(response)
         const requestId = response.headers.get('x-request-id') ?? undefined
-        if (!response.ok) throw responseApiError(response.status, body, requestId)
+        if (!response.ok) {
+          if (response.status === 401) options.onUnauthorized?.()
+          throw responseApiError(response.status, body, requestId)
+        }
         try {
-          return schema.parse(body)
+          return schema.parse(normalizeWireKeys(body))
         } catch (error) {
-          if (error instanceof z.ZodError)
+          if (error instanceof Error)
             throw new ApiError({
               kind: 'contract',
               status: response.status,
               requestId,
               message: 'The service returned data this app cannot safely read.',
-              fields: validationFields(error),
+              fields: error instanceof z.ZodError ? validationFields(error) : [],
               cause: error,
             })
           throw error

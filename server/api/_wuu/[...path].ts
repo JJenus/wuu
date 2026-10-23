@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { H3Event } from 'h3'
 import { originIsSafe, upstreamPath } from '../../utils/wuu-gateway'
+import { currentSession } from '../../utils/wuu-session'
 
 const methods = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])
 
@@ -15,6 +16,7 @@ export default defineEventHandler(async (event) => {
   setResponseHeader(event, 'x-request-id', requestId)
   setResponseHeader(event, 'cache-control', 'no-store')
   setResponseHeader(event, 'x-content-type-options', 'nosniff')
+  const session = currentSession(event)
 
   const config = useRuntimeConfig(event)
   // Support the deployment's WUU_* names at runtime without baking the token into a build.
@@ -30,7 +32,7 @@ export default defineEventHandler(async (event) => {
     )
 
   const method = (event.method || 'GET').toUpperCase()
-  if (!methods.has(method))
+  if (!methods.has(method) || method !== 'GET')
     return jsonError(event, 405, 'This request method is not allowed.', requestId)
 
   const target = upstreamPath(getRouterParam(event, 'path'))
@@ -55,12 +57,7 @@ export default defineEventHandler(async (event) => {
   }
   const contentType = getHeader(event, 'content-type')
   if (contentType) headers['content-type'] = contentType
-  const token =
-    getCookie(event, 'wuu_access_token') ||
-    config.apiBearerToken ||
-    process.env.WUU_API_BEARER_TOKEN ||
-    ''
-  if (token) headers.authorization = `Bearer ${token}`
+  headers.authorization = `Bearer ${session.accessToken}`
 
   let body: string | undefined
   if (!['GET', 'HEAD'].includes(method)) {
