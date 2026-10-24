@@ -46,8 +46,8 @@ const capabilities = [
       <UIcon name="i-lucide-shield-alert" />
       <p>
         <strong>Administration concept preview.</strong> This route has no production access control
-        and exposes only sample information. Backend permission enforcement is a release blocker—not
-        something navigation guards can solve.
+        and exposes only sample information. Live administration is blocked until effective platform
+        capabilities are integrated. Navigation guards never replace backend authorization.
       </p>
     </div>
     <section class="metric-grid">

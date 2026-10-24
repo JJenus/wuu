@@ -12,7 +12,7 @@ This directory is an **independent Git repository** on `frontend-app`. Run front
 
 - Keep the active `../sidie/` checkout and `../sidie-snapshot-*` untouched. Backend fixes need separately approved isolation.
 - Use pnpm, Nuxt/Vue, and Nuxt UI v4. Keep UI HTTP-free; adapters own contracts and composables own workflows.
-- This is a sample-data preview. Preserve explicit preview labels and fail-closed unsupported actions. Authentication and backend authorization are not implemented.
+- Preview remains public sample data. Live reads require the implemented sealed-session sign-in boundary; preserve explicit preview labels, backend-authoritative access, and fail-closed unsupported actions. Read `docs/api-contracts.md` before changing authentication; contract-server tests are not actual-deployment verification.
 - Production access is enforced on the server, never inferred from client role templates or hidden navigation.
 - Live API failures must stay errors; never replace them with preview fixtures.
 

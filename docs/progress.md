@@ -1,18 +1,19 @@
 # Progress and next slice
 
-## Current checkpoint — 2026-10-22
+## Current checkpoint — 2026-10-23
 
-Wuu now has two explicit data modes. **Preview** remains an isolated sample workspace. **Live** adds typed read-only fleet, trip, alert, and geofence services behind an allowlisted Nitro gateway that resolves the upstream origin/token at runtime. Failed live requests stay errors; there is no fixture fallback. Unsupported live mutations fail closed and are hidden or disabled.
+Wuu has authenticated live read-only fleet/trip/alert/geofence services and an isolated public preview. Live sign-in validates backend credentials and `/users/me`, issues a sealed HttpOnly access cookie, guards routes, scopes caches to verified identity, and signs out through account-wide backend revocation. Access expiry requires reauthentication; refresh tokens are discarded, not raced. All live resource writes remain blocked at the gateway. Failed live requests never become fixtures, and per-domain permission failures cannot hide permitted content in another domain.
 
 Verified on the final source:
 
 - `pnpm typecheck`: PASS.
-- `pnpm test:coverage`: **70 unit tests / 12 files PASS**; selected-source coverage **95.62% lines/statements, 82.24% branches, 95.16% functions**. This is not whole-UI coverage.
+- `pnpm test:coverage`: **77 unit tests / 13 files PASS**; selected-source coverage **96% lines/statements, 83.78% branches, 95.62% functions**. This is not whole-UI coverage.
 - `pnpm check:boundaries`: PASS.
 - `pnpm format:check`: PASS.
 - `pnpm build`: PASS.
-- `pnpm test:e2e`: **30/30 Chromium tests PASS in 2.8 minutes** against a fresh production build; the default command owns a production server rather than a Vite dev server.
-- Live fail-closed runtime check: BFF returned **503** with `{"message":"The live API is not configured on this server."}`; home/map showed live errors and no preview vehicles or fake identity; team hid sample members and showed the explicit live gap.
+- `pnpm test:e2e`: **30/30 Chromium tests PASS in 3.9 minutes** against a fresh production build. Geographic tile-engine tests now use labeled deterministic images by default; public provider availability is a separate opt-in smoke check.
+- `pnpm test:e2e:auth`: **11/11 PASS**, including verified identity, bearer secrecy, sealed cookies, Origin checks, revocation/failure, identity-service failure, expiry, denied reads, independent permissions, and mobile/dark automated accessibility. Uses a test-only snake_case contract server, not Java.
+- Anonymous live routes now redirect to sign-in; anonymous/legacy-cookie gateway calls return **401**. Live admin routes fail closed even for descriptive administrator role names. No actual backend URL/credentials or running Java service were available for real-deployment verification.
 
 See `verification.md` for commands, evidence, screenshots, and limitations.
 
@@ -20,7 +21,7 @@ Wuu frontend (previously named Wayline) is built on the independent orphan branc
 
 Before alterations, `/home/jjenus/workspace/apps/tracker/sidie` was copied to `/home/jjenus/workspace/apps/tracker/sidie-snapshot-20261021-141524`. All 952 regular files were byte-verified at snapshot time. The frontend repository was cloned with independent Git metadata from that snapshot without checkout, then switched to an orphan branch. The active backend checkout was not modified.
 
-Backend source commit observed during this work: `822f2a2b7314cd2f0df7184c6762e28028b76e6d`. The source also has uncommitted ongoing work; recheck contracts and diffs before subsequent integration. The independent frontend remote contains only this application; it is never a path for changing the backend or snapshot.
+Current backend HEAD observed: `551db79`; active code has an uncommitted refactor under `src/main/java/com/surf/tracker/`. `SECURITY.md` and read-only source inspection confirm active-session and current-database-permission enforcement, snake_case JSON, 15-minute default access tokens, single-use refresh rotation, and account-wide logout. Recheck the working tree, not just HEAD, before further integration. No backend files were modified or built here.
 
 ## Implemented
 
@@ -33,6 +34,7 @@ Backend source commit observed during this work: `822f2a2b7314cd2f0df7184c6762e2
 - Real Leaflet/markercluster maps: geographic coordinates, tiles/attribution, clustering, selection, search, layers, fit/reset, provider-error recovery, touch/keyboard navigation, polygons/circles in meters, and runtime-configurable tiles.
 - Preview-only workflows: search/filter, vehicle creation, alert transitions, geofence drawing/editing, notification preferences, simulated tracking, and trip replay.
 - Clear preview/live copy. Live identity is not invented; static preview identity is shown only in preview. Live team fails closed instead of listing sample people.
+- Sign-in, safe local return paths, backend-verified account identity, HttpOnly encrypted cookies, same-origin login/logout, expired-session recovery, and protected live admin routes. Tokens never enter browser-readable state. Protected HTML is private/no-store.
 
 ### Typed data layer
 
@@ -54,9 +56,9 @@ Backend source commit observed during this work: `822f2a2b7314cd2f0df7184c6762e2
 
 ## Not done
 
-- Login/session issuance/refresh/revocation, secure HttpOnly sessions, CSRF protections, route guards, and verified effective permissions.
+- Coordinated automatic refresh, registration/password recovery, and an effective-permissions/active-tenant endpoint integrated into UI capabilities. Initial sign-in/session/Origin guards/logout are implemented.
 - Authenticated end-to-end validation against the real Java backend; live mode has only been exercised fail-closed with no upstream configured plus unit-tested adapters.
-- Tenant-isolation enforcement, role catalog/assignment APIs, team/invitation workflows, and protected `/admin`.
+- Actual-deployment tenant/permission validation, role catalog/assignment integration, and team/invitation workflows. Live `/admin` is blocked rather than exposed as a working administration UI.
 - Live alert transitions, vehicle creation, geofence create/edit, and preferences.
 - Tenant-scoped telemetry, recorded GPS history, live trip replay, device commands, and notification streaming.
 - Server-side export, alert rules, trackers, billing, ride-hailing, and payouts.
@@ -66,8 +68,8 @@ Backend source commit observed during this work: `822f2a2b7314cd2f0df7184c6762e2
 
 Production-readiness work takes priority over adding more concept screens:
 
-1. Agree backend identity/effective-permission and tenant-isolation contracts.
-2. Add a secure server session boundary and verify authenticated read-only fleet behavior against a real backend.
+1. Configure the Java deployment URL and a random shared session-encryption secret, then verify actual login, reads, per-role denial, tenant isolation, expiry, and account-wide logout.
+2. Verify an effective-permissions/active-tenant contract and design coordinated refresh before expanding the session lifecycle.
 3. Then verify alert actor/review-note and geofence geometry/assignment contracts before enabling any live mutation.
 4. Approve/configure the production tile provider and CSP.
 5. Only then add telemetry/history, team administration, or additional domains.

@@ -1,4 +1,14 @@
 import { test, expect } from '@playwright/test'
+// Test the tile engine deterministically; live provider availability is a separate smoke check.
+test.beforeEach(async ({ page }) => {
+  if (process.env.WUU_TEST_LIVE_TILES === '1') return
+  await page.route('https://tile.openstreetmap.org/**', (route) =>
+    route.fulfill({
+      contentType: 'image/svg+xml',
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="#e2e8f0"/><path d="M0 128H256M128 0V256" stroke="#94a3b8"/><text x="16" y="24" fill="#334155">Test tile</text></svg>',
+    }),
+  )
+})
 test('nearby markers cluster and list selection reveals the selected geographic asset', async ({
   page,
 }) => {
@@ -44,13 +54,14 @@ test('real geographic tiles, attribution, highlighted markers and selection stay
 test('tile failures remain visible, retry recovers without replacing the map with an illustration', async ({
   page,
 }) => {
-  await page.route('https://tile.openstreetmap.org/**', (route) => route.abort())
+  const failTiles = (route: import('@playwright/test').Route) => route.abort()
+  await page.route('https://tile.openstreetmap.org/**', failTiles)
   await page.goto('/map')
   await expect(
     page.getByText('Map tiles unavailable. Vehicle data is unchanged.', { exact: true }),
   ).toBeVisible({ timeout: 20000 })
   await expect(page.locator('.map-art')).toHaveCount(0)
-  await page.unroute('https://tile.openstreetmap.org/**')
+  await page.unroute('https://tile.openstreetmap.org/**', failTiles)
   await page.getByRole('button', { name: 'Retry map tiles', exact: true }).click()
   await expect(page.locator('.leaflet-tile-loaded').first()).toBeVisible({ timeout: 20000 })
   await expect(

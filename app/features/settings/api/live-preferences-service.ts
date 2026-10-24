@@ -5,12 +5,12 @@ export function createLivePreferencesService(): PreferencesService {
   return {
     async get() {
       throw capabilityUnavailable(
-        'Notification preferences need a verified current-user session and preferences contract.',
+        'Notification preferences are unavailable until the current-user preferences contract is integrated.',
       )
     },
     async save() {
       throw capabilityUnavailable(
-        'Notification preferences are not writable until the current-user session contract is verified.',
+        'Notification preferences are not writable until the preferences contract is verified.',
       )
     },
   }

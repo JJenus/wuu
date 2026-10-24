@@ -2,7 +2,10 @@ import { expect, test, type Page } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 
 async function signIn(page: Page, email = 'operator@example.com') {
-  await expect(page.locator('[data-workspace-ready]')).toHaveAttribute('data-workspace-ready', 'true')
+  await expect(page.locator('[data-workspace-ready]')).toHaveAttribute(
+    'data-workspace-ready',
+    'true',
+  )
   await page.getByLabel('Email', { exact: true }).fill(email)
   await page.getByLabel('Password', { exact: true }).fill('test-only-password')
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
@@ -53,6 +56,7 @@ test('sign-in preserves safe deep links, hides credentials, verifies identity, g
   expect(cookie?.value).not.toContain('private-access')
   expect(await page.evaluate(() => document.cookie)).not.toContain('wuu_session')
   expect(await page.evaluate(() => JSON.stringify(localStorage))).not.toContain('private-access')
+  expect(await page.content()).not.toMatch(/private-access|private-refresh/)
   await page.reload()
   await expect(page.getByText('WUU LIVE 01').first()).toBeVisible()
   await page.goto('/admin')
@@ -72,7 +76,10 @@ test('invalid credentials and rate limiting stay errors without preview fallback
   page,
 }) => {
   await page.goto('/sign-in')
-  await expect(page.locator('[data-workspace-ready]')).toHaveAttribute('data-workspace-ready', 'true')
+  await expect(page.locator('[data-workspace-ready]')).toHaveAttribute(
+    'data-workspace-ready',
+    'true',
+  )
   await page.getByLabel('Email', { exact: true }).fill('operator@example.com')
   await page.getByLabel('Password', { exact: true }).fill('wrong-password')
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
@@ -113,6 +120,27 @@ test('revoked backend sessions force reauthentication rather than using cached i
   await page.reload()
   await expect(page).toHaveURL(/sign-in/)
   await second.close()
+})
+
+test('failed identity verification never issues a usable session', async ({ page, context }) => {
+  await page.goto('/sign-in')
+  await signIn(page, 'unavailable@example.com')
+  await expect(page.getByRole('alert')).toContainText('unavailable')
+  expect((await context.cookies()).some((cookie) => cookie.name === 'wuu_session')).toBe(false)
+})
+
+test('failed backend revocation still signs out locally and reports the limitation', async ({
+  page,
+  context,
+}) => {
+  await page.goto('/sign-in?next=/vehicles')
+  await signIn(page, 'logout-failure@example.com')
+  await expect(page).toHaveURL('/vehicles')
+  await page.getByRole('button', { name: 'Sign out all sessions' }).click()
+  await expect(page).toHaveURL('/sign-in?revocation=failed')
+  await expect(page.getByRole('alert')).toContainText('could not confirm revocation')
+  expect((await context.cookies()).some((cookie) => cookie.name === 'wuu_session')).toBe(false)
+  expect((await page.request.get('/api/_wuu/vehicles')).status()).toBe(401)
 })
 
 test('tampered cookies and oversized or malformed login requests fail closed', async ({

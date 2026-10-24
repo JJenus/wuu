@@ -62,8 +62,8 @@ useHead(() => ({ title: `${alert.value?.title || 'Alert not found'} — Wuu` }))
             message or device command is sent.
           </p>
           <p v-else>
-            This alert is read-only in the workspace. Acknowledging or resolving it requires a
-            verified operator identity, and resolution requires review notes.
+            This alert is read-only in the workspace. The live response workflow is not enabled;
+            resolution will require review notes and server-authorized operator attribution.
           </p>
         </div>
         <div class="detail-layout">
@@ -189,8 +189,8 @@ useHead(() => ({ title: `${alert.value?.title || 'Alert not found'} — Wuu` }))
                   Update this alert across your preview workspace.
                 </p>
                 <p v-else class="muted">
-                  Status changes are unavailable until a verified operator session and resolution
-                  notes workflow are available.
+                  Status changes remain unavailable until the authorized response and resolution
+                  notes workflow is integrated.
                 </p>
                 <p v-if="updateError" role="alert" class="form-error">{{ updateError }}</p>
                 <template v-if="source.isPreview">

@@ -38,9 +38,12 @@ createServer(async (request, response) => {
   const email = sessions.get(token)
   if (!email) return send(401, { code: 'UNAUTHENTICATED' })
   if (path === '/api/v1/auth/logout') {
+    if (email === 'logout-failure@example.com') return send(503, { code: 'UNAVAILABLE' })
     for (const [key, value] of sessions) if (value === email) sessions.delete(key)
     return send(204)
   }
+  if (path === '/api/v1/users/me' && email === 'unavailable@example.com')
+    return send(503, { code: 'UNAVAILABLE' })
   if (path === '/api/v1/users/me')
     return send(200, {
       id: email === 'forbidden@example.com' ? 8 : 7,

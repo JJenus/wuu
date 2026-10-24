@@ -5,9 +5,9 @@
 Wuu runs in two explicit data modes:
 
 - **Preview** (default): isolated sample data, no backend or credentials required.
-- **Live**: typed read-only adapters call an allowlisted server-side gateway. Failed live requests stay visible and are never replaced with sample data.
+- **Live**: sign in against the configured backend; typed read-only adapters call an authenticated server-side gateway. Failed live requests stay visible and are never replaced with sample data.
 
-Preview remains a frontend demonstration. Live mode is an integration seam, not a claim of production readiness: authentication, effective permissions, tenant isolation, and several backend mutation contracts are still release gates.
+Preview remains a frontend demonstration. Live sign-in/session integration is implemented and contract-tested, not production-certified. Real-deployment authorization/tenant checks and several mutation contracts still need verification.
 
 ## Run the preview
 
@@ -28,19 +28,21 @@ Build once, then start the server with runtime configuration:
 pnpm build
 NUXT_PUBLIC_DATA_MODE=live \
 WUU_API_ORIGIN=https://fleet-api.example.com \
-WUU_API_BEARER_TOKEN='server-only-token' \
+WUU_SESSION_PASSWORD='<cryptographically-random-secret-at-least-32-characters>' \
 PORT=3000 node .output/server/index.mjs
 ```
 
-| Variable                     | Purpose                                                                                                                        |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `NUXT_PUBLIC_DATA_MODE=live` | Switches the client and server to live mode. Any other value remains preview.                                                  |
-| `WUU_API_ORIGIN`             | Server-only upstream origin. `NUXT_API_ORIGIN` is also supported. HTTPS is required except for loopback.                       |
-| `WUU_API_BEARER_TOKEN`       | Server-only token forwarded to the upstream. `NUXT_API_BEARER_TOKEN` is also supported.                                        |
-| `wuu_access_token` cookie    | Optional per-session bearer token. No login or token-issuance flow is implemented in this app.                                 |
-| `NUXT_PUBLIC_MAP_TILES_*`    | Optional URL/attribution/zoom override for the configured map tile provider. See [maps integration](docs/maps-integration.md). |
+| Variable                     | Purpose                                                                                                                                                                 |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NUXT_PUBLIC_DATA_MODE=live` | Switches the client and server to live mode. Any other value remains preview.                                                                                           |
+| `WUU_API_ORIGIN`             | Server-only upstream origin. `NUXT_API_ORIGIN` is also supported. HTTPS is required except for loopback.                                                                |
+| `WUU_SESSION_PASSWORD`       | Server-only cookie-encryption secret, at least 32 random characters. `NUXT_SESSION_PASSWORD` is also supported. Share across app replicas; rotation signs everyone out. |
+| `wuu_session` cookie         | Encrypted, HttpOnly, SameSite=Strict access session issued after login and `/users/me` verification; Secure except on loopback development hosts.                       |
+| `NUXT_PUBLIC_MAP_TILES_*`    | Optional URL/attribution/zoom override for the configured map tile provider. See [maps integration](docs/maps-integration.md).                                          |
 
-Never put a real token in a `NUXT_PUBLIC_*` variable, client code, a URL query, or the preview fixtures. The browser talks only to `/api/_wuu/*`; the Nitro gateway resolves the private origin/token at runtime and forwards only `vehicles`, `trips`, `alerts`, `geofences`, and `notifications`. Unknown resources, encoded path separators, traversal segments, unsafe origins, and unsupported methods fail closed.
+Never put a real token in a `NUXT_PUBLIC_*` variable, client code, a URL query, or the preview fixtures. The browser uses same-origin `/api/auth/*` and `/api/_wuu/*`. Login/logout require an exact matching Origin; tokens never enter browser-readable state or localStorage. The gateway requires a valid sealed session, forwards only allowlisted GETs, and never uses shared bearer-token environment fallbacks or the legacy `wuu_access_token` cookie. Configure HTTPS and trusted Host handling at the ingress, shared authentication rate limits, and request-body limits. Login bodies are bounded to 4 KiB.
+
+Access sessions expire with the backend access token (15 minutes by backend default). Refresh tokens are discarded: automatic refresh is deliberately not implemented because concurrent rotations revoke the backend session. Expiry requires sign-in again. Sign-out revokes **all backend sessions** for the account; if revocation fails, the local cookie is still cleared and a warning is shown. There is no public registration or password-reset flow in this slice.
 
 Live mode currently reads fleet vehicles, trips, alerts, and geofences. Vehicle creation, alert transitions, geofence create/edit, team administration, and preferences remain disabled or unavailable until their identity, geometry, and server-authoritative contracts are verified. Live geofence and alert screens are read-only. Simulated tracking and trip replay remain clearly labeled preview simulations; they are never live GPS or recorded history.
 
@@ -54,12 +56,12 @@ Live mode currently reads fleet vehicles, trips, alerts, and geofences. Vehicle 
 - Live read-only tables and detail routes backed by the allowlisted gateway, with unsupported actions disabled.
 - Filtered client-side trip CSV downloads (`wuu-preview-trips.csv` in preview, `wuu-trips.csv` in live).
 - Dark/light mode, keyboard navigation, responsive tables, automated accessibility coverage, and a hydration-ready boundary for browser tests.
-- Platform administration remains a clearly labeled **concept preview**; it is not connected to production access control.
+- Platform administration remains a clearly labeled **concept preview** in preview mode. Live `/admin` routes fail closed, including for users with descriptive admin role names.
 
 ## Safety boundary
 
 - Preview and live state are separate. Preview fixtures are seeded only in preview mode and are never a fallback.
-- Server authorization and tenant scoping are **not implemented by this frontend**. The BFF is not a substitute for upstream authorization, and `/admin` is not protected.
+- Server authorization and tenant scoping are enforced by the backend, not inferred by this frontend. The BFF and route guards do not replace those controls. Live identity comes from `/users/me`; no client role template grants permissions. Query caches are scoped to that identity and reset via a full navigation on sign-in/out.
 - The gateway rejects non-HTTPS remote origins, limits forwarding to known resource prefixes, disables redirects, applies a 15-second timeout, and marks responses `no-store`.
 - API timestamps display deterministically in UTC so server and browser rendering agree.
 - Map tiles use the configured public OpenStreetMap endpoint by default. That endpoint has no SLA; approve a production provider, licensing, capacity, privacy review, and CSP before launch.
@@ -73,6 +75,7 @@ pnpm test:coverage
 pnpm check:boundaries
 pnpm format:check
 pnpm test:e2e
+pnpm test:e2e:auth
 pnpm build
 ```
 
@@ -83,6 +86,8 @@ PLAYWRIGHT_BASE_URL=http://localhost:3000 pnpm test:e2e
 ```
 
 Screenshots and failing traces go to ignored `test-results/`. See [verification](docs/verification.md) for actual results and limits.
+
+`pnpm test:e2e:auth` builds and tests live mode on port 3001 against the test-only snake_case contract server on 18080; it does not contact Java or use real credentials. Geographic tile tests normally use a labeled deterministic tile image. Set `WUU_TEST_LIVE_TILES=1` to run those checks against the configured public provider separately.
 
 ## Logo assets
 

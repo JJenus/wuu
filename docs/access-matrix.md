@@ -4,15 +4,15 @@
 
 Preview mode is a **public sample-data workspace**, including `/admin`. There is no authentication or authorization claim. No real tenant data, credentials, commands, or administrative mutations are available. UI templates are descriptive, not security boundaries.
 
-Live mode is opt-in through deployment configuration and uses read-only GET adapters through the same-origin BFF. It is **not** an authentication boundary:
+Live mode is opt-in through deployment configuration and uses authenticated read-only GET adapters through the same-origin BFF:
 
-- There is no login, session issuance, refresh, revocation, CSRF flow, or route guard.
-- The optional `wuu_access_token` cookie is only forwarded upstream; the frontend does not validate or derive permissions from it.
-- Client role templates never grant access, and `/admin` remains an unprotected concept preview.
+- Login validates backend tokens and `/users/me` before issuing a sealed HttpOnly access cookie. Exact same-origin mutation checks and live route guards are implemented. Expiry requires reauthentication; refresh tokens are discarded.
+- Logout clears the local cookie and asks the backend to revoke all account sessions. Legacy plaintext bearer cookies and shared environment-token fallbacks cannot grant access.
+- Client role templates never grant access. Live `/admin` fails closed pending an effective-capabilities contract, even if `/me` reports an administrator role. Preview `/admin` remains public sample data.
 - Live vehicle creation, alert transitions, geofence create/edit, team management, and preferences are disabled in the UI.
-- Upstream server authorization and tenant isolation must enforce every read and mutation. Those controls are not verified.
+- The current backend source enforces active sessions, current database permissions, and explicit HTTP authorization. Real-deployment permission/tenant-isolation tests are still required; no Java runtime was tested by this frontend task.
 
-The preview/live split is a data-source and failure-isolation boundary, not a security boundary.
+The preview/live split remains a data-source boundary. The sealed session gateway adds an authentication boundary; backend authorization remains authoritative. A denied domain cannot hide another domain's permitted records.
 
 ## Verified backend roles
 
@@ -32,7 +32,7 @@ Source: `AuthService.seedOrgRoles()` and migration `V2__seed_permissions_and_sup
 - TENANT_ADMIN does not include trips.read, trips.export, or notification permissions.
 - No organization owner distinction, per-asset scope, invitation lifecycle, or billing permissions exist in the observed seed.
 - Role assignment uses IDs but there is no role catalog REST endpoint.
-- The current resolver ignores role/org and returns every stored permission.
+- The former all-permissions resolver is fixed in the current uncommitted backend source; the frontend still has no effective-permissions endpoint to consume.
 - Having a JWT role claim does not prove endpoint enforcement.
 
 ## Proposed role bundles (not implemented)

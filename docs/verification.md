@@ -1,6 +1,38 @@
 # Verification — Wuu preview and live read-only integration
 
-Updated 2026-10-22. This verifies the preview workspace, the live read-only gateway, and fail-closed runtime behavior. It does **not** verify an authenticated backend integration or production readiness. Older slice evidence below retains its original dates and artifact names.
+Updated 2026-10-23. This verifies the preview, authenticated live frontend against a contract server, and fail-closed gateway behavior. It does **not** certify the actual Java deployment or production readiness. Older evidence below retains its original dates, assumptions, and artifact names.
+
+## Authenticated live sessions — latest slice (2026-10-23)
+
+Acceptance: connect the hardened backend auth contract without exposing bearer tokens to JavaScript, keep preview public and isolated, require authenticated live reads, and preserve errors for denied/expired requests.
+
+### Contract inspection and boundaries
+
+- Read-only current backend inspection: HEAD `551db79`, with an uncommitted refactor/hardening under `src/main/java/com/surf/tracker/`. Inspected `SECURITY.md`, auth/user DTOs/controllers, `AuthService`, `PermissionService`, and `SecurityConfig`. No backend files were changed or built.
+- Backend uses snake_case JSON; the data transport now normalizes nested keys before validation and rejects ambiguous duplicate spellings.
+- Login validates bounded JSON and exact Origin/Host, obtains a token, verifies `/users/me`, and returns only validated identity. Access tokens and expiry are AES-256-GCM sealed in HttpOnly SameSite=Strict cookies, Secure outside loopback. Deployment supplies at least 32 characters of random secret material. Legacy plaintext-token cookies and shared bearer-token fallbacks no longer grant access.
+- Backend logout revokes all account sessions. The local cookie clears even on upstream failure; the UI reports failed revocation instead of claiming success. No refresh token is stored: sessions expire with the access token and require sign-in. This avoids unsafe parallel rotation of single-use refresh tokens; coordinated refresh remains future work.
+- Live route guards and authenticated GET-only gateway are implemented. Live admin stays blocked without an effective-capabilities contract, regardless of role names. Protected live HTML is private/no-store. Auth identity initializes before query composition, and login/logout hard navigation resets old caches.
+
+### TDD evidence
+
+| Guarantee                                                                                                                                                            | RED                                                                                                                                                | GREEN                                                                                        |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Credentials/identity validation, local return paths, sealed/tamper-proof/expired sessions, same-origin policy, sanitized upstream failures, snake_case compatibility | `pnpm test tests/unit/auth.test.ts` failed because the referenced auth implementation did not exist; checkpoint `fb8492c`                          | Same seven tests passed; implementation checkpoint `dd50da3`                                 |
+| Permitted fleet remains visible when trips return 403                                                                                                                | `pnpm exec playwright test --config playwright.auth.config.ts --grep 'denied trip'` failed: expected live vehicle was hidden; checkpoint `54ff2af` | Per-domain query-state isolation; all nine auth browser scenarios pass; checkpoint `0bb9fbf` |
+
+### Verification outcomes
+
+- `pnpm typecheck`: PASS.
+- `pnpm test:coverage`: **77/77 tests, 13 files PASS**. Selected-source coverage **96% lines/statements, 83.78% branches, 95.62% functions**. This includes pure auth/session/backend helpers, not whole-UI or complete HTTP-handler coverage.
+- `pnpm check:boundaries`: PASS. `pnpm format:check`: PASS. Production build: PASS.
+- `pnpm test:e2e:auth`: **11/11 PASS in 33.5 seconds** after a fresh production build. Covers anonymous redirects/401, rejected legacy cookies, cross-origin denial, login/identity, safe return paths, no tokens in login JSON/HTML/cookie plaintext/document cookies/localStorage, SSR reload, live admin denial despite admin role names, blocked writes, invalid credentials/rate limits, independent domain permissions, denied reads without fixtures, backend revocation, identity-service failure, failed-revocation warning/local sign-out, tampered cookies, invalid/oversized bodies, active-read expiry, private HTML headers, mobile/dark layouts, and automated accessibility.
+- Final `pnpm test:e2e`: **30/30 PASS in 3.9 minutes**. First run was **27/30**: two map tests depended on unavailable external tiles, and a geofence test's generic alert selector collided with the tile-error alert. Tile-engine tests now use explicitly labeled deterministic images; provider checks remain available with `WUU_TEST_LIVE_TILES=1`. A later run exposed the same ambiguous selector in another geofence assertion (**29/30**); both assertions now target the form-error summary. This is not evidence of current public-provider availability.
+- One earlier auth run failed because a test tried reading a response after hard navigation; the test now captures it before navigation. Another test entered SSR form fields before hydration; auth helpers now wait on `data-workspace-ready`. No app retry was added to hide these test issues.
+
+### Not verified / follow-up
+
+No Java server was listening and no deployment credentials were supplied. The auth browser server is a clearly test-only fixture on port 18080; these results are not an authenticated Java smoke test. Real deployment must verify current source/build compatibility, permissions/tenant isolation, cookie/TLS/Host handling, shared ingress rate limits, revocation, and secret management. Automatic refresh, public registration/recovery, effective-permissions UI, live writes, and telemetry remain outside this slice.
 
 ## Live read-only integration and fail-closed runtime — latest slice (2026-10-22)
 

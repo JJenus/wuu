@@ -28,9 +28,9 @@ const futureRoles = [
     <div class="info-banner warning-banner">
       <UIcon name="i-lucide-shield-alert" />
       <p>
-        These are the role templates found in backend code—not a guarantee of enforced access. The
-        current permission resolver returns all stored permissions. Role editing is disabled until
-        backend enforcement and management APIs exist.
+        These are presentation templates, not the signed-in user's effective permissions. Backend
+        authorization is authoritative. Role editing stays unavailable until a verified role catalog
+        and effective-permissions workflow are integrated.
       </p>
     </div>
     <div class="content-grid">

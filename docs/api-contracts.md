@@ -1,6 +1,6 @@
 # Backend and live adapter contracts
 
-Status: **live read-only adapters and the server gateway are implemented; no authenticated end-to-end run against the Java backend has been performed.** Backend observations come from read-only inspection of `../sidie/` on 2026-10-21/22 (commit `822f2a2b7314cd2f0df7184c6762e28028b76e6d`, with uncommitted work present). Endpoint existence is not integration proof.
+Status (2026-10-23): **authenticated live read-only frontend implemented; no authenticated end-to-end run against the actual Java deployment has been performed.** Read-only inspection found the active backend refactored under `../sidie/src/main/java/com/surf/tracker/`, with auth hardening documented in `../sidie/SECURITY.md`. HEAD is `551db79`, but the inspected auth/refactor is uncommitted working-tree code. Backend files were not changed or built by this frontend task. Browser tests use a test-only contract server, not Java.
 
 ## Frontend live path
 
@@ -14,14 +14,22 @@ The browser calls only same-origin `/api/_wuu/<resource>`. The Nitro gateway res
 | `geofences`      | `/alerts/geofences`  | Geofences      | GET list/detail  |
 | `notifications`  | `/api/notifications` | None yet       | Allowlisted only |
 
-The gateway also accepts verified-upstream methods for those resources, but the UI currently invokes only GETs. Unknown resources, encoded separators, traversal segments, unsafe origins, unsupported methods, and redirects fail closed. The upstream timeout is 15 seconds and responses are marked `no-store`.
+The gateway requires a valid sealed access session and accepts only GETs. Unknown resources, encoded separators, traversal segments, unsafe origins, writes, and redirects fail closed. The upstream timeout is 15 seconds and responses are marked `no-store`.
 
 Origin/token resolution:
 
 1. Origin: `NUXT_API_ORIGIN` (private runtime config) or `WUU_API_ORIGIN`.
-2. Token: `wuu_access_token` cookie, then `NUXT_API_BEARER_TOKEN`, then `WUU_API_BEARER_TOKEN`.
+2. Token: decrypt `wuu_session` using `NUXT_SESSION_PASSWORD` or `WUU_SESSION_PASSWORD` (at least 32 characters of random secret material). No shared token fallback or legacy plaintext bearer cookie is accepted.
 3. HTTPS is required for remote origins; `http://localhost`, `http://127.0.0.1`, and loopback IPv6 are allowed for development.
-4. No login/session-issuance flow exists. The optional cookie must be issued by a trusted deployment boundary.
+4. `/api/auth/login` issues an encrypted HttpOnly, SameSite=Strict session after validating credentials and backend identity. Secure is required outside loopback. Login/logout require exact matching Origin and Host. Protected HTML is private/no-store.
+
+### Auth contract verified in current source
+
+- `POST /api/v1/auth/login`: `{email,password}` → `{access_token,refresh_token,expires_in,token_type:"Bearer"}`. Login password maximum 128 characters; whitespace is not trimmed.
+- `GET /api/v1/users/me`: bearer-authenticated numeric `id`, `email`, nullable `first_name`/`last_name`/`organization_id`, descriptive `roles`, `enabled`, `locked`. Disabled/locked or malformed identities fail closed. Effective permissions are not exposed by this DTO.
+- `POST /api/v1/auth/logout`: bearer-authenticated, 204; revokes **all sessions** for the account. Local cookie clears even if upstream revocation fails, with explicit failure copy.
+- `POST /api/v1/auth/refresh`: single-use rotating refresh tokens; reuse revokes the session family. This frontend discards refresh tokens and requires reauthentication when access expires (backend default 15 minutes). No parallel refresh/replay is attempted.
+- Backend permissions now come from current database roles, with explicit HTTP permission checks and active session/membership checks. Tenant-scoped data isolation still requires deployment-level verification. `/me` organization selection remains first org-scoped membership; no frontend tenant switching is offered.
 
 ## Pagination and normalization
 
@@ -29,28 +37,28 @@ Origin/token resolution:
 - Vehicle list: page size 200, maximum 50 pages.
 - Trip/alert/geofence lists: page size 100, maximum 50 pages.
 - Stop on `last`, `empty`, or an empty page. A malformed page body is a contract error.
-- Prefixes/envelopes differ by module. There is no global assumed `/api/v1` prefix.
+- JSON is snake_case in the current backend. The shared gateway client recursively normalizes keys to camelCase before schema validation and rejects ambiguous duplicate spellings. Prefixes/envelopes differ by module; there is no global assumed `/api/v1` prefix.
 - `204` responses pass through the normal schema path. A schema-incompatible 204 is a contract error, not a server/empty success.
 
 ## Observed upstream capabilities
 
-| Domain                | Controller base              | Observed capability                                          | Frontend status                                  |
-| --------------------- | ---------------------------- | ------------------------------------------------------------ | ------------------------------------------------ |
-| Auth                  | `/api/v1/auth`               | register, login, refresh, logout, change-password            | Not integrated; no session UI                    |
-| Current identity      | `/api/v1/users/me`           | User ID, names, org ID, role names; no effective permissions | Not consumed; contract gap                       |
-| Users / team          | `/api/v1/users`              | list/create/read/update/delete, assign role IDs              | Live team page fails closed                      |
-| Organizations         | `/api/v1/organizations`      | CRUD and paged list                                          | Concept preview only                             |
-| Vehicles              | `/api/v1/vehicles`           | CRUD/list                                                    | GET list/detail live; create disabled            |
-| Trackers              | `/api/v1/trackers`           | CRUD/list                                                    | Not integrated                                   |
-| Trips                 | `/api/v1/trips`              | list/detail; no path/history/export handler observed         | GET list/detail live; no replay/live GPS         |
-| Device commands       | `/api/v1/commands`           | create/list/detail plus lifecycle updates                    | Not exposed                                      |
-| Alerts                | `/alerts`                    | list/detail, acknowledge, resolve, bulk, stats               | GET list/detail; live transitions disabled in UI |
-| Alert rules           | `/alerts/rules`              | CRUD/templates/toggle/batch                                  | Not integrated                                   |
-| Geofences             | `/alerts/geofences`          | CRUD, vehicle queries, violation check                       | GET list/detail; live create/edit disabled in UI |
-| Notifications         | `/api/notifications`         | delivery list/read, preferences, templates                   | Allowlisted; no client contract                  |
-| Notifications socket  | `/ws/notifications` (SockJS) | PING/SUBSCRIBE/UNSUBSCRIBE acknowledgments                   | Not connected; not a GPS feed                    |
-| Roles/permissions     | No REST controller observed  | Entities/repositories/seed roles                             | Concept templates only                           |
-| Billing/rides/payouts | No REST controllers observed | Design documents only                                        | Future scope                                     |
+| Domain                | Controller base              | Observed capability                                          | Frontend status                                                           |
+| --------------------- | ---------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| Auth                  | `/api/v1/auth`               | register, login, refresh, logout, change-password            | Login/logout integrated; refresh/registration/password change not exposed |
+| Current identity      | `/api/v1/users/me`           | User ID, names, org ID, role names; no effective permissions | Consumed and validated; roles do not grant frontend access                |
+| Users / team          | `/api/v1/users`              | list/create/read/update/delete, assign role IDs              | Live team page fails closed                                               |
+| Organizations         | `/api/v1/organizations`      | CRUD and paged list                                          | Concept preview only                                                      |
+| Vehicles              | `/api/v1/vehicles`           | CRUD/list                                                    | GET list/detail live; create disabled                                     |
+| Trackers              | `/api/v1/trackers`           | CRUD/list                                                    | Not integrated                                                            |
+| Trips                 | `/api/v1/trips`              | list/detail; export controller now exists but not integrated | GET list/detail live; no replay/live GPS                                  |
+| Device commands       | `/api/v1/commands`           | create/list/detail plus lifecycle updates                    | Not exposed                                                               |
+| Alerts                | `/alerts`                    | list/detail, acknowledge, resolve, bulk, stats               | GET list/detail; live transitions disabled in UI                          |
+| Alert rules           | `/alerts/rules`              | CRUD/templates/toggle/batch                                  | Not integrated                                                            |
+| Geofences             | `/alerts/geofences`          | CRUD, vehicle queries, violation check                       | GET list/detail; live create/edit disabled in UI                          |
+| Notifications         | `/api/notifications`         | delivery list/read, preferences, templates                   | Allowlisted; no client contract                                           |
+| Notifications socket  | `/ws/notifications` (SockJS) | PING/SUBSCRIBE/UNSUBSCRIBE acknowledgments                   | Not connected; not a GPS feed                                             |
+| Roles/permissions     | No REST controller observed  | Entities/repositories/seed roles                             | Concept templates only                                                    |
+| Billing/rides/payouts | No REST controllers observed | Design documents only                                        | Future scope                                                              |
 
 ## Live DTO mapping
 
@@ -81,7 +89,7 @@ Accepted fields include numeric `alertId`, `vehicleId`, `alertType`, `severity`,
 - Status: `resolved` → `acknowledged` → `active` from server flags.
 - Severity falls back only to `info` for unknown/null values; it is not fabricated from a client role.
 - Title/icon are presentation derivations of `alertType`/`message`; description uses supplied text or an explicit “No further detail” message.
-- Acknowledge requires an actor; resolve requires an actor plus review notes of at least 10 characters. The current live UI has no verified identity, so it does not offer these actions.
+- The earlier adapter uses actor/review-note fields; current backend actor attribution and response contracts need re-verification before writes are enabled. Sign-in now provides verified identity, but the live response/notes workflow remains deliberately unavailable.
 
 ### Geofences
 
@@ -98,15 +106,14 @@ No verified current-user preferences contract is consumed. Live preferences retu
 
 ## Release blockers
 
-- `PermissionService.resolveForUser()` currently collects all permission keys without using role/org inputs. JWT role names are not effective permissions.
-- SecurityConfig mostly requires authentication, not resource-level authorization.
+- The previously observed permission-resolver defect is fixed in current source. SecurityConfig now uses explicit permission checks; a real authenticated deployment run is still required.
 - User organization/login primary organization are derived from the first org-scoped role; secure context switching is undefined.
 - Role assignment accepts IDs but no role-catalog endpoint was found.
-- No login/session issuance, refresh, CSRF, or revocation boundary is implemented in this app.
-- Notification WebSocket identity can fall back to a query `userId`; it must not be treated as a trusted telemetry or session boundary.
+- Login, expiry, Origin checks, and logout are implemented. Coordinated refresh, registration, password changes, and password recovery are not part of this slice.
+- Notification WebSocket identity now uses the authenticated handshake. Native browser bearer-header handshakes remain unsupported; no cookie/ticket bridge is supplied. It is not a GPS feed.
 - Geofence update/assignment and alert actor/review contracts remain incomplete.
 - Vehicle/tracker creation needs a verified tracker assignment and ID contract.
-- Trip history/GPS, tenant-scoped telemetry, and server-side export are absent.
+- Recorded GPS and tenant-scoped telemetry are not integrated. A trip-export controller exists in current source; its authorization/filter/streaming contract needs separate review before use.
 - Production maps require an approved provider, licensing/privacy/capacity review, CSP, and non-Chromium/device validation.
 
 Backend fixes require separate authorization and an isolated workstream. Do not modify the active checkout or snapshot from the frontend repository.

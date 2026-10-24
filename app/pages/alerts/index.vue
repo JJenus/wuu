@@ -114,7 +114,9 @@ useHead({ title: 'Alerts — Wuu' })
                 >Resolve</UButton
               >
             </template>
-            <span v-else class="muted text-xs">Status changes require a verified operator.</span>
+            <span v-else class="muted text-xs"
+              >Live status changes are not enabled in this workspace.</span
+            >
           </div>
         </article>
         <UiEmptyState
