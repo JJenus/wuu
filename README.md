@@ -2,6 +2,21 @@
 
 ## Overview
 
+For authentication configuration, forced re-login during migration, denied
+callbacks and deployment limitations, see [SECURITY.md](SECURITY.md).
+
+## Opt-in local account seeds and picker
+
+This isolated checkout contains the user/admin seed implementation. The active `../sidie` checkout is unchanged. Build from this root with `./mvnw -B package`; the current root POM produces `target/tracking-engine-1.0.0-SNAPSHOT.jar` (older module diagrams below are historical).
+
+Enable only against a local disposable database: `SPRING_PROFILES_ACTIVE=local`, `SERVER_ADDRESS=127.0.0.1`, `LOCAL_ACCOUNTS_ENABLED=true`, strong private `LOCAL_USER_PASSWORD` and `LOCAL_ADMIN_PASSWORD`, and `JWT_SECRET`. There are no default passwords. Local settings must never be enabled for public/production data; startup refuses enabled configurations without a literal loopback binding and local-only profile. `prod`/`production` profiles are explicitly refused.
+
+Startup transactionally seeds `user@wuu.local` (VIEWER) and `admin@wuu.local` (TENANT_ADMIN) in `wuu-local`. A migrated permission row serializes seed runs before existence checks. Case-insensitive email checks skip existing identities without password reset, profile/flag changes, role elevation or membership rewriting; organization/role reuse and database constraints prevent duplicate seeds. Missing passwords for missing accounts fail startup instead of creating default credentials. Keep the private credential file across restarts.
+
+`GET /api/v1/auth/local-accounts?page=0` is an opt-in loopback-only, no-store directory of enabled/unlocked database users. It returns pages of 100 `{email,display_name}` records plus `next_page`, never hashes, tokens or permissions. It has no passwordless-login counterpart. The Wuu frontend has its own separate picker opt-in and still requires normal password authentication.
+
+See [local account verification](plan-docs/local-accounts-verification.md) for RED/GREEN evidence and limitations. Workspace-specific generated runtime settings are in ignored `.env`; Spring does not load that file automatically. Export it using your local process manager/shell before launching the JAR, and never commit it.
+
 A comprehensive vehicle tracking engine built with **Domain-Driven Design (DDD)** principles, implementing all core features of a tracking solution including real-time locating, alerting, geofencing, and device control.
 
 ## Architecture

@@ -1,9 +1,0 @@
-package com.jjenus.tracker.core;
-
-import org.springframework.boot.SpringBootConfiguration;
-import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
-
-@SpringBootConfiguration
-@EnableAutoConfiguration
-public class CoreTestConfiguration {
-}

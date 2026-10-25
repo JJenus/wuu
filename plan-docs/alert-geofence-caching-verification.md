@@ -41,7 +41,7 @@ Follow-up to `alert-rule-caching-verification.md`. Journeys: organizations see o
 Attached the installed JaCoCo agent to Maven because Surefire runs in-process:
 
 ```sh
-MAVEN_OPTS="${MAVEN_OPTS:-} -javaagent:$HOME/.m2/repository/org/jacoco/org.jacoco.agent/0.8.12/org.jacoco.agent-0.8.12-runtime.jar=destfile=/tmp/opencode/tracker-alert-geofence.exec,includes=com.jjenus.tracker.alerting.*,append=false" ./mvnw -B test
+MAVEN_OPTS="${MAVEN_OPTS:-} -javaagent:$HOME/.m2/repository/org/jacoco/org.jacoco.agent/0.8.12/org.jacoco.agent-0.8.12-runtime.jar=destfile=/tmp/opencode/tracker-alert-geofence.exec,includes=com.surf.tracker.alerting.*,append=false" ./mvnw -B test
 ./mvnw -B -pl alerting -Djacoco.dataFile=/tmp/opencode/tracker-alert-geofence.exec org.jacoco:jacoco-maven-plugin:0.8.12:report
 ```
 
