@@ -1,12 +1,27 @@
 <script setup lang="ts">
 import { useAuth } from '~/features/auth/composables/useAuth'
 import { loginSchema } from '~/features/auth/domain/auth'
+import { useLocalAccounts } from '~/features/auth/composables/useLocalAccounts'
 definePageMeta({ layout: false })
 useHead({ title: 'Sign in — Wuu' })
 const source = useRuntimeConfig().public.dataMode
 const route = useRoute()
 const { busy, error, sessionError, signIn } = useAuth()
 const state = reactive({ email: '', password: '' })
+const {
+  enabled: pickerEnabled,
+  accounts,
+  loading: accountsLoading,
+  error: accountsError,
+  refresh,
+} = useLocalAccounts()
+async function selectAccount(email: string) {
+  state.email = email
+  state.password = ''
+  error.value = ''
+  await nextTick()
+  document.getElementById('sign-in-password')?.focus()
+}
 async function submit() {
   await signIn(state.email.trim(), state.password, route.query.next)
   state.password = ''
@@ -39,6 +54,54 @@ async function submit() {
           sessions. Contact your administrator if needed.
         </p>
         <p v-if="sessionError" role="alert" class="text-error">{{ sessionError }}</p>
+        <section
+          v-if="pickerEnabled || accountsError"
+          aria-labelledby="local-accounts-title"
+          class="space-y-3"
+        >
+          <div class="flex items-center justify-between gap-3">
+            <h2 id="local-accounts-title" class="font-semibold text-highlighted">
+              Choose a local account
+            </h2>
+            <UButton
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              :loading="accountsLoading"
+              :disabled="busy"
+              @click="refresh"
+              >Refresh accounts</UButton
+            >
+          </div>
+          <p class="text-sm text-muted">
+            Local development only. Select an account, then enter its password.
+          </p>
+          <p v-if="accountsError" role="alert" class="text-sm text-error">{{ accountsError }}</p>
+          <p v-else-if="accountsLoading" role="status" class="text-sm text-muted">
+            Loading accounts…
+          </p>
+          <p v-else-if="!accounts.length" role="status" class="text-sm text-muted">
+            No available accounts. You can still enter your email below.
+          </p>
+          <div v-else class="max-h-52 overflow-y-auto space-y-2" aria-label="Local accounts">
+            <UButton
+              v-for="account in accounts"
+              :key="account.email"
+              color="neutral"
+              variant="outline"
+              block
+              class="justify-start text-left"
+              :disabled="busy"
+              :aria-pressed="state.email === account.email"
+              @click="selectAccount(account.email)"
+            >
+              <span class="min-w-0"
+                ><span class="block break-words">{{ account.display_name }}</span
+                ><span class="block break-all text-xs text-muted">{{ account.email }}</span></span
+              >
+            </UButton>
+          </div>
+        </section>
         <UForm :schema="loginSchema" :state="state" class="space-y-5" @submit="submit">
           <UFormField label="Email" name="email" required
             ><UInput
@@ -51,6 +114,7 @@ async function submit() {
           <UFormField label="Password" name="password" required
             ><UInput
               v-model="state.password"
+              id="sign-in-password"
               type="password"
               autocomplete="current-password"
               class="w-full"

@@ -10,6 +10,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     apiOrigin: '',
     sessionPassword: '',
+    localAccountPicker: '',
     public: {
       dataMode: process.env.NUXT_PUBLIC_DATA_MODE === 'live' ? 'live' : 'preview',
       workspaceOrganizationId: 'northstar',
