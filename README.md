@@ -46,6 +46,33 @@ Access sessions expire with the backend access token (15 minutes by backend defa
 
 Live mode currently reads fleet vehicles, trips, alerts, and geofences. Vehicle creation, alert transitions, geofence create/edit, team administration, and preferences remain disabled or unavailable until their identity, geometry, and server-authoritative contracts are verified. Live geofence and alert screens are read-only. Simulated tracking and trip replay remain clearly labeled preview simulations; they are never live GPS or recorded history.
 
+### Local account picker and seeds
+
+The isolated backend implementation is in `../backend-accounts`, copied from the current `sidie` working tree; the active `../sidie` and snapshots remain untouched. This is a separate repository/branch, not a change already merged into `sidie`.
+
+The backend opts in with `SPRING_PROFILES_ACTIVE=local`, `SERVER_ADDRESS=127.0.0.1`, and `LOCAL_ACCOUNTS_ENABLED=true`. Supply strong `LOCAL_USER_PASSWORD` and `LOCAL_ADMIN_PASSWORD` values through private environment configuration; there are no default passwords. Startup creates `user@wuu.local` (VIEWER) and `admin@wuu.local` (TENANT_ADMIN) in one local workspace. It checks emails case-insensitively, serializes seed transactions with a database row lock, and never resets existing passwords, profiles, flags, roles or memberships. A business administrator is not a platform administrator.
+
+`WUU_LOCAL_ACCOUNT_PICKER=true` enables Wuu's pre-login picker only for loopback host/peer/upstream. It selects the email and focuses an empty password field; **it never logs in without a password**. New enabled/unlocked backend users appear on page load, window refocus, or **Refresh accounts**. The list is a fresh, paginated backend query, not a seed roster. Directory errors leave manual sign-in available. Both backend and frontend settings are off by default; never enable this account-directory feature on a public deployment or point it at a real-user database.
+
+For this workspace, generated credentials are in ignored `.data/local-accounts/credentials.json` (mode 0600). Read only the two seeded credentials locally:
+
+```sh
+python3 -c 'import json; a=json.load(open(".data/local-accounts/credentials.json")); [print(a[k]["email"], a[k]["password"]) for k in ("user", "admin")]'
+```
+
+The isolated backend's ignored `.env` contains the generated local JWT/seed configuration and a separate file-backed H2 database path. Spring does **not** automatically load `.env`. After `./mvnw -B package` in `../backend-accounts`, start it in that directory using a shell that exports the private file:
+
+```sh
+set -a
+. ./.env
+set +a
+java -jar target/tracking-engine-1.0.0-SNAPSHOT.jar
+```
+
+This local configuration uses Redis on `127.0.0.1:16379` and disables JMS listeners for auth/read verification. Start a disposable Redis there if it is not already running. Artemis-dependent health/functions are not verified by that setup. Do not delete/regenerate the credential file to reset an existing account: seed reruns intentionally preserve its password hash.
+
+In this frontend directory, after `pnpm build`, run `node --env-file=.env.live.local .output/server/index.mjs` and open **http://127.0.0.1:3001/sign-in**. This ignored file includes live mode, the local API origin, picker flag, session secret and port 3001. No generated credential file is required in production.
+
 ## What works
 
 - Responsive overview, fleet search/filter, vehicle detail, alerts, trips, geofences, team, and settings routes.
@@ -88,6 +115,8 @@ PLAYWRIGHT_BASE_URL=http://localhost:3000 pnpm test:e2e
 Screenshots and failing traces go to ignored `test-results/`. See [verification](docs/verification.md) for actual results and limits.
 
 `pnpm test:e2e:auth` builds and tests live mode on port 3001 against the test-only snake_case contract server on 18080; it does not contact Java or use real credentials. Geographic tile tests normally use a labeled deterministic tile image. Set `WUU_TEST_LIVE_TILES=1` to run those checks against the configured public provider separately.
+
+`pnpm test:e2e:java` is a separate explicit local smoke against already-running Java on 8080 and Wuu on 3001. It reads the private local credentials above, tests both seed logins, and creates/reuses `additional@wuu.local` through the permission-checked user API to verify dynamic discovery. It leaves that local verification account in the isolated database. Traces/videos/screenshots are disabled for this suite to avoid recording credentials. It is not a whole-deployment security certification. To keep port 3000 free during preview verification, start a preview production server on 3002 and run `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3002 pnpm test:e2e`.
 
 ## Logo assets
 

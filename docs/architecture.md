@@ -69,6 +69,7 @@ Timestamps are formatted with a fixed `en-US` locale and explicit UTC zone. This
 - The organization/user IDs in public runtime config apply only to preview; live mode does not trust them as identity claims.
 - `/admin` is a public concept preview only in preview mode. Live admin navigation is hidden and its routes fail closed pending effective platform capabilities; role names alone never unlock them. Protected live HTML is private/no-store.
 - Production deployment still requires HTTPS, CSP, CSRF/session design, secret management, provider approval, and independent security review.
+- The optional local-only account picker follows the same boundary: sign-in UI → `useLocalAccounts` → validated auth adapter → `/api/auth/accounts` → fixed loopback Java directory. Private opt-in plus Host/socket/upstream guards prevent public enumeration by default. The backend has its own local-profile/binding/peer gate. Selecting an identity never authenticates it; ordinary password/token/session checks still apply. See `api-contracts.md` for the isolated backend location and pagination limits.
 
 ## Future integration rules
 

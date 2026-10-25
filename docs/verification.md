@@ -1,6 +1,47 @@
 # Verification — Wuu preview and live read-only integration
 
-Updated 2026-10-23. This verifies the preview, authenticated live frontend against a contract server, and fail-closed gateway behavior. It does **not** certify the actual Java deployment or production readiness. Older evidence below retains its original dates, assumptions, and artifact names.
+Updated 2026-10-25. Includes a limited HTTP smoke test against the existing local Java JAR, in addition to the earlier contract-server and preview checks. This does **not** certify production readiness. Older evidence below retains its original dates, assumptions, and artifact names.
+
+## Password-based local accounts and seeds (2026-10-25)
+
+Acceptance: an opt-in local backend seeds a regular user and business administrator without duplicating or altering existing accounts; the sign-in page discovers accounts from Java and selecting one still requires its password. New enabled/unlocked accounts appear without frontend roster edits. The active `sidie` checkout and snapshots stay untouched.
+
+### Isolation, security and regression evidence
+
+- Backend implementation is in the independent `../backend-accounts` repository, branch `local-account-picker`, snapshotted from the current uncommitted backend tree. It was not rebuilt from stale backend HEAD and was not merged back into `sidie`. Device/shared code was not edited.
+- Backend RED: focused seed/policy tests could not compile because `LocalAccountSeeder` did not exist (`46c7df5`). Initial GREEN: five policy/seed/login/directory checks passed (`7629ae7`).
+- A further executed regression exposed case-sensitive seed duplication: expected 2 users, got 3 after uppercasing an existing email (`f63e58e`). Case-insensitive existence checks fixed it; the full 494-test package passed (`144bd05`). Other checks cover concurrent empty-database seeds, repeated seeds, preservation of hashes/profiles/disabled flags, dynamic directory rows, locked-user exclusion, and remote-peer denial.
+- Frontend RED: `pnpm test tests/unit/local-accounts.test.ts` could not resolve the unimplemented helper (`e5de421`). Initial GREEN: 3 unit tests, types and boundary checks (`20d105e`). Expanded selected-source coverage includes the directory helper/domain/client adapter, not the entire Vue UI.
+- Real-Java browser smoke initially failed: immediately after valid login, the alerts repository's unbound `:sortBy` caused an exception; error dispatch surfaced it as 401 and Wuu correctly required reauthentication. An executed MockMvc regression reproduced the exception (`390d2fa`). Removed the unbound CASE ordering; the existing service-supplied Pageable owns sorting. This narrow backend fix is included only in the isolated implementation. Error-dispatch status masking in general is not redesigned here.
+- The full backend run first exposed missing policy wiring in a manually assembled security test context, then a strict registration mock that did not model the new role existence check. Both test configurations were corrected rather than making production checks lenient.
+- The local directory is off by default, requires explicit local opt-in and backend profile/binding/peer checks, and returns only email/display name. Wuu independently checks its flag plus loopback Host/socket/upstream. No credentials or tokens are returned, auto-filled or embedded in HTML. Account clicks clear/focus the password field; standard login/session/Origin guards and backend permissions remain authoritative.
+- Generated runtime files are ignored and private: `.data/local-accounts/credentials.json`, isolated backend `.env`, and frontend `.env.live.local`. Do not publish them. Java's real-browser suite has trace/video/screenshots disabled and leaves one named additional local verification account in the isolated database.
+
+### Final executed checks
+
+| Check                                                     | Outcome                                                                                                                                                                                                                                       |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `./mvnw -B package` in `../backend-accounts`              | **495 tests PASS**, zero failures/errors/skips; executable JAR produced                                                                                                                                                                       |
+| `pnpm test:coverage`                                      | **82 tests / 14 files PASS**; selected-source **96.17% lines/statements, 84.48% branches, 95.74% functions**                                                                                                                                  |
+| `pnpm typecheck`                                          | PASS on rerun; an earlier concurrent build/typecheck attempt exceeded its 120-second tool timeout                                                                                                                                             |
+| `pnpm check:boundaries`                                   | PASS                                                                                                                                                                                                                                          |
+| `pnpm test:e2e:auth`                                      | Build PASS; **15/15 Chromium tests PASS** against the test-only backend, including dynamic picker, required password, manual-login fallback, nonlocal Host denial and mobile/dark accessibility                                               |
+| `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3002 pnpm test:e2e` | **30/30 Chromium preview tests PASS** against the same production output; temporary preview server stopped                                                                                                                                    |
+| `pnpm test:e2e:java`                                      | **1/1 PASS** against the freshly built isolated Java JAR and live Wuu: both seeds log in, `/session` verifies VIEWER/TENANT_ADMIN, logout works, a new user is created/reused via authenticated user API, and its picker/password login works |
+
+`pnpm format:check` and `git diff --check` in both repositories: PASS. The first full formatting check found one unit-test file; it was formatted and the full check rerun successfully. Final listener check confirmed Wuu on 3001, Java on 8080, and no listener on 3000.
+
+Default-off frontend smoke on the preview runtime returned exactly `{enabled:false,accounts:[]}`. Wuu is configured on loopback port 3001; no Wuu listener was started on 3000 for this verification. Port 3000 was stopped at the user's request. Backend auth/read smoke uses file-backed H2, disposable Redis on 16379, and disabled JMS listeners. Artemis health/full event flows, PostgreSQL concurrency, non-Chromium devices, whole-UI coverage, broad tenant-isolation/permission certification, and production deployment remain unverified.
+
+## Local Java URL discovery and HTTP smoke (2026-10-25)
+
+- Backend location is `../sidie` relative to this frontend. No rename, source edits, or backend build were performed.
+- `application.yaml` has no server-port/context-path override: the local origin is `http://127.0.0.1:8080`, login is `/api/v1/auth/login`, and identity is `/api/v1/users/me`. The frontend origin setting must not include `/api/v1`; some resource paths use other prefixes.
+- Started the existing `target/tracking-engine-1.0.0-SNAPSHOT.jar` (dated October 23) with Java 21, loopback HTTP binding, a separate file-backed H2 database and disposable loopback Redis on port 16379. JMS listeners were disabled for this limited test. Configuration and all three migration resources match the checkout; compiled Java freshness was not established.
+- Created a generated local test account in that isolated database, then restarted with registration disabled. Credentials and session/JWT secrets were generated locally without printing them. Frontend settings are in ignored, mode-0600 `.env.live.local`; runtime state is under private `/tmp/opencode/wuu-java-i_8i0_yc`.
+- Using Python HTTP requests through the production Wuu server on port 3001: anonymous vehicle gateway **401**; login **200**, no bearer token in response JSON and an HttpOnly `wuu_session` cookie; session identity **200**; vehicles **200**, trips **200**, alerts **401**, geofences **200**; logout **204**; subsequent anonymous vehicle gateway **401**. These are status-level HTTP checks, not browser rendering, domain-schema, tenant-isolation, per-role, expiry, or account-wide revocation verification.
+- `/actuator/health` returned **503** with a JMS/Artemis connection failure. Alerts' authenticated **401** remains unresolved. Do not treat successful reads as evidence of complete permission enforcement or a fully healthy backend.
+- Only local configuration/documentation changed. Prior package/browser/build outcomes below were not rerun for this discovery slice; Markdown formatting was checked separately.
 
 ## Authenticated live sessions — latest slice (2026-10-23)
 

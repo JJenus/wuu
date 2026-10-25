@@ -2,6 +2,10 @@
 import { createServer } from 'node:http'
 import { randomUUID } from 'node:crypto'
 const sessions = new Map()
+const accounts = new Map([
+  ['operator@example.com', 'Fleet Operator'],
+  ['admin@example.com', 'Local Administrator'],
+])
 const page = (content) => ({
   content,
   total_elements: content.length,
@@ -21,6 +25,16 @@ createServer(async (request, response) => {
   if (path === '/health') return send(200, { testOnly: true })
   let body = ''
   for await (const chunk of request) body += chunk
+  if (path === '/__test/accounts' && request.method === 'POST') {
+    const account = JSON.parse(body)
+    accounts.set(account.email, account.display_name)
+    return send(201, { testOnly: true })
+  }
+  if (path === '/api/v1/auth/local-accounts')
+    return send(200, {
+      accounts: [...accounts].map(([email, display_name]) => ({ email, display_name })),
+      next_page: null,
+    })
   if (path === '/api/v1/auth/login') {
     const input = JSON.parse(body)
     if (input.email === 'limited@example.com') return send(429, { code: 'RATE_LIMITED' })

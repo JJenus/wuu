@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { localPickerAllowed, loadLocalAccounts } from '../../server/utils/wuu-local-accounts'
+import { localAccountsRequest } from '../../app/features/auth/api/local-accounts-client'
 
 describe('local password-based account picker', () => {
   it('requires explicit enablement, loopback host, peer, and upstream', () => {
@@ -73,5 +74,40 @@ describe('local password-based account picker', () => {
     await expect(
       loadLocalAccounts('http://localhost:8080', vi.fn().mockRejectedValue(new Error('secret'))),
     ).rejects.toMatchObject({ status: 502 })
+  })
+
+  it('rejects malformed origins and unbounded page sequences', async () => {
+    await expect(loadLocalAccounts('invalid', vi.fn())).rejects.toMatchObject({ status: 404 })
+    const fetcher = vi.fn(async (url: string) => {
+      const page = Number(new URL(url).searchParams.get('page'))
+      return Response.json({ accounts: [], next_page: page + 1 })
+    })
+    await expect(loadLocalAccounts('http://localhost', fetcher)).rejects.toMatchObject({
+      status: 502,
+    })
+    expect(fetcher).toHaveBeenCalledTimes(50)
+    expect(
+      localPickerAllowed({
+        enabled: 'true',
+        host: undefined,
+        peer: '127.0.0.1',
+        origin: 'http://localhost',
+      }),
+    ).toBe(false)
+  })
+
+  it('validates client responses and preserves server errors without credentials', async () => {
+    const fetcher = vi.fn().mockResolvedValue({
+      enabled: true,
+      accounts: [{ email: 'user@wuu.local', display_name: 'User', password: 'discard' }],
+    })
+    const result = await localAccountsRequest(fetcher)
+    expect(result.accounts[0]).not.toHaveProperty('password')
+    await expect(
+      localAccountsRequest(vi.fn().mockRejectedValue({ statusCode: 502, data: {} })),
+    ).rejects.toMatchObject({ status: 502 })
+    await expect(
+      localAccountsRequest(vi.fn().mockResolvedValue({ accounts: [] })),
+    ).rejects.toBeDefined()
   })
 })

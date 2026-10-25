@@ -12,6 +12,8 @@ Live mode is opt-in through deployment configuration and uses authenticated read
 - Live vehicle creation, alert transitions, geofence create/edit, team management, and preferences are disabled in the UI.
 - The current backend source enforces active sessions, current database permissions, and explicit HTTP authorization. Real-deployment permission/tenant-isolation tests are still required; no Java runtime was tested by this frontend task.
 
+Local development update (2026-10-25): the isolated `../backend-accounts` implementation seeds `user@wuu.local` as VIEWER and `admin@wuu.local` as TENANT_ADMIN, with environment-supplied passwords and no existing-account elevation/reset. Its opt-in loopback account directory lists minimal identities, not effective permissions. Wuu's separately opted-in local picker requires the selected account's password. It never grants platform access, including to the seeded business administrator. The earlier statement about no Java runtime reflects the original frontend slice; see `verification.md` for subsequent local checks and their limits.
+
 The preview/live split remains a data-source boundary. The sealed session gateway adds an authentication boundary; backend authorization remains authoritative. A denied domain cannot hide another domain's permitted records.
 
 ## Verified backend roles

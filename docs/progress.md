@@ -1,6 +1,20 @@
 # Progress and next slice
 
-## Current checkpoint — 2026-10-23
+## Local integration checkpoint — 2026-10-25
+
+Implemented the requested local-only user/admin seeds and backend-driven password-based account picker. Backend changes live in the isolated `../backend-accounts` repository (`local-account-picker`), preserving the active `../sidie` checkout. Seeds create VIEWER and TENANT_ADMIN accounts only when their case-insensitive email is absent, using transaction-scoped locking and existing constraints. Reruns never reset existing accounts or privileges. The opted-in directory queries all available backend users, not a hardcoded seed list. Selecting an account still requires its password; refresh occurs on mount/refocus/manual request. Both sides fail closed for unsupported/nonlocal access and default to disabled.
+
+Current results: isolated backend **495 tests/package PASS**; frontend **82 unit tests PASS**, selected coverage **96.17% lines/statements, 84.48% branches, 95.74% functions**; typecheck/boundaries PASS; production build and **15 auth browser tests PASS**; **30 preview browser tests PASS** on port 3002; **one real-Java browser smoke PASS** covering both seed logins and discovery/login of a newly added account. Full formatting/diff results are recorded in `verification.md`.
+
+The real browser smoke exposed the earlier alerts 401 as an unbound `:sortBy` repository parameter. A RED MockMvc regression and the narrow Pageable-based sorting fix are included in the isolated backend; seeded accounts now stay signed in. This does not fix arbitrary backend error-dispatch status masking or certify full tenant/production behavior. Artemis remains unavailable; JMS listeners are disabled only in this local auth/read runtime. Wuu runs on **http://127.0.0.1:3001/sign-in**; generated credentials are in ignored `.data/local-accounts/credentials.json`. The active backend/snapshots remain untouched and no commits were pushed.
+
+### Earlier URL-discovery checkpoint
+
+Confirmed `../sidie` defaults to `http://127.0.0.1:8080` (no context prefix). Ignored `.env.live.local` configures that origin, live mode, port 3001, and a generated session secret. No backend rename, source changes, or build were performed.
+
+A limited HTTP smoke against the existing October 23 executable JAR and isolated H2/Redis verified Wuu login/session/logout and 200 responses for vehicles, trips, and geofences. Alerts returned 401; backend health returned 503 because Artemis was unavailable. Compiled-source freshness, browser rendering, tenant/role isolation, expiry, and account-wide revocation remain unverified. See `verification.md` for exact scope. The earlier full frontend gate below remains dated October 23, not rerun evidence for this slice.
+
+## Previous full frontend checkpoint — 2026-10-23
 
 Wuu has authenticated live read-only fleet/trip/alert/geofence services and an isolated public preview. Live sign-in validates backend credentials and `/users/me`, issues a sealed HttpOnly access cookie, guards routes, scopes caches to verified identity, and signs out through account-wide backend revocation. Access expiry requires reauthentication; refresh tokens are discarded, not raced. All live resource writes remain blocked at the gateway. Failed live requests never become fixtures, and per-domain permission failures cannot hide permitted content in another domain.
 
@@ -57,7 +71,7 @@ Current backend HEAD observed: `551db79`; active code has an uncommitted refacto
 ## Not done
 
 - Coordinated automatic refresh, registration/password recovery, and an effective-permissions/active-tenant endpoint integrated into UI capabilities. Initial sign-in/session/Origin guards/logout are implemented.
-- Authenticated end-to-end validation against the real Java backend; live mode has only been exercised fail-closed with no upstream configured plus unit-tested adapters.
+- Broad authenticated browser/tenant/role validation beyond the October 25 seed/picker Java smoke. The isolated backend fixes the alerts query blocker; Artemis/full event health remains unverified.
 - Actual-deployment tenant/permission validation, role catalog/assignment integration, and team/invitation workflows. Live `/admin` is blocked rather than exposed as a working administration UI.
 - Live alert transitions, vehicle creation, geofence create/edit, and preferences.
 - Tenant-scoped telemetry, recorded GPS history, live trip replay, device commands, and notification streaming.

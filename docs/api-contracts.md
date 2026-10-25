@@ -2,7 +2,17 @@
 
 Status (2026-10-23): **authenticated live read-only frontend implemented; no authenticated end-to-end run against the actual Java deployment has been performed.** Read-only inspection found the active backend refactored under `../sidie/src/main/java/com/surf/tracker/`, with auth hardening documented in `../sidie/SECURITY.md`. HEAD is `551db79`, but the inspected auth/refactor is uncommitted working-tree code. Backend files were not changed or built by this frontend task. Browser tests use a test-only contract server, not Java.
 
+Local runtime update (2026-10-25): the checkout defaults to `http://127.0.0.1:8080` without a context prefix. A limited HTTP smoke against the existing executable JAR verified Wuu login/session/logout and some reads, but alerts returned 401 and health returned 503 (Artemis unavailable). This is not current-source build certification or full browser/authorization verification; see `verification.md`.
+
 ## Frontend live path
+
+### Opt-in local account directory (2026-10-25)
+
+Implemented in the isolated `../backend-accounts` repository, not the active `../sidie` checkout. `GET /api/v1/auth/local-accounts?page=0` returns `{accounts:[{email,display_name}],next_page:number|null}` in pages of 100, sorted by email, freshly querying enabled/unlocked users. It exposes no role, password/hash or token fields. The route is denied by default; enabling requires the explicit local flag, a `local` profile without `prod`/`production`, a literal loopback server binding, and a loopback request peer. Unsafe enabled configurations fail startup.
+
+Wuu's `GET /api/auth/accounts` adds an independent private opt-in (`WUU_LOCAL_ACCOUNT_PICKER=true`) and loopback Host/socket/upstream checks. Disabled requests return `{enabled:false,accounts:[]}` without contacting Java. Enabled responses add `enabled:true`, validate/strip each account, and combine at most 50 pages; malformed pages, over-limit lists, redirects, and upstream errors remain errors. Responses and fetches are no-store. The UI refreshes on mount/refocus/manual request; selecting an account only fills its email, clears the password, and focuses that field. Normal login, identity verification, encryption, rate limits and logout remain unchanged.
+
+The seed runner creates VIEWER and TENANT_ADMIN accounts only when their case-insensitive email is absent. It holds a transaction-scoped database row lock before existence checks and uses existing uniqueness constraints as the final guard. Passwords are supplied via private environment values and bcrypt-hashed; existing accounts and role definitions are never rewritten or elevated by reruns. No passwordless endpoint was added.
 
 The browser calls only same-origin `/api/_wuu/<resource>`. The Nitro gateway resolves the private upstream origin/token at runtime and forwards allowlisted requests:
 

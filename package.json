@@ -13,6 +13,7 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:e2e:auth": "pnpm build && playwright test --config playwright.auth.config.ts",
+    "test:e2e:java": "playwright test --config playwright.java.config.ts",
     "check:boundaries": "node tools/check-boundaries.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check ."

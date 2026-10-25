@@ -28,6 +28,8 @@ Wuu is a calm fleet-operations workspace for customers/businesses and a separate
 
 Miniature trend charts and geofence occupancy are illustrative, not computed historical analytics. Preview timestamps belong to a fixed sample day. Live timestamps display deterministically in UTC.
 
+Local development convenience (2026-10-25): optional backend-driven account selection still requires passwords. The isolated `../backend-accounts` implementation seeds one VIEWER and one TENANT_ADMIN idempotently without overwriting existing accounts. The directory and seeds are explicitly local-only and disabled by default; this is not a public account directory, passwordless login, or platform-access feature. See `api-contracts.md` and `verification.md` for boundaries and evidence.
+
 Detail routes are specified in `detail-pages-plan.md`. Real geographic map rendering and provider requirements are in `maps-integration.md`. Global address geocoding and live GPS transport remain separate integrations, not substitutes for rendering.
 
 ## Explicit exclusions
