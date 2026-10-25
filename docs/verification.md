@@ -2,6 +2,8 @@
 
 Updated 2026-10-25. Includes a limited HTTP smoke test against the existing local Java JAR, in addition to the earlier contract-server and preview checks. This does **not** certify production readiness. Older evidence below retains its original dates, assumptions, and artifact names.
 
+Post-verification cleanup: frontend commits were pushed to `origin/frontend-app`; all backend source was pushed to `origin/backend-updates` (`a12eaff`, parent original `main` `551db79`). Remote refs were checked before deleting the temporary `../backend-accounts` directory. Its Java process was terminated first, so the local backend is no longer running. The active `sidie` checkout and protected snapshot were not changed; the backend branch is not merged into main. The test results below remain historical executed evidence, not a claim that the removed runtime still exists.
+
 ## Password-based local accounts and seeds (2026-10-25)
 
 Acceptance: an opt-in local backend seeds a regular user and business administrator without duplicating or altering existing accounts; the sign-in page discovers accounts from Java and selecting one still requires its password. New enabled/unlocked accounts appear without frontend roster edits. The active `sidie` checkout and snapshots stay untouched.

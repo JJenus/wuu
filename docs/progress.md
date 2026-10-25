@@ -1,5 +1,11 @@
 # Progress and next slice
 
+## Push and requested cleanup — 2026-10-25
+
+Frontend work was pushed to `origin/frontend-app`. All backend source was preserved on `origin/backend-updates` at `a12eaff`, with original `main` (`551db79`) as its parent, rather than pushing an unrelated snapshot root. This source commit includes the existing backend refactor and verified local-account/query changes; generated secrets and artifacts were excluded.
+
+The user-requested `../backend-accounts` deletion is complete; the Java process running its JAR was stopped first. The account credentials/H2 state under frontend `.data/local-accounts/` remain private and ignored. The canonical `../sidie` checkout was not changed or renamed, and the named snapshot remains because the current repository instructions explicitly protect both. Backend source is pushed but **not merged into main or the canonical local checkout**. Live login/read verification cannot be rerun until that integration/runtime is restored. Historical paths and runtime outcomes below describe the completed verification before cleanup, not a second backend directory to recreate.
+
 ## Local integration checkpoint — 2026-10-25
 
 Implemented the requested local-only user/admin seeds and backend-driven password-based account picker. Backend changes live in the isolated `../backend-accounts` repository (`local-account-picker`), preserving the active `../sidie` checkout. Seeds create VIEWER and TENANT_ADMIN accounts only when their case-insensitive email is absent, using transaction-scoped locking and existing constraints. Reruns never reset existing accounts or privileges. The opted-in directory queries all available backend users, not a hardcoded seed list. Selecting an account still requires its password; refresh occurs on mount/refocus/manual request. Both sides fail closed for unsupported/nonlocal access and default to disabled.

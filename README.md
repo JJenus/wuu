@@ -48,7 +48,7 @@ Live mode currently reads fleet vehicles, trips, alerts, and geofences. Vehicle 
 
 ### Local account picker and seeds
 
-The isolated backend implementation is in `../backend-accounts`, copied from the current `sidie` working tree; the active `../sidie` and snapshots remain untouched. This is a separate repository/branch, not a change already merged into `sidie`.
+Backend source, including the existing refactor and verified account changes, is pushed to `origin/backend-updates`, based on the original `main` history. The temporary `../backend-accounts` directory was deleted at the user's request. The active `../sidie` checkout remains unchanged; these changes are **not merged into main or the canonical local backend**. Do not recreate a second backend checkout as the normal workflow.
 
 The backend opts in with `SPRING_PROFILES_ACTIVE=local`, `SERVER_ADDRESS=127.0.0.1`, and `LOCAL_ACCOUNTS_ENABLED=true`. Supply strong `LOCAL_USER_PASSWORD` and `LOCAL_ADMIN_PASSWORD` values through private environment configuration; there are no default passwords. Startup creates `user@wuu.local` (VIEWER) and `admin@wuu.local` (TENANT_ADMIN) in one local workspace. It checks emails case-insensitively, serializes seed transactions with a database row lock, and never resets existing passwords, profiles, flags, roles or memberships. A business administrator is not a platform administrator.
 
@@ -60,18 +60,11 @@ For this workspace, generated credentials are in ignored `.data/local-accounts/c
 python3 -c 'import json; a=json.load(open(".data/local-accounts/credentials.json")); [print(a[k]["email"], a[k]["password"]) for k in ("user", "admin")]'
 ```
 
-The isolated backend's ignored `.env` contains the generated local JWT/seed configuration and a separate file-backed H2 database path. Spring does **not** automatically load `.env`. After `./mvnw -B package` in `../backend-accounts`, start it in that directory using a shell that exports the private file:
+The temporary backend's `.env` and built JAR were deleted with that directory, and its Java process was stopped. Generated account credentials and the isolated H2 database remain under ignored `.data/local-accounts/` in this frontend. Restore a backend runtime only after integrating `backend-updates` into the canonical backend while preserving its uncommitted work; supply the existing seed passwords from that private file and a fresh private JWT secret. Spring does **not** automatically load `.env` files.
 
-```sh
-set -a
-. ./.env
-set +a
-java -jar target/tracking-engine-1.0.0-SNAPSHOT.jar
-```
+The verified local configuration used Redis on `127.0.0.1:16379` and disabled JMS listeners for auth/read verification. Artemis-dependent health/functions were not verified by that setup. Do not delete/regenerate the credential file to reset an existing account: seed reruns intentionally preserve its password hash.
 
-This local configuration uses Redis on `127.0.0.1:16379` and disables JMS listeners for auth/read verification. Start a disposable Redis there if it is not already running. Artemis-dependent health/functions are not verified by that setup. Do not delete/regenerate the credential file to reset an existing account: seed reruns intentionally preserve its password hash.
-
-In this frontend directory, after `pnpm build`, run `node --env-file=.env.live.local .output/server/index.mjs` and open **http://127.0.0.1:3001/sign-in**. This ignored file includes live mode, the local API origin, picker flag, session secret and port 3001. No generated credential file is required in production.
+Frontend startup remains `node --env-file=.env.live.local .output/server/index.mjs` after `pnpm build`, at **http://127.0.0.1:3001/sign-in**. The ignored file includes live mode, local API origin, picker flag, session secret and port 3001. **Login/live reads require a running compatible backend; the deleted temporary backend is no longer running.** No generated credential file is required in production.
 
 ## What works
 
