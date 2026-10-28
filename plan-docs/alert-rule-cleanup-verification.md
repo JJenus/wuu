@@ -35,7 +35,7 @@ The retained constructor now requires nine dependencies instead of eleven; unuse
 Surefire's literal in-process configuration did not honor `-DforkCount=1` for agent attachment; ordinary `prepare-agent test report` produced no execution data. Coverage was instead collected by attaching JaCoCo to Maven itself:
 
 ```sh
-MAVEN_OPTS="${MAVEN_OPTS:-} -javaagent:$HOME/.m2/repository/org/jacoco/org.jacoco.agent/0.8.12/org.jacoco.agent-0.8.12-runtime.jar=destfile=/tmp/opencode/tracker-alert-rule.exec,includes=com.jjenus.tracker.alerting.*,append=false" ./mvnw -B -pl alerting -am -Dtest=AlertRuleServiceTest -Dsurefire.failIfNoSpecifiedTests=false test
+MAVEN_OPTS="${MAVEN_OPTS:-} -javaagent:$HOME/.m2/repository/org/jacoco/org.jacoco.agent/0.8.12/org.jacoco.agent-0.8.12-runtime.jar=destfile=/tmp/opencode/tracker-alert-rule.exec,includes=com.surf.tracker.alerting.*,append=false" ./mvnw -B -pl alerting -am -Dtest=AlertRuleServiceTest -Dsurefire.failIfNoSpecifiedTests=false test
 ./mvnw -B -pl alerting -Djacoco.dataFile=/tmp/opencode/tracker-alert-rule.exec org.jacoco:jacoco-maven-plugin:0.8.12:report
 ```
 

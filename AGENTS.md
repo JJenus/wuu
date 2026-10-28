@@ -3,35 +3,42 @@
 ## Build and focused verification
 
 - Run commands from this directory, not its parent workspace. Use `./mvnw`: this custom wrapper selects an **installed Java 21** and downloads Maven 3.9.9 (first run needs network, curl/wget, and unzip). It does not install Java.
-- Full build: `./mvnw -B clean install`; tests only: `./mvnw -B test`. Surefire already defaults to `forkCount=0` in the parent POM.
-- Module plus prerequisites: `./mvnw -B -pl core-tracking -am test` (substitute the module). Maven orders dependencies; no separate shared-first build is needed with `-am`.
-- Single test, including prerequisites: `./mvnw -B -pl core-tracking -am -Dtest=VehicleTest -Dsurefire.failIfNoSpecifiedTests=false test`. Use `ClassName#methodName` to narrow further.
-- Module-only runs without `-am` require installed sibling artifacts: `./mvnw -B -DskipTests install` first.
-- Run the composed app after installing siblings: `./mvnw -pl main-app spring-boot:run`. `exec:java` has no configured main class. The Boot plugin has no repackage execution, so plain `package` does not produce an executable Boot jar.
+- Current layout is two independent Maven JAR projects, not the historical reactor: root business backend and `device-comm/pom.xml`. Both include `shared/src` through build-helper; no sibling artifact installation is needed.
+- Backend build: `./mvnw -B verify`; tests: `./mvnw -B test`. Device build: `./mvnw -B -f device-comm/pom.xml verify`. Root Surefire uses `forkCount=0`.
+- Single backend test: `./mvnw -B -Dtest=VehicleTest test`; use `ClassName#methodName` to narrow further.
+- Backend run: `./mvnw spring-boot:run`, or `java -jar target/tracking-engine-1.0.0-SNAPSHOT.jar` after packaging. Both POMs activate Boot repackage. Device launcher/package must remain independently verified; a root build does not build device-comm.
 - Custom parent imports the Spring Boot 3.5.9 BOM; there is no Boot parent. Plugin management alone does not activate plugins/executions.
 
 ## Tests
 
 - Before adding/changing tests, read `TESTING_GUIDELINES.md` for naming, builders, given/when/then, AssertJ, deterministic time/IDs, and mocking rules. `TESTING.md` is a scope reference, not build configuration.
 - Surefire discovers `*Test` and `*IntegrationTest`, but not `*IT` by default; no Failsafe execution is configured. Run `*IT` explicitly with `-Dtest=ClassNameIT` and check its infrastructure requirements.
-- Coverage percentages in the guidelines are targets, **not enforced build gates**. JaCoCo is only in plugin management; in-process Surefire does not attach its forked-JVM agent. Do not claim coverage from `test jacoco:report` without checking instrumentation and execution data.
+- Coverage percentages in the guidelines are targets, **not enforced build gates**. In-process Surefire does not attach a forked-JVM JaCoCo agent. Do not claim coverage without checking instrumentation and execution data.
+- Serialize root Maven runs: `testCompile` compiles all tests, even with `-Dtest`. Concurrent RED/clean builds against the same `target/` can invalidate another lane's evidence. Device builds have a separate target.
+- Full disposable-infrastructure gate: `sh tools/verify-release.sh` (Docker required). It explicitly selects `*IT`. Review its latest result before claiming the gate passes.
 
 ## Actual wiring and pitfalls
 
-- `main-app/.../TrackingEngineApplication.java` is the active Boot entrypoint: it scans all modules, entities, and repositories. Each business module (`core-tracking`, `alerting`, `notification`, `user-auth`) and `device-comm` depends on `shared`; `main-app` depends on all of them. README dependency diagrams are stale.
-- Runtime defaults live in `main-app/src/main/resources/application.yaml`: H2 in-memory, external Redis (`localhost:6379`), native Artemis (`localhost:61616`), TCP port 8888. That YAML currently repeats the top-level `management` key; investigate this before assuming startup works.
-- Flyway migrations in `main-app/src/main/resources/db/migration/` own the composed app schema; Hibernate uses `ddl-auto: validate`. Entity changes need corresponding migrations, not Hibernate schema generation.
+- Active backend entrypoint: `src/main/java/com/surf/tracker/main/TrackingEngineApplication.java`. Business packages are `core`, `alerting`, `notification`, `userauth`; device sources are outside the backend source set.
+- Backend defaults: `src/main/resources/application.yaml`, in-memory H2, external Redis/Artemis, required JWT secret. Device defaults: `device-comm/src/main/resources/application.yaml`, TCP 8888. No product frontend source exists.
+- Flyway histories in `src/main/resources/db/migration/` (H2) and `db/postgresql/` own the schema; Hibernate validates. Supply compatible migrations for both histories; never switch histories or edit applied migrations to bypass checksums. See SECURITY.md for the postgres profile.
 - Telemetry flows `LocationDataEvent` → core tracking → `VehicleUpdatedEvent` → alerting → `AlertRaisedEvent` → notification via Artemis. `ArtemisEventPublisher` derives topic names from lowercased Java simple class names; `JmsConfig` uses `_type` message headers. Renaming/moving events can break consumers/serialization.
-- Spring `@EventListener` and JMS `@JmsListener` are distinct delivery mechanisms. Trace the actual publisher and listener before changing a flow; `FuelCutCommandHandler` listens in-process, while `VehicleEventHandler` also has a JMS fuel-cut handler that republishes the same event.
+- Spring `@EventListener` and JMS `@JmsListener` are distinct delivery mechanisms. Trace actual publishers, JSON conversion, destination domain, tenant resolution and consumers before accepting a flow. A string queue round trip is not telemetry/notification pipeline evidence.
 - Tenant scoping uses `shared/security/TenantContext` (ThreadLocal), set/cleared by `JwtAuthFilter`. Preserve organization filters in repository access; HTTP tenant context does not automatically cross JMS, scheduler, or Reactor execution seams.
 - `Vehicle` and `Trip` are JPA entities in `core/domain/entity`; keep their business methods rather than recreating parallel pure-POJO models.
 
 ## Design direction and device constraint
 
-- The owner is considering a simpler **modular monolith** for the business modules; this is a direction to evaluate, not authorization for a repository-wide collapse.
+- The pre-existing working tree consolidates business modules and renames packages from `com.jjenus` to `com.surf`. Preserve that migration and unrelated uncommitted work.
 - Keep `device-comm` unchanged when simplifying business modules: its independent deployment is required. Preserve protocol parsing, TCP sessions, and command transport there; retain business validation and command persistence in core tracking.
-- Independent deployment is **not wired today**: `main-app` embeds `device-comm`, its POM has no standalone Boot launcher, and `FuelCutCommandHandler` injects the in-process `DeviceCommandTransport` plus protocol builders. Do not describe this as an already deployable separate process or replace the device seam with direct business-module calls.
+- Standalone device packaging does not prove remote business-command transport: backend `DeviceCommandConfig` currently supplies no functioning transport/builders. Keep unfinished command delivery and device authentication visible as release blockers; no direct business-module dependency inside device-comm.
 - For business-module simplification, assess **depth** at the interface, not Maven-module count. Hide persistence/cache/messaging orchestration behind small use-case interfaces; keep implementation private and tests at the same seam as callers. Add an adapter seam where behavior actually varies, not a pass-through per class.
 - `AlertRuleService` is the single alert-rule management interface used by `AlertRuleController`; the unused command/query duplicates were removed. Keep response mapping and cache orchestration internal rather than recreating parallel implementations.
 - Rule caches use versioned organization namespaces in both Spring and manual Redis paths. Preserve `AlertRuleService`'s cache resolver/key generator and explicit organization IDs for background reads; a missing vehicle index is a cache miss, not proof that no rules exist. Run `AlertRuleCachingIntegrationTest` for proxy-level isolation/invalidation coverage.
 - `shared` currently mixes event/command interfaces with Redis, JMS, Reactor Netty, and tenant context. Keep business implementation out of it; business-module consolidation must not pull business dependencies into the device-facing interface.
+
+## Autonomous recovery
+
+Read `docs/autonomous/SESSION_STATE.md`, TASK_QUEUE.md, FEATURE_MATRIX.md, DEFECT_REGISTER.md and TEST_REPORT.md before resuming delivery. Treat interrupted agent changes as unverified until tests and review pass. Design-only ride-hailing/subscription documents are not approval to invent payment rules or production credentials. STATUS remains IN_PROGRESS/BLOCKED unless all release gates actually pass.
+
+Cost-aware delegation: default to direct execution; **maximum two active subagents**, including background agents. Before delegating, apply the bounded-task/value check in `docs/autonomous/DECISION_LOG.md` D007. Resume failed agents' work directly after inspecting partial changes rather than automatically respawning.

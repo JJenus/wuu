@@ -24,7 +24,8 @@ done
 
 if [ -z "$JAVA_21" ] && command -v java >/dev/null 2>&1; then
     # Fall back to whichever java is on PATH and is version 21.
-    JAVA_VERSION="$(java -version 2>&1 | head -1 | sed -E 's/.*"([0-9]+).*/\1/')"
+    # JVM option notices can precede the version line (e.g. coverage agents).
+    JAVA_VERSION="$(java -version 2>&1 | sed -nE 's/.*version "([0-9]+).*/\1/p' | head -1)"
     if [ "$JAVA_VERSION" = "21" ]; then
         JAVA_21="$(dirname $(dirname $(readlink -f $(which java))))"
     fi

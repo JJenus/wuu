@@ -1,0 +1,35 @@
+name: Verify backend and device gateway
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: |
+            pom.xml
+            device-comm/pom.xml
+      - name: Run unit, opt-in integration, and packaging gates
+        run: sh tools/verify-release.sh
+      - name: Preserve test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            target/surefire-reports/
+            device-comm/target/surefire-reports/
+          retention-days: 14

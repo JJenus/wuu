@@ -1,8 +1,20 @@
-# Tracking Engine - Complete DDD Implementation
+# Tracking Engine
 
 ## Overview
 
-A comprehensive vehicle tracking engine built with **Domain-Driven Design (DDD)** principles, implementing all core features of a tracking solution including real-time locating, alerting, geofencing, and device control.
+For authentication configuration, forced re-login during migration, denied
+callbacks and deployment limitations, see [SECURITY.md](SECURITY.md).
+
+A Java 21 / Spring Boot vehicle-tracking backend with fleet management,
+tracking trips, alert rules/geofences, tenant authorization, and notification
+infrastructure. This repository has no product frontend. Device ingestion,
+command delivery, and external notification providers have outstanding integration
+and security gates; the presence of an API or domain model does not prove a
+complete workflow.
+
+Current delivery status, feature inventory, defects, and verification evidence
+are in [docs/autonomous/](docs/autonomous/SESSION_STATE.md). Historical plans and
+older test totals are not release-readiness claims.
 
 ## Architecture
 
@@ -19,36 +31,30 @@ A comprehensive vehicle tracking engine built with **Domain-Driven Design (DDD)*
 
 ```
 tracking-engine/
-├── shared/           # Foundation layer
-├── core-tracking/    # Core domain logic
-├── device-comm/      # Protocol handling
-├── alerting/        # Alert system
-└── main-app/        # Composition root
+├── pom.xml           # Business backend executable JAR (not a Maven reactor)
+├── src/              # core, alerting, notification, userauth, main packages
+├── shared/src/       # Contracts/utilities added as sources to both builds
+├── device-comm/      # Independent device gateway Maven project
+├── tools/            # Verification script and Python device simulators
+└── docs/autonomous/  # Current evidence and execution backlog
 ```
 
 ## Module Dependencies
 
 ### **Dependency Graph**
 ```
-shared (Foundation)
-   ↑
-core-tracking (Domain Core)
-   ↑           ↖
-device-comm   alerting (Domain Services)
-   ↑             ↑
-   └──────┐      │
-          main-app (Application)
+shared sources → business backend
+shared sources → device gateway
+business backend ↔ Artemis/Redis ↔ device gateway (integration gates remain)
 ```
 
 ### **Detailed Dependencies**
 
 | Module | Dependencies | Purpose |
 |--------|-------------|---------|
-| **shared** | None | Common infrastructure: Event bus, base exceptions, utilities |
-| **core-tracking** | shared | Core domain: Vehicle, LocationPoint, Trip aggregates |
-| **device-comm** | shared + core-tracking | Device protocols, command translation |
-| **alerting** | shared + core-tracking | Alert rules, monitoring engine |
-| **main-app** | ALL modules | Application wiring, dependency injection |
+| **business backend** | shared sources; Spring/JPA/Redis/Artemis | Logical core, alerting, notification and userauth packages |
+| **device-comm** | shared sources; Redis/Artemis/Reactor Netty | Independent protocol/TCP deployment boundary |
+| **shared** | Infrastructure libraries | Event/transport contracts, tenant context, common utilities |
  
 ## Core Features
 
@@ -73,7 +79,13 @@ device-comm   alerting (Domain Services)
 - **Safety Rules**: Business rule validation (e.g., no fuel cut while moving)
 - **Command Queuing**: Device command management
 
-## Project Structure
+## Historical package examples
+
+The following examples describe the original module design, not current Maven
+projects. Current packages live under `src/main/java/com/surf/tracker/`, shared
+code under `shared/src/main/java/com/surf/tracker/`, and device code under
+`device-comm/src/main/java/com/surf/tracker/`. Use the current source tree and
+feature matrix when locating implementations.
 
 ### **Core-Tracking Module**
 ```
@@ -199,32 +211,45 @@ src/test/java/com/jjenus/tracker/
 ## Getting Started
 
 ### **Prerequisites**
-- Java 17 or higher
-- Maven 3.6 or higher
-- IntelliJ IDEA (recommended)
+- Installed Java 21 (the wrapper selects it; it does not install Java).
+- Network access plus curl/wget and unzip for the wrapper's first Maven 3.9.9 download.
+- Docker for disposable PostgreSQL/Redis/Artemis integration verification.
 
 ### **Build & Run**
 ```bash
-# Clone and build
-git clone <repository>
-cd tracking-engine
+# From this repository root: build/test business backend
+./mvnw -B verify
 
-# Build all modules
-mvn clean install
+# Independent device build
+./mvnw -B -f device-comm/pom.xml verify
 
-# Run tests
-mvn test
+# Default backend test discovery excludes *IT
+./mvnw -B test
 
-# Run specific module tests
-cd core-tracking
-mvn test
+# Release verification: explicitly includes *IT and owns disposable services
+sh tools/verify-release.sh
 ```
 
 ### **Running the Application**
 ```bash
-cd main-app
-mvn exec:java
+# Business backend; configure Redis/Artemis and required JWT_SECRET first
+./mvnw spring-boot:run
+
+# Or, after successful packaging:
+java -jar target/tracking-engine-1.0.0-SNAPSHOT.jar
 ```
+
+The default database is **ephemeral H2** and is not a durable deployment.
+For PostgreSQL use `SPRING_PROFILES_ACTIVE=postgres`, the database/broker/Redis
+settings in [SECURITY.md](SECURITY.md), and Flyway migrations. Never switch
+migration histories on an existing database. Public registration is disabled;
+first-administrator provisioning requires a reviewed out-of-band process.
+
+Backend health is `/actuator/health`; health success is not proof of telemetry,
+physical command delivery, or provider delivery. Notification webhooks are
+intentionally denied pending provider-specific signature/replay verification.
+Protect the device TCP interface on a trusted network; device authentication,
+TLS and replay protection are not supplied by the HTTP security boundary.
 
 ## Event Types
 
@@ -268,11 +293,13 @@ DomainException (abstract)
 
 ## Future Enhancements
 
-### **Short Term**
-1. Database persistence (JPA/Hibernate)
-2. REST API for external integrations
-3. WebSocket support for real-time updates
-4. Configuration management system
+### **Current gaps**
+JPA, REST APIs, and authenticated WebSocket infrastructure exist. Remaining
+workflow and deployment gates are tracked in
+[FEATURE_MATRIX.md](docs/autonomous/FEATURE_MATRIX.md) and
+[RELEASE_READINESS.md](docs/autonomous/RELEASE_READINESS.md), rather than inferred
+from these historical enhancement lists. Ride-hailing, subscription billing,
+and payout design documents are not implemented product capabilities.
 
 ### **Long Term**
 1. Machine learning for anomaly detection
@@ -308,8 +335,8 @@ DomainException (abstract)
 
 ### **Common Issues**
 1. **IntelliJ import errors**: Reimport Maven project
-2. **Circular dependencies**: Check module imports follow the dependency graph
-3. **Test failures**: Ensure all modules are built (`mvn clean install`)
+2. **Old reactor commands fail**: Business packages are now in the root JAR; use the commands above, not `-pl main-app` or `-pl core-tracking`.
+3. **Integration failures**: Check the exact test report and disposable service readiness; do not skip or replace failed infrastructure tests with mocks.
 4. **Event bus issues**: Verify event subscribers are registered
 
 ### **Debug Tips**
