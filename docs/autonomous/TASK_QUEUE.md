@@ -5,7 +5,7 @@ Delegation budget: at most **two active subagents**, direct work by default; see
 | Priority | ID | Task | Status |
 |---|---|---|---|
 | P0 | AUDIT | Reconcile all current source/modules/design docs and scope | Inventory and runtime audit recorded; design-only scope decisions remain unresolved |
-| P0 | BASELINE | Fresh root and device test runs | Completed current clean root644/device37, zero failures/errors/skips; backend68.85%line/53.61%branch, coverage below target |
+| P0 | BASELINE | Fresh root and device test runs | Completed current clean root653/device37, zero failures/errors/skips; backend68.85%line/53.84%branch, device37.11%line/19.34%branch, below target |
 | P0 | SECURITY | Independent security boundary audit | Findings recorded; scoped create/auth fix review completed; final audit pending |
 | P0 | ARCH | Independent runtime/deployment/message-flow audit | Recorded in ARCHITECTURE_AUDIT.md; runtime gaps remain open |
 | P0 | INFRA | Establish disposable PostgreSQL/Redis/Artemis verification infrastructure | Docker restored locally; full gate starts owned disposable services |

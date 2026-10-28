@@ -100,6 +100,8 @@ class PostgresDeploymentIT {
     @Autowired JdbcTemplate jdbc;
     @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
     com.surf.tracker.notification.application.NotificationOrchestrator notificationOrchestrator;
+    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
+    com.surf.tracker.alerting.application.AlertingEngine alertingEngine;
 
     @Test
     void notification_missingRecipientPolicy_redeliversAndRetainsOriginalEventInBrokerDlq() {
@@ -325,9 +327,18 @@ class PostgresDeploymentIT {
                 Long.class, vehicle)).isEqualTo(1L);
             assertThat(jdbc.queryForObject("select count(*) from alert_event_outbox where source_event_id = ?",
                 Long.class, event.getEventId())).isEqualTo(1L);
-            var message = raised.receive(10000);
-            assertThat(message).isNotNull();
-            var outgoing = (com.surf.tracker.shared.events.AlertRaisedEvent) converter.fromMessage(message);
+            com.surf.tracker.shared.events.AlertRaisedEvent outgoing = null;
+            long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
+            while (System.nanoTime() < deadline) {
+                var message = raised.receive(500);
+                if (message == null) continue;
+                var candidate = (com.surf.tracker.shared.events.AlertRaisedEvent) converter.fromMessage(message);
+                if (vehicle.equals(candidate.getVehicleId())) {
+                    outgoing = candidate;
+                    break;
+                }
+            }
+            assertThat(outgoing).isNotNull();
             assertThat(outgoing.getAlertId()).isEqualTo(jdbc.queryForObject(
                 "select cast(alert_id as varchar) from tracker_alerts where vehicle_id = ?", String.class, vehicle));
             String payload = jdbc.queryForObject("select payload from alert_event_outbox where source_event_id = ?",
@@ -335,7 +346,11 @@ class PostgresDeploymentIT {
             var persisted = new com.surf.tracker.main.config.AppConfig().objectMapper()
                 .readValue(payload, com.surf.tracker.shared.events.AlertRaisedEvent.class);
             assertThat(outgoing).usingRecursiveComparison().isEqualTo(persisted);
-            assertThat(raised.receive(500)).isNull();
+            jakarta.jms.Message additional;
+            while ((additional = raised.receive(500)) != null) {
+                var other = (com.surf.tracker.shared.events.AlertRaisedEvent) converter.fromMessage(additional);
+                assertThat(other.getVehicleId()).as("unrelated outbox intents may also be relayed").isNotEqualTo(vehicle);
+            }
         }
     }
 
@@ -464,9 +479,18 @@ class PostgresDeploymentIT {
                     Long.class, vehicle)).isEqualTo(1L));
             alertOutbox.relayPending();
             // then: actual outgoing event matches the alert visible only to its owner.
-            var message = raised.receive(10000);
-            assertThat(message).isNotNull();
-            var outgoing = (com.surf.tracker.shared.events.AlertRaisedEvent) converter.fromMessage(message);
+            com.surf.tracker.shared.events.AlertRaisedEvent outgoing = null;
+            long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
+            while (System.nanoTime() < deadline) {
+                var message = raised.receive(500);
+                if (message == null) continue;
+                var candidate = (com.surf.tracker.shared.events.AlertRaisedEvent) converter.fromMessage(message);
+                if (vehicle.equals(candidate.getVehicleId())) {
+                    outgoing = candidate;
+                    break;
+                }
+            }
+            assertThat(outgoing).isNotNull();
             assertThat(outgoing.getVehicleId()).isEqualTo(vehicle);
             assertThat(outgoing.getRuleKey()).isEqualTo(key);
             assertThat(outgoing.getAlertType()).isEqualTo("OVERSPEED");
@@ -475,8 +499,65 @@ class PostgresDeploymentIT {
             assertThat(content(outsider, "/alerts?vehicleId=" + vehicle)).isEmpty();
             assertThat(jdbc.queryForObject("select count(*) from tracker_alerts where vehicle_id = ?",
                 Long.class, vehicle)).isEqualTo(1L);
-            assertThat(raised.receive(500)).isNull();
+            jakarta.jms.Message additional;
+            while ((additional = raised.receive(500)) != null) {
+                var other = (com.surf.tracker.shared.events.AlertRaisedEvent) converter.fromMessage(additional);
+                assertThat(other.getVehicleId()).as("unrelated outbox intents may also be relayed").isNotEqualTo(vehicle);
+            }
         }
+    }
+
+    @Test
+    void telemetry_ambiguousUpdatePublication_redeliversWithStableUpdateIdentity() {
+        // given: first send reaches Artemis, then reports failure before core DB commit.
+        HttpHeaders owner = tenantHeaders();
+        String vehicle = createVehicle(owner);
+        String tracker = createTracker(owner, vehicle);
+        String key = "core-retry-speed-" + IDS.incrementAndGet();
+        assertThat(request(owner, HttpMethod.POST, "/alerts/rules/templates/overspeed",
+            Map.of("rule_key", key, "rule_name", "Core retry acceptance", "speed_limit", 30,
+                "vehicle_ids", List.of(vehicle), "enabled", true)).getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        var attempts = new java.util.concurrent.CopyOnWriteArrayList<com.surf.tracker.shared.events.VehicleUpdatedEvent>();
+        var evaluated = new java.util.concurrent.CopyOnWriteArrayList<com.surf.tracker.shared.events.VehicleUpdatedEvent>();
+        org.mockito.Mockito.doAnswer(invocation -> {
+            invocation.callRealMethod();
+            evaluated.add(invocation.getArgument(0));
+            return null;
+        }).when(alertingEngine).processVehicleUpdate(org.mockito.ArgumentMatchers.argThat(event ->
+            event != null && vehicle.equals(event.getVehicleId())));
+        org.mockito.Mockito.doAnswer(invocation -> {
+            attempts.add(invocation.getArgument(0));
+            if (attempts.size() == 1) {
+                // Leave the listener's local JMS transaction so the first send really survives rollback.
+                CompletableFuture.runAsync(() -> topic.convertAndSend("tracking.events.vehicleupdatedevent",
+                    attempts.getFirst())).join();
+                throw new IllegalStateException("Injected ambiguous update publication");
+            }
+            invocation.callRealMethod();
+            return null;
+        }).when(publisherSpy).publish(org.mockito.ArgumentMatchers.argThat(event ->
+            event instanceof com.surf.tracker.shared.events.VehicleUpdatedEvent update
+                && vehicle.equals(update.getVehicleId())));
+        var timestamp = java.time.Instant.parse("2026-01-01T12:00:00Z");
+        var source = new com.surf.tracker.shared.events.LocationDataEvent(
+            java.time.Clock.fixed(timestamp, java.time.ZoneOffset.UTC),
+            java.util.UUID.fromString("00000000-0000-0000-0000-000000000051"), "device-" + tracker,
+            new com.surf.tracker.shared.domain.LocationPoint(1, 2, 60, timestamp), "GT06", Map.of());
+        // when
+        topic.convertAndSend("tracking.events.locationdataevent", source);
+        // then: actual incoming redelivery retains identity through converter and both listeners.
+        org.awaitility.Awaitility.await().atMost(Duration.ofSeconds(25)).untilAsserted(() -> {
+            assertThat(attempts).hasSize(2);
+            assertThat(evaluated).as("both outgoing update attempts must finish downstream evaluation").hasSize(2);
+            assertThat(jdbc.queryForObject("select count(*) from alert_event_outbox where vehicle_id = ?",
+                Long.class, vehicle)).isEqualTo(1L);
+            assertThat(jdbc.queryForObject("select count(*) from tracker_location_data where tracker_id = ?",
+                Long.class, tracker)).isEqualTo(1L);
+            assertThat(jdbc.queryForObject("select count(*) from tracker_alerts where vehicle_id = ?",
+                Long.class, vehicle)).isEqualTo(1L);
+        });
+        assertThat(attempts.get(1)).usingRecursiveComparison().isEqualTo(attempts.getFirst());
+        assertThat(attempts.getFirst().getOccurredOn()).isEqualTo(source.getOccurredOn());
     }
 
     private ResponseEntity<Map> request(HttpHeaders headers, HttpMethod method, String path, Object body) {

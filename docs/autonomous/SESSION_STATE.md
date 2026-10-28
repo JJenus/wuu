@@ -2,14 +2,14 @@
 
 - Date: 2026-10-28
 - Phase: foundational security/runtime fixes and integration verification
-- Current task: notification recipient safety verified; prepare authorized coherent source commit/push; zero active subagents
+- Current task: core telemetry retry/identity verified; publish authorized follow-up; zero active subagents
 - Last completed task: full scope/security read-only audits and fresh unit/default integration baselines
-- Current Git commit: 551db79
+- Published source checkpoint: 4f0da1a (origin/main verified); core retry follow-up recorded in core-telemetry-retry-cycle.md
 - Git worktree: extensive pre-existing consolidated source/security migration; preserve all changes
-- Latest verification: Oct28 clean full gate PASSED root644/device37, zero failures/errors/skips, both JARs built. Missing notification recipient policy fails honestly; actual Artemis redelivers then retains original event in DLQ. Current executable TCP→alert/outbox/tenant-HTTP smoke passed again. Fresh coverage root68.85%line/53.61%branch; device37.19%line/19.34%branch, BELOW_TARGET. See TEST_REPORT.md.
+- Latest verification: Oct28 clean full gate PASSED root653/device37, zero failures/errors/skips, both JARs built. Actual independent ambiguous core send + input redelivery preserves derived identity/time; both downstream evaluations finish with one location/alert/outbox. Current executable TCP→alert/outbox/tenant-HTTP smoke passed again. Fresh coverage root68.85%line/53.84%branch; device37.11%line/19.34%branch, BELOW_TARGET. See TEST_REPORT.md.
 - Known failures: none in latest local gate. Coverage target and wider notification/command/device-identity/topology gates remain open; not RELEASE_READY.
 - Blockers: notification recipient/provider policy and trusted device identity/provisioning are unspecified; design-only ride-hailing/subscription scope unapproved
-- Next executable task: secret/generated-file checks then commit/push all source work to origin/main (explicitly authorized, including pre-existing consolidation). Latest gate /tmp/opencode/tracker-notification-final-full-gate.log; executable receipt /tmp/opencode/tracker-notification-final-socket.log. Four bounded reviews completed sequentially, none active. Then continue actionable durability/device test coverage gaps. No deployment or release authorization; recipient/device policies still blocked.
+- Next executable task: publish verified core retry follow-up, confirm remote HEAD; then investigate remaining core DB/JMS commit atomicity and meaningful device protocol coverage without inventing hardware credentials or notification policy. Latest gate /tmp/opencode/tracker-core-retry-final-v2-full-gate.log; executable receipt /tmp/opencode/tracker-core-retry-final-v2-socket.log. Five bounded review passes completed sequentially, none active. Commit/push authorized; no deployment/release authorization.
 - Decisions: see DECISION_LOG.md; preserve user migration, serialize root Maven, no invented recipients/providers/financial policy
 - Owner delegation constraint (2026-10-28): maximum TWO active subagents; direct work by default, bounded delegation only when independent value/time savings justify cost. Earlier fixture/design attempts hit limits; subsequent single bounded outbox review completed. Zero active agents now. No measured monetary balance/savings.
 

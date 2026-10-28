@@ -1,5 +1,10 @@
 # Verification report
 
+## Latest completed core telemetry retry acceptance
+**Clean backend653/device37 PASSED**, zero failures/errors/skips, both JARs built: `/tmp/opencode/tracker-core-retry-final-v2-full-gate.log`. Current executable socket pipeline passed: `/tmp/opencode/tracker-core-retry-final-v2-socket.log`. Publication/service IllegalArgumentException/IllegalStateException no longer masquerade as skipped packets; same-source/same-assignment retries preserve update identity/time. Actual independent ambiguous send plus input redelivery completes both downstream evaluations with one location/alert/outbox. RED/fixture-failure/review details: [core-telemetry-retry-cycle.md](core-telemetry-retry-cycle.md).
+
+Fresh whole-bundle coverage backend **68.85% line / 53.84% branch** (4883/7092;954/1772), device/shared **37.11% / 19.34%** (475/1280;70/362), BELOW_TARGET. Earlier complete source snapshot pushed as `4f0da1a`; follow-up core fix being committed/pushed under the same explicit authorization. Not RELEASE_READY.
+
 ## Latest completed notification safety acceptance
 **Clean backend644/device37 PASSED**, zero failures/errors/skips, both executable JARs built: `/tmp/opencode/tracker-notification-final-full-gate.log`. Current executable TCP-to-alert smoke passed: `/tmp/opencode/tracker-notification-final-socket.log`. Fabricated admin/email/phone and external destination fallbacks removed; missing routing fails before persistence and is not swallowed by the alert listener. Actual Artemis retries and retains the original unroutable event in DLQ. Scoped review and RED/GREEN details: [notification-recipient-safety-cycle.md](notification-recipient-safety-cycle.md).
 

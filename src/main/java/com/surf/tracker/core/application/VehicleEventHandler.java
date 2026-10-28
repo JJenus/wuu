@@ -9,7 +9,6 @@ import com.surf.tracker.shared.events.VehicleUpdatedEvent;
 import com.surf.tracker.shared.metrics.MetricsRegistry;
 import com.surf.tracker.shared.pubsub.EventPublisher;
 import com.surf.tracker.shared.redis.VehicleActivityTracker;
-import com.surf.tracker.shared.util.TimeProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jms.annotation.JmsListener;
@@ -54,11 +53,12 @@ public class VehicleEventHandler {
         Long previousOrg = TenantContext.getCurrentOrgId();
         Long previousUser = TenantContext.getCurrentUserId();
         try {
-            Vehicle vehicle = trackerRepository.findForTelemetryByDeviceId(event.getDeviceId())
-                    .orElseThrow(() -> new IllegalArgumentException("Unknown device"))
-                    .getVehicle();
+            var tracker = trackerRepository.findForTelemetryByDeviceId(event.getDeviceId());
+            Vehicle vehicle = tracker.map(com.surf.tracker.core.domain.entity.Tracker::getVehicle).orElse(null);
             if (vehicle == null || vehicle.getOrganizationId() == null || vehicle.getOrganizationId() <= 0) {
-                throw new IllegalArgumentException("Device has no tenant-owned vehicle assignment");
+                logger.warn("Skipping location update for device {}: no tenant-owned vehicle assignment", event.getDeviceId());
+                metrics.increment("telemetry.packets.skipped");
+                return;
             }
             TenantContext.clear();
             TenantContext.setCurrentOrgId(vehicle.getOrganizationId());
@@ -71,8 +71,8 @@ public class VehicleEventHandler {
             metrics.increment("telemetry.packets.received", "protocol", event.getProtocol());
 
             VehicleUpdatedEvent vehicleUpdatedEvent = new VehicleUpdatedEvent(
-                    clock,
-                    TimeProvider.newUuid(),
+                    derivedUpdateId(event, vehicle),
+                    event.getOccurredOn(),
                     vehicleId,
                     vehicle.getOrganizationId(),
                     event.getLocation(),
@@ -83,10 +83,6 @@ public class VehicleEventHandler {
             metrics.increment("telemetry.vehicles.updated");
             logger.debug("Updated vehicle {} for device {}", vehicleId, event.getDeviceId());
 
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            logger.warn("Skipping location update for device {}: {}",
-                    event != null ? event.getDeviceId() : "unknown", e.getMessage());
-            metrics.increment("telemetry.packets.skipped");
         } catch (Exception e) {
             logger.error("Failed to process location update for device {}",
                     event != null ? event.getDeviceId() : "unknown", e);
@@ -96,6 +92,20 @@ public class VehicleEventHandler {
             TenantContext.clear();
             if (previousOrg != null) TenantContext.setCurrentOrgId(previousOrg);
             if (previousUser != null) TenantContext.setCurrentUserId(previousUser);
+        }
+    }
+
+    private String derivedUpdateId(LocationDataEvent source, Vehicle vehicle) {
+        StringBuilder identity = new StringBuilder("location-vehicle-update:v1:");
+        for (String component : new String[]{source.getEventId(), vehicle.getOrganizationId().toString(),
+                source.getDeviceId(), vehicle.getVehicleId()}) {
+            identity.append(component.length()).append(':').append(component);
+        }
+        try {
+            return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                .digest(identity.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        } catch (java.security.NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException("Required SHA-256 algorithm unavailable", impossible);
         }
     }
 }
