@@ -1,5 +1,11 @@
 # Progress and next slice
 
+## Actual-Java read acceptance — 2026-10-29
+
+The disposable production-Nitro/Java browser fixture passed after lifecycle hardening. It verifies two-tenant fleet/detail isolation, real password sign-in, sealed-cookie/bearer secrecy, account-wide revocation, forged-cookie denial and a genuine system-admin-only denial while permitted trips/fleet remain accessible. Cleanup left no owned containers or Java/Nitro/Playwright processes. See `deployed-java-acceptance.md` for exact artifact hash, receipts and limits. These dated results supersede older non-verification statements only for the exercised assertions; expiry/refresh, production TLS, writes and billing remain unverified.
+
+Pre-existing detail-read/list-completeness changes remain separate uncommitted work. The next product slice is still verified live workflows, not a claim of production readiness.
+
 ## Push and requested cleanup — 2026-10-25
 
 Frontend work was pushed to `origin/frontend-app`. All backend source was preserved on `origin/backend-updates` at `a12eaff`, with original `main` (`551db79`) as its parent, rather than pushing an unrelated snapshot root. This source commit includes the existing backend refactor and verified local-account/query changes; generated secrets and artifacts were excluded.

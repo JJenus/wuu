@@ -1,5 +1,19 @@
 # Verification — Wuu preview and live read-only integration
 
+## Actual-Java fixture lifecycle — 2026-10-29
+
+Final post-review rerun **PASS**: `/tmp/opencode/tracker-reviewed-browser-gate.log`,
+private logs `/tmp/opencode/wuu-java-uWqSb5/`, rebuilt JAR SHA256
+`a452439bf220fa78a7cbcaaf975348531fb9ded8fbdbad2c6c9da3b2049e6ecb`.
+This run uses the final cleanup helper; production build, Java dependency health
+and browser assertions passed, followed by empty fixture-container/process audits.
+The helper separately passed four Node process tests with 100% helper coverage.
+Earlier receipts below retain their historical artifact hashes.
+
+`node tools/verify-java-integration.mjs` passed production build, real dependency health and deployed browser acceptance after cleanup/port lifecycle hardening. Receipt: `/tmp/opencode/tracker-deployed-lifecycle-v3.log`; private logs: `/tmp/opencode/wuu-java-76xX5K/`. No owned fixture containers or Java/Nitro/Playwright descendants remained. The artifact hash and bounded assertions are recorded in `deployed-java-acceptance.md`; this does not verify that artifact against newer subscription source or certify release readiness. Existing typecheck/coverage/boundary receipts are retained there without claiming a fresh rerun.
+
+## Historical verification
+
 Updated 2026-10-25. Includes a limited HTTP smoke test against the existing local Java JAR, in addition to the earlier contract-server and preview checks. This does **not** certify production readiness. Older evidence below retains its original dates, assumptions, and artifact names.
 
 Post-verification cleanup: frontend commits were pushed to `origin/frontend-app`; all backend source was pushed to `origin/backend-updates` (`a12eaff`, parent original `main` `551db79`). Remote refs were checked before deleting the temporary `../backend-accounts` directory. Its Java process was terminated first, so the local backend is no longer running. The active `sidie` checkout and protected snapshot were not changed; the backend branch is not merged into main. The test results below remain historical executed evidence, not a claim that the removed runtime still exists.
