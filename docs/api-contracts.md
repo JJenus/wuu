@@ -1,5 +1,15 @@
 # Backend and live adapter contracts
 
+## Session renewal contract — 2026-10-29
+
+Java login/refresh now include `refresh_expires_in`, the remaining absolute
+session refresh lifetime in seconds. The BFF retains both credentials encrypted
+and HttpOnly, exposing only `{user,expires_at}` (access deadline in milliseconds).
+Exact-origin `POST /api/auth/refresh`, session inspection and gateway expiry
+checks coordinate rotation in **one BFF process**, with bounded recovery receipts
+and fail-closed ambiguous failures. Backend reuse detection is unchanged.
+Multi-worker deployment remains unsupported; see `session-renewal.md`.
+
 ## Superseding subscription contract — 2026-10-29
 
 Java now has V5/V6 durable subscription catalog/enrollment/grant/usage APIs.
@@ -61,10 +71,10 @@ Origin/token resolution:
 
 ### Auth contract verified in current source
 
-- `POST /api/v1/auth/login`: `{email,password}` → `{access_token,refresh_token,expires_in,token_type:"Bearer"}`. Login password maximum 128 characters; whitespace is not trimmed.
+- `POST /api/v1/auth/login`: `{email,password}` → `{access_token,refresh_token,expires_in,refresh_expires_in,token_type:"Bearer"}`. Login password maximum 128 characters; whitespace is not trimmed.
 - `GET /api/v1/users/me`: bearer-authenticated numeric `id`, `email`, nullable `first_name`/`last_name`/`organization_id`, descriptive `roles`, `enabled`, `locked`. Disabled/locked or malformed identities fail closed. Effective permissions are not exposed by this DTO.
 - `POST /api/v1/auth/logout`: bearer-authenticated, 204; revokes **all sessions** for the account. Local cookie clears even if upstream revocation fails, with explicit failure copy.
-- `POST /api/v1/auth/refresh`: single-use rotating refresh tokens; reuse revokes the session family. This frontend discards refresh tokens and requires reauthentication when access expires (backend default 15 minutes). No parallel refresh/replay is attempted.
+- `POST /api/v1/auth/refresh`: single-use rotating refresh tokens; reuse revokes the session family. The BFF persists the encrypted refresh credential until its absolute deadline and coordinates renewal in one process. Ambiguous upstream failure requires sign-in instead of replaying a potentially consumed credential.
 - Backend permissions now come from current database roles, with explicit HTTP permission checks and active session/membership checks. Tenant-scoped data isolation still requires deployment-level verification. `/me` organization selection remains first org-scoped membership; no frontend tenant switching is offered.
 
 ## Pagination and normalization

@@ -43,6 +43,11 @@ Detail routes are specified in `detail-pages-plan.md`. Real geographic map rende
 
 ## Explicit exclusions
 
+The historical exclusion list below is superseded for current-access inspection,
+read-only tenant roles and **single-process** automatic renewal. See
+`effective-access.md` and `session-renewal.md`. It does not authorize role writes,
+distributed renewal, production deployment or payment claims.
+
 No automatic refresh, registration/password recovery, effective-permissions UI, tenant-isolation guarantee, telemetry polling/streaming, recorded GPS history, device commands, server-persisted geofence editing, violation monitoring, invitation sending, role editing, tracker management, alert-rule editing, subscription billing, payouts, riders, or driver workflows are delivered. Live vehicle creation, alert transitions, geofence mutations, team administration, and preference saves remain disabled. Sign-in/session integration is delivered; production authentication is not certified by contract-server tests.
 
 The frontend's live reads are implemented; the application is **not production-release ready**. Real map tiles do not make preview data or an unauthenticated deployment production-ready.

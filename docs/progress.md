@@ -1,5 +1,30 @@
 # Progress and next slice
 
+## Single-process session renewal — 2026-10-29
+
+The BFF now retains encrypted HttpOnly refresh credentials using Java's additive
+`refresh_expires_in` contract (backend `255be2c`). Timer, gateway and SSR renewal
+coordinate by authenticated refresh credential; SSR forwards replacement cookies.
+Lost BFF responses recover the same generation for 30 seconds, including short
+access lifetimes. Ambiguous upstream failures fail closed. Bounded rejection
+tracking can require old clients to reauthenticate under outage pressure, without
+locking fresh logins out of renewal after recovery. Logout still revokes all Java
+sessions and clears local state. Multi-worker deployment remains unsupported.
+
+Final local gates: **133 units PASS**, selected coverage **92.79% lines / 85.56%
+branches / 95.11% functions**, **32 auth browser tests PASS**, typecheck/build PASS.
+Read-only security-review findings were fixed with regressions. See
+`session-renewal.md` for RED/GREEN receipts and deployment limits. Preserve the
+separate pre-existing detail/list changes. Paid billing, automatic product
+metering, notification policy/provider configuration, physical hardware acceptance
+and production release gates remain open; `STATUS=IN_PROGRESS`.
+
+Actual-Java final acceptance **1/1 PASS** against backend `255be2c` artifact
+`4f4a24c3…767454`, forcing real rotation with a disposable two-minute access TTL.
+Receipt `/tmp/opencode/renewal-java-final2.log`, private browser
+`/tmp/opencode/wuu-java-50ejEH/browser.log`; owned cleanup verified. The next slice
+is verified live workflows, not production deployment or simulated paid access.
+
 ## Subscription owner integration — 2026-10-29
 
 `/subscriptions` now reads the live configured token/monthly/yearly catalog and

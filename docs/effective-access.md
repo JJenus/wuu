@@ -49,9 +49,10 @@ permission keys only; it offers no assignment, edit or global-role access. The B
 exposes the exact `GET /api/_wuu/roles` collection and rejects nested role paths
 before upstream access. Without `roles.read`, the panel is absent, and the server
 still denies the request. This closes the backend-only gap; catalog writes,
-assignment, team invitations and coordinated token refresh remain open.
+assignment and team invitations remain open. Single-process coordinated renewal
+is now implemented separately; see `session-renewal.md` for deployment limits.
 
-This does not deliver tenant switching, platform CRUD, role edits, coordinated
+This does not deliver tenant switching, platform CRUD, role edits, distributed
 refresh, MFA/password recovery or production authorization certification. The
 actual-Java run verifies tenant-admin role reads, ignores a foreign `orgId`
 override, and denies a same-tenant OPERATOR without `roles.read`; the frontend
@@ -68,8 +69,8 @@ browser run.
 | Actionability | 4/5   | Isolated artifact and repeatable browser fixture exist; no production configuration or provider authorization is supplied.                                    |
 | Conciseness   | 4/5   | Existing service/gateway/query patterns reused; dated historical recovery notes remain verbose.                                                               |
 
-Overall4.0/5. Highest-impact improvements: implement rotation-safe session refresh,
-then connect real live workflows without treating permission snapshots as
+Overall4.0/5. The subsequent single-process session-renewal slice is documented in
+`session-renewal.md`. Next, connect verified live workflows without treating permission snapshots as
 authority. These are active engineering tasks, not a reason to mark RELEASE_READY.
 The owner would reasonably expect continued work; `IN_PROGRESS` remains set.
 

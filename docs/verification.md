@@ -1,5 +1,39 @@
 # Verification — Wuu preview and live read-only integration
 
+## Single-process session renewal — 2026-10-29
+
+- Selected-source Vitest gate **133 tests / 19 files PASS**, coverage **92.79%
+  lines / 85.56% branches / 95.11% functions**. The newly instrumented renewal
+  utility has **95.2% lines / 84.05% branches / 100% functions**. No whole-UI or
+  whole-backend coverage claim (`/tmp/opencode/renewal-coverage-final.log`).
+- Typecheck, production build, boundaries and scoped formatting PASS. Full
+  `pnpm format:check` reports pre-existing `app/layouts/default.vue`; the slice
+  leaves that unrelated tracked file untouched (`renewal-format-check-final.log`).
+- Full contract auth browser suite **32 PASS** (`renewal-auth-final.log`),
+  including credential-alias concurrency, SSR replacement cookies, short-TTL
+  recovery, timer/gateway expiry, logout, unrelated-user recovery and Origin
+  denials. Unit tests cover ambiguous-response rejection, in-flight cancellation,
+  bounded capacity/outage recovery and fail-closed process restart.
+- RED checkpoints `dbc6d63` and `70ea423`; GREEN `7a85cbe`. A read-only security
+  review found late-replay, short-TTL and capacity issues; regressions and follow-up
+  review resolved them without weakening Java's strict reuse revocation. The
+  reviewer did not run gates; final restart hardening was separately regression
+  tested. See `session-renewal.md` for exact limits.
+- Backend additive refresh-lifetime contract is published at `255be2c` on main.
+  Its full vendor gate is **729 backend / 91 device PASS**, zero failures/errors/
+  skips (`/tmp/opencode/session-refresh-full-gate.log`), backend JAR SHA256
+  `4f4a24c329537252e06f6f5aab97347054172046a2e32196fa9c260030767454`.
+- Final actual-Java production-Nitro browser acceptance **1/1 PASS** with that JAR,
+  a disposable two-minute access TTL to force real refresh rotation, authorized
+  reads and account-wide revocation. Receipt `/tmp/opencode/renewal-java-final2.log`;
+  private browser `/tmp/opencode/wuu-java-50ejEH/browser.log`. Owned cleanup passed
+  and the container audit found no fixture leftovers. The earlier default-TTL
+  run exercised the endpoint but did not force rotation; this run supersedes it.
+
+Only one BFF process is supported. Restart requires sign-in; distributed durable
+rotation coordination, production ingress/TLS and final release approval remain
+open. This is not `RELEASE_READY` or deployment authorization.
+
 ## Subscription owner/access continuation — 2026-10-29
 
 - Frontend selected-source unit gate **122 PASS** under Vitest 4.1.12, coverage

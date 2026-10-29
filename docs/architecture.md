@@ -78,9 +78,9 @@ Timestamps are formatted with a fixed `en-US` locale and explicit UTC zone. This
 
 ## Security posture
 
-- `/api/auth/login` validates bounded JSON, requires matching Origin, validates the backend token response and `/users/me`, then seals only the access token and expiry in an AES-256-GCM HttpOnly cookie. Identity alone is returned to the browser. The backend is the authentication/authorization authority.
+- `/api/auth/login` validates bounded JSON, requires matching Origin, validates the backend token response and `/users/me`, then seals access/refresh credentials and expiries in an AES-256-GCM HttpOnly cookie. Only identity and the access deadline are returned to the browser. The backend is the authentication/authorization authority.
 - `/api/auth/session` rechecks identity against the backend, including revocation/account state. `/api/auth/logout` clears the local cookie and requests account-wide backend revocation. Backend failures are sanitized; upstream revocation failure is disclosed, never shown as success.
-- Access sessions expire at the backend TTL. Refresh tokens are discarded; there is no automatic refresh, rotation race, or browser-readable token persistence. A shared deployment secret enables consistent cookie decryption across replicas. Rotate it to invalidate local sessions.
+- Automatic access renewal coalesces authenticated refresh credentials in one BFF process and retains bounded 30-second recovery receipts. SSR forwards replacement cookies; ambiguous upstream failures fail closed. Shared cookie secrets do not coordinate replicas: multi-worker deployment remains unsupported. See `session-renewal.md` for expiry, capacity cutover and release limits.
 - `auth` initializes identity before `query`; live query keys use server-reported user/org identifiers. Sign-in/out force full navigation to clear prior identity/cache state. The backend still selects/enforces the active tenant; the frontend does not provide tenant switching.
 - Client role templates are descriptive only. They never grant live access or hide the need for server enforcement.
 - The organization/user IDs in public runtime config apply only to preview; live mode does not trust them as identity claims.
@@ -90,7 +90,7 @@ Timestamps are formatted with a fixed `en-US` locale and explicit UTC zone. This
 
 ## Future integration rules
 
-1. Verify the implemented session boundary against the actual deployment, including shared ingress rate limits, Host/TLS configuration, and real revocation behavior. A coordinated refresh mechanism is a separately scoped follow-up.
+1. Verify the implemented single-process renewal boundary against production ingress rate limits, Host/TLS configuration and revocation. Durable multi-instance refresh coordination remains a separate release gate.
 2. Add a verified effective-permissions/active-tenant contract before enabling platform navigation or mutations. Permission-denied reads remain errors; per-domain query states prevent unrelated denied reads from hiding permitted content. Do not derive authorization from JWT role names or client templates.
 3. Verify alert actor/review-note, geofence update geometry/assignments, vehicle/tracker creation, and preference contracts before enabling those mutations.
 4. Add tenant-scoped telemetry/history only after authenticated subscription, ordering, staleness, gap, reconnect, and historical-GPS rules are proven. Never treat the notification socket as a GPS feed.

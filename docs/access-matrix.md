@@ -26,7 +26,7 @@ Preview mode is a **public sample-data workspace**, including `/admin`. There is
 
 Live mode is opt-in through deployment configuration and uses authenticated read-only GET adapters through the same-origin BFF:
 
-- Login validates backend tokens and `/users/me` before issuing a sealed HttpOnly access cookie. Exact same-origin mutation checks and live route guards are implemented. Expiry requires reauthentication; refresh tokens are discarded.
+- Login validates backend tokens and `/users/me` before issuing a sealed HttpOnly access/refresh cookie. Exact same-origin mutation checks and live route guards are implemented. Single-process renewal is coordinated; expired refresh credentials and ambiguous upstream failures require reauthentication. Multi-worker deployment is unsupported; see `session-renewal.md`.
 - Logout clears the local cookie and asks the backend to revoke all account sessions. Legacy plaintext bearer cookies and shared environment-token fallbacks cannot grant access.
 - Client role templates never grant access. Live `/admin` fails closed pending an effective-capabilities contract, even if `/me` reports an administrator role. Preview `/admin` remains public sample data.
 - Live vehicle creation, alert transitions, geofence create/edit, team management, and preferences are disabled in the UI.
