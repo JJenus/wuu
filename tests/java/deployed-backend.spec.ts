@@ -1,0 +1,201 @@
+import { randomBytes, randomUUID } from 'node:crypto'
+import { expect, test, type Page } from '@playwright/test'
+
+test.skip(!process.env.WUU_DEPLOYED_FIXTURE, 'Requires the owned disposable Java fixture')
+
+test('actual Java: tenant fleet, sealed sessions and account-wide revocation', async ({
+  browser,
+  request,
+}) => {
+  const backend = process.env.WUU_DEPLOYED_API!
+  const frontend = process.env.PLAYWRIGHT_BASE_URL!
+  const run = randomUUID().slice(0, 8)
+  const owners = ['alpha', 'beta'].map((tenant) => ({
+    email: `${tenant}-${run}@example.test`,
+    password: randomBytes(24).toString('hex'),
+    first_name: tenant,
+    last_name: 'Acceptance',
+    organization_name: `Acceptance ${tenant} ${run}`,
+    vehicle_id: `${tenant}-${run}`,
+    license_plate: `${tenant.toUpperCase()}-${run}`,
+    token: '',
+    organization: 0,
+  }))
+  for (const owner of owners) {
+    const registration = await request.post(`${backend}/api/v1/auth/register`, { data: owner })
+    expect(registration.status(), 'disposable tenant owner registration').toBe(201)
+    const login = await request.post(`${backend}/api/v1/auth/login`, {
+      data: { email: owner.email, password: owner.password },
+    })
+    expect(login.status()).toBe(200)
+    owner.token = (await login.json()).access_token
+    const headers = { authorization: `Bearer ${owner.token}` }
+    const identity = await request.get(`${backend}/api/v1/users/me`, { headers })
+    expect(identity.status()).toBe(200)
+    const user = await identity.json()
+    expect(user.roles).toContain('TENANT_ADMIN')
+    owner.organization = user.organization_id
+    const vehicle = await request.post(`${backend}/api/v1/vehicles`, {
+      headers,
+      data: {
+        vehicle_id: owner.vehicle_id,
+        license_plate: owner.license_plate,
+        model: 'Acceptance',
+      },
+    })
+    expect(vehicle.status(), 'API creates real persisted vehicle').toBe(201)
+  }
+  expect(owners[0]!.organization).not.toBe(owners[1]!.organization)
+
+  async function signIn(page: Page, owner: (typeof owners)[number]) {
+    let browserBearer = false
+    page.on('request', (request) => {
+      if (request.headers().authorization) browserBearer = true
+    })
+    await page.goto('/sign-in?next=/vehicles')
+    await expect(page.locator('[data-workspace-ready]')).toHaveAttribute(
+      'data-workspace-ready',
+      'true',
+    )
+    await page.getByLabel('Email', { exact: true }).fill(owner.email)
+    await page.getByLabel('Password', { exact: true }).fill(owner.password)
+    const response = page.waitForResponse(
+      (r) => r.url().endsWith('/api/auth/login') && r.request().method() === 'POST',
+    )
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+    const login = await response
+    expect(login.status()).toBe(200)
+    await expect(page).toHaveURL('/vehicles')
+    // Read the same real BFF contract via its HTTP client: full navigation can discard
+    // Chromium's DevTools response body before response.text() reads it.
+    const contract = await page.request.post('/api/auth/login', {
+      headers: { origin: frontend },
+      data: { email: owner.email, password: owner.password },
+    })
+    expect(contract.status()).toBe(200)
+    expect(/access_token|refresh_token|accessToken|refreshToken/.test(await contract.text())).toBe(
+      false,
+    )
+    await expect(page.getByText('1 vehicles · Live fleet')).toBeVisible()
+    await expect(
+      page.getByRole('link', { name: `View ${owner.license_plate}`, exact: true }),
+    ).toBeVisible()
+    const cookie = (await page.context().cookies()).find((c) => c.name === 'wuu_session')
+    expect(Boolean(cookie?.httpOnly && cookie.sameSite === 'Strict')).toBe(true)
+    expect(
+      Boolean(cookie && !cookie.value.includes(owner.token) && !cookie.value.includes('.')),
+    ).toBe(true)
+    const visibleState = await page.evaluate(() => ({
+      cookie: document.cookie,
+      local: JSON.stringify(localStorage),
+      session: JSON.stringify(sessionStorage),
+      nuxt: JSON.stringify(window.__NUXT__),
+    }))
+    expect(JSON.stringify(visibleState).includes(owner.token)).toBe(false)
+    expect(
+      /eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/.test(JSON.stringify(visibleState)),
+    ).toBe(false)
+    expect(visibleState.cookie.includes('wuu_session')).toBe(false)
+    expect(browserBearer).toBe(false)
+  }
+
+  const contexts = await Promise.all([
+    browser.newContext(),
+    browser.newContext(),
+    browser.newContext(),
+  ])
+  try {
+    const [alpha, beta, secondAlpha] = await Promise.all(contexts.map((c) => c.newPage()))
+    await signIn(alpha!, owners[0]!)
+    await signIn(beta!, owners[1]!)
+    await signIn(secondAlpha!, owners[0]!)
+    console.log('PASS three browser logins, two owners, cookie and bearer secrecy')
+    for (const [page, own, foreign] of [
+      [alpha!, owners[0]!, owners[1]!],
+      [beta!, owners[1]!, owners[0]!],
+    ] as const) {
+      const fleet = await page.request.get('/api/_wuu/vehicles')
+      expect(fleet.status()).toBe(200)
+      const payload = await fleet.text()
+      expect(payload.includes(own.vehicle_id)).toBe(true)
+      expect(payload.includes(foreign.vehicle_id)).toBe(false)
+      expect((await page.request.get(`/api/_wuu/vehicles/${foreign.vehicle_id}`)).status()).toBe(
+        404,
+      )
+      await page.getByRole('link', { name: `View ${own.license_plate}`, exact: true }).click()
+      await expect(
+        page.getByRole('heading', { name: own.license_plate, exact: true }),
+      ).toBeVisible()
+      await expect(
+        page
+          .locator('section')
+          .filter({
+            has: page.getByRole('heading', { name: 'Vehicle information', exact: true }),
+          })
+          .getByText('Live data', { exact: true }),
+      ).toBeVisible()
+      await page.goto(`/vehicles/${foreign.vehicle_id}`)
+      await expect(
+        page.getByRole('heading', { name: foreign.license_plate, exact: true }),
+      ).toHaveCount(0)
+      await expect(
+        page.getByRole('heading', { name: 'Vehicle not found', exact: true }),
+      ).toBeVisible()
+      await expect(
+        page.getByText('This vehicle is not part of the current workspace.'),
+      ).toBeVisible()
+      await page.goto('/vehicles')
+      await expect(
+        page.getByRole('link', { name: `View ${own.license_plate}`, exact: true }),
+      ).toBeVisible()
+    }
+    console.log(
+      'PASS own live fleet/detail and bidirectional foreign isolation; no preview fallback',
+    )
+    await alpha!.getByRole('button', { name: 'Sign out all sessions' }).click()
+    await expect(alpha!).toHaveURL('/sign-in')
+    expect((await alpha!.request.get('/api/auth/session')).status()).toBe(401)
+    expect((await secondAlpha!.request.get('/api/auth/session')).status()).toBe(401)
+    expect((await secondAlpha!.request.get('/api/_wuu/vehicles')).status()).toBe(401)
+    expect(
+      (
+        await request.get(`${backend}/api/v1/users/me`, {
+          headers: { authorization: `Bearer ${owners[0]!.token}` },
+        })
+      ).status(),
+    ).toBe(401)
+    expect((await beta!.request.get('/api/_wuu/vehicles')).status()).toBe(200)
+    console.log(
+      'PASS account-wide revocation across two browser sessions and direct Java token; other tenant unaffected',
+    )
+    expect((await contexts[0]!.cookies()).some((c) => c.name === 'wuu_session')).toBe(false)
+    await contexts[0]!.addCookies([
+      { name: 'wuu_session', value: 'forged-tenant-admin-cookie', url: frontend },
+    ])
+    expect((await alpha!.request.get('/api/_wuu/vehicles')).status()).toBe(401)
+    await alpha!.goto('/vehicles')
+    await expect(alpha!).toHaveURL(/\/sign-in/)
+    console.log('PASS forged cookie denied API and protected HTML')
+    // Current Java seeds grant TENANT_ADMIN trips.read but not system.admin.
+    // Exercise a genuinely denied domain through the same authenticated BFF.
+    expect((await beta!.request.get('/api/_wuu/trips')).status()).toBe(200)
+    expect(
+      (await beta!.request.get('/api/_wuu/notifications/templates')).status(),
+      'Tenant administration never grants system.admin template access',
+    ).toBe(403)
+    expect((await beta!.request.get('/api/_wuu/vehicles')).status()).toBe(200)
+    await beta!.goto('/admin')
+    await expect(
+      beta!.getByRole('heading', { name: 'Platform access is unavailable' }),
+    ).toBeVisible()
+    await beta!.goto('/vehicles')
+    await expect(
+      beta!.getByRole('link', { name: `View ${owners[1]!.license_plate}`, exact: true }),
+    ).toBeVisible()
+    console.log(
+      'PASS real system-admin API denial and platform guard preserve permitted fleet/trip access',
+    )
+  } finally {
+    await Promise.all(contexts.map((c) => c.close()))
+  }
+})
