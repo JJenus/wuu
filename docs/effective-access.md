@@ -36,34 +36,42 @@ descriptive frontend templates suggest an administrator role.
   checkpoint `6841270` on origin/main.
 - Frontend RED `2a6c259`, GREEN `830cf75`; unit tests cover validated transport,
   malformed responses,401, nullable active tenant and the exact resource alias.
-- Complete auth suite **23 PASS** including access refresh and no role-template
-  platform elevation; actual-Java production browser PASS on the isolated JAR
-  SHA256 `0866662ffa28b86072a262fa3c6236af12759048b94d264c6180cf9f80d4d99e`.
-  See `subscriptions.md` for combined final receipts and reviewer findings.
+- Complete auth suite **25 PASS** including access refresh, the read-only role
+  catalog and no role-template platform elevation; actual-Java production browser
+  PASS on the isolated JAR SHA256
+  `0866662ffa28b86072a262fa3c6236af12759048b94d264c6180cf9f80d4d99e`; selected
+  unit gate **122 PASS**, coverage 92.38% lines / 85.69% branches / 94.63%
+  functions. See `subscriptions.md` for combined final receipts.
+
+Settings now renders a paginated, read-only tenant role catalog when the current
+access snapshot contains `roles.read`. The panel shows role descriptions and
+permission keys only; it offers no assignment, edit or global-role access. The BFF
+exposes the exact `GET /api/_wuu/roles` collection and rejects nested role paths
+before upstream access. Without `roles.read`, the panel is absent, and the server
+still denies the request. This closes the backend-only gap; catalog writes,
+assignment, team invitations and coordinated token refresh remain open.
 
 This does not deliver tenant switching, platform CRUD, role edits, coordinated
-refresh, MFA/password recovery or production authorization certification. A
-separate tenant-scoped read-only catalog now exists at `GET /api/v1/roles`
-(`roles.read`); it is backend-only and is not yet consumed by this frontend. That
-catalog grants no role-assignment authority and does not replace the current
-access snapshot. The actual-Java run verifies tenant-admin role reads, ignores a
-foreign `orgId` override, and denies a same-tenant OPERATOR without `roles.read`.
+refresh, MFA/password recovery or production authorization certification. The
+actual-Java run verifies tenant-admin role reads, ignores a foreign `orgId`
+override, and denies a same-tenant OPERATOR without `roles.read`; the frontend
+panel itself is covered by the contract-server browser suite, not a deployed-Java
+browser run.
 
 ## Bounded self-evaluation
 
-| Axis          | Score | Evidence and improvement                                                                                                              |
-| ------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Accuracy      | 4/5   | Backend729/device91, frontend110 units and real Java/browser receipts support these contracts; independent review did not rerun them. |
-| Completeness  | 3/5   | Owner subscriptions and access inspection work; paid billing, automatic metering, broader writes and a role UI remain open.           |
-| Clarity       | 4/5   | Pending versus access/payment is explicit; historical docs still carry superseded statements below dated notices.                     |
-| Actionability | 4/5   | Isolated artifact and repeatable browser fixture exist; no production configuration or provider authorization is supplied.            |
-| Conciseness   | 4/5   | Existing service/gateway/query patterns reused; dated historical recovery notes remain verbose.                                       |
+| Axis          | Score | Evidence and improvement                                                                                                                                      |
+| ------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Accuracy      | 4/5   | Backend729/device91, frontend122 units, auth25 and real Java/browser receipts support these contracts; independent review did not rerun them.                 |
+| Completeness  | 4/5   | Owner subscriptions, access inspection and read-only tenant roles work; paid billing, automatic metering, coordinated refresh and broader writes remain open. |
+| Clarity       | 4/5   | Pending versus access/payment is explicit; historical docs still carry superseded statements below dated notices.                                             |
+| Actionability | 4/5   | Isolated artifact and repeatable browser fixture exist; no production configuration or provider authorization is supplied.                                    |
+| Conciseness   | 4/5   | Existing service/gateway/query patterns reused; dated historical recovery notes remain verbose.                                                               |
 
-Overall3.8/5. Highest-impact improvements: expose the verified tenant role catalog
-in the team/settings UI, then connect real live workflows without treating
-permission snapshots as authority. These are active engineering tasks, not a
-reason to mark RELEASE_READY. The owner would reasonably expect continued work;
-`IN_PROGRESS` remains set.
+Overall4.0/5. Highest-impact improvements: implement rotation-safe session refresh,
+then connect real live workflows without treating permission snapshots as
+authority. These are active engineering tasks, not a reason to mark RELEASE_READY.
+The owner would reasonably expect continued work; `IN_PROGRESS` remains set.
 
 ## Dependency gate after remediation
 

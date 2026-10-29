@@ -13,8 +13,12 @@ settings panel; full backend729/device91 passed including the role-catalog slice
 and the final same-tenant Java acceptance passed on the rebuilt artifact. Independent
 review found no confirmed critical/high regression; its refresh and
 failed-cancellation warnings are fixed, and own-property gateway hardening is
-green. No production deployment certification claimed.
-The pre-existing detail/list changes remain separate and preserved.
+green. Settings now also consumes the verified tenant role catalog read-only,
+with `roles.read` gating, bounded pagination, exact collection routing and no
+write/assignment path. Selected unit gate **122 PASS** (coverage
+92.38/85.69/94.63) and auth browser suite **25 PASS**; no production deployment
+certification claimed. The pre-existing detail/list changes remain separate and
+preserved.
 
 ## Actual-Java read acceptance — 2026-10-29
 

@@ -23,7 +23,8 @@ createServer(async (request, response) => {
     response.writeHead(status, { 'content-type': 'application/json' })
     response.end(body === undefined ? undefined : JSON.stringify(body))
   }
-  const path = new URL(request.url, 'http://localhost').pathname
+  const url = new URL(request.url, 'http://localhost')
+  const path = url.pathname
   if (path === '/health') return send(200, { testOnly: true })
   let body = ''
   for await (const chunk of request) body += chunk
@@ -105,9 +106,41 @@ createServer(async (request, response) => {
     return send(200, {
       user_id: email === 'forbidden@example.com' ? 8 : 7,
       organization_id: 12,
-      permissions: ['vehicles.read'],
+      permissions:
+        email === 'roles@example.com' ? ['vehicles.read', 'roles.read'] : ['vehicles.read'],
       access_expires_at: '2099-01-01T00:00:00Z',
     })
+  if (path === '/api/v1/roles') {
+    if (email !== 'roles@example.com') return send(403, { code: 'FORBIDDEN' })
+    const roles = [
+      {
+        id: 31,
+        name: 'TENANT_ADMIN',
+        description: 'Organization administrator',
+        permissions: ['roles.read', 'users.read'],
+      },
+      {
+        id: 32,
+        name: 'OPERATOR',
+        description: null,
+        permissions: ['vehicles.read'],
+      },
+    ]
+    const current = Number(url.searchParams.get('page') ?? 0)
+    const size = Number(url.searchParams.get('size') ?? 20)
+    const content = roles.slice(current * size, current * size + size)
+    const pages = Math.ceil(roles.length / size)
+    return send(200, {
+      content,
+      total_elements: roles.length,
+      total_pages: pages,
+      page_number: current,
+      page_size: size,
+      first: current === 0,
+      last: current >= pages - 1,
+      empty: content.length === 0,
+    })
+  }
   if (path === '/api/v1/users/me')
     return send(200, {
       id: email === 'forbidden@example.com' ? 8 : 7,

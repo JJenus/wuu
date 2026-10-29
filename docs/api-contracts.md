@@ -17,6 +17,15 @@ and BFF are no-store; every subsequent action still rechecks server authorizatio
 No nested `access/*` routes, tokens or session UUID are exposed. This supersedes
 the older no-effective-permissions-endpoint limitation only for this read use case.
 
+`GET /api/_wuu/roles?page=<0..>&size=<1..100>` maps exactly to the current-tenant
+`GET /api/v1/roles`. Java requires `roles.read`, selects the tenant server-side
+and ignores a client `orgId`; the BFF rejects nested role paths and every write.
+Only role IDs, names, nullable descriptions and sorted permission keys are
+rendered. Pagination is bounded and response page/size/totals are cross-checked.
+Seeing a role grants nothing and does not replace `/users/me/access`. Frontend
+auth browser suite **25 PASS** includes authorized and denied catalog views;
+actual-Java acceptance verifies the backend contract and same-tenant denial.
+
 Status (2026-10-23): **authenticated live read-only frontend implemented; no authenticated end-to-end run against the actual Java deployment has been performed.** Read-only inspection found the active backend refactored under `../sidie/src/main/java/com/surf/tracker/`, with auth hardening documented in `../sidie/SECURITY.md`. HEAD is `551db79`, but the inspected auth/refactor is uncommitted working-tree code. Backend files were not changed or built by this frontend task. Browser tests use a test-only contract server, not Java.
 
 Local runtime update (2026-10-25): the checkout defaults to `http://127.0.0.1:8080` without a context prefix. A limited HTTP smoke against the existing executable JAR verified Wuu login/session/logout and some reads, but alerts returned 401 and health returned 503 (Artemis unavailable). This is not current-source build certification or full browser/authorization verification; see `verification.md`.

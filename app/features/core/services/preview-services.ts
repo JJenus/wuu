@@ -20,6 +20,14 @@ export function createPreviewServices(): WorkspaceServices {
       enroll: unavailableSubscriptions,
       cancel: unavailableSubscriptions,
     },
+    roles: {
+      list: async () => {
+        throw new ApiError({
+          kind: 'unavailable',
+          message: 'Tenant roles are only available in a live signed-in workspace.',
+        })
+      },
+    },
     fleet: {
       async list() {
         return (await service.load()).vehicles

@@ -14,8 +14,11 @@ The new current-access endpoint/panel reports request-time effective permissions
 resolved by Java for the active tenant (or null tenant), not JWT role names. It
 does not enable platform concept pages, tenant switching or role writes. Revoking
 a persisted permission is verified to remove it from the next response and deny
-the corresponding action server-side. Older endpoint-absence statements below
-are historical; full production access certification remains outstanding.
+the corresponding action server-side. Settings also renders a read-only,
+paginated tenant role catalog when that snapshot contains `roles.read`; nested
+role paths and writes never pass the BFF, and the panel is absent without the
+permission. Older endpoint-absence statements below are historical; full
+production access certification remains outstanding.
 
 ## Current frontend security posture
 
@@ -50,8 +53,11 @@ Source: `AuthService.seedOrgRoles()` and migration `V2__seed_permissions_and_sup
 
 - TENANT_ADMIN does not include trips.read, trips.export, or notification permissions.
 - No organization owner distinction, per-asset scope, invitation lifecycle, or billing permissions exist in the observed seed.
-- Role assignment uses IDs but there is no role catalog REST endpoint.
-- The former all-permissions resolver is fixed in the current uncommitted backend source; the frontend still has no effective-permissions endpoint to consume.
+- Role assignment uses IDs. A read-only tenant role catalog now exists at
+  `GET /api/v1/roles`; it is not a write, assignment or global-role interface.
+- The current backend exposes effective permissions at `/users/me/access`; the
+  frontend consumes the exact alias. The former all-permissions resolver is fixed
+  in backend source.
 - Having a JWT role claim does not prove endpoint enforcement.
 
 ## Proposed role bundles (not implemented)

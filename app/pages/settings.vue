@@ -4,6 +4,7 @@ import { useDataSource } from '~/features/core/composables/useDataSource'
 import { usePreferences } from '~/features/workspace/composables/usePreferences'
 import type { Preferences } from '~/features/workspace/domain/types'
 import EffectiveAccessPanel from '~/features/auth/components/EffectiveAccessPanel.vue'
+import RoleCatalogPanel from '~/features/roles/components/RoleCatalogPanel.vue'
 
 const source = useDataSource()
 const { preferences, isPending, isError, error, refetch, savePreferences, isSaving } =
@@ -75,6 +76,7 @@ async function save() {
       eyebrow="WORKSPACE SETTINGS"
     />
     <EffectiveAccessPanel v-if="!source.isPreview" />
+    <RoleCatalogPanel />
     <UiAsyncState
       :pending="isPending && !preferences"
       :error="isError ? error : null"

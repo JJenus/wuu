@@ -9,6 +9,7 @@ import { createLiveGeofenceService } from '../../geofences/api/live-geofence-ser
 import { createLivePreferencesService } from '../../settings/api/live-preferences-service'
 import { createSubscriptionService } from '../../subscriptions/api/subscription-service'
 import { createAccessService } from '../../auth/api/access-service'
+import { createRoleService } from '../../roles/api/role-service'
 
 export function createServices(mode: DataMode, client: GatewayClient): WorkspaceServices {
   if (mode === 'preview') return createPreviewServices()
@@ -21,5 +22,6 @@ export function createServices(mode: DataMode, client: GatewayClient): Workspace
     preferences: createLivePreferencesService(),
     subscriptions: createSubscriptionService(client),
     access: createAccessService(client),
+    roles: createRoleService(client),
   }
 }

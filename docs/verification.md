@@ -2,14 +2,17 @@
 
 ## Subscription owner/access continuation — 2026-10-29
 
-- Frontend selected-source unit gate **110 PASS** under Vitest 4.1.12, coverage
-  **92.47% lines / 85.61% branches / 95.09% functions**; the earlier higher
+- Frontend selected-source unit gate **122 PASS** under Vitest 4.1.12, coverage
+  **92.38% lines / 85.69% branches / 94.63% functions**; the earlier higher
   percentages used Vitest 3 and are not directly comparable. Typecheck, build,
-  boundaries and formatting passed after reviewer fixes
-  (`vitest4-coverage.log`, `vitest4-build.log`).
-- Auth browser suite **23 PASS**, including mounted snapshot refresh and
-  failed-cancellation retry (`reviewer-fixes-auth.log`); preview suite 31 PASS and
-  focused mobile subset 12 PASS before these follow-ups.
+  boundaries and formatting passed (`role-ui-coverage.log`,
+  `role-ui-build2.log`).
+- Auth browser suite **25 PASS**, including the read-only tenant role catalog,
+  mounted snapshot refresh and failed-cancellation retry
+  (`role-ui-auth-full.log`); preview suite 31 PASS and focused mobile subset 12
+  PASS before these follow-ups. Role fixture tests verify exact paging,
+  `roles.read` visibility, ignored `orgId`, denied nested paths/writes and axe
+  cleanliness (`role-ui-auth2.log`).
 - Actual Java final subscription/access acceptance passed on isolated backend
   artifact SHA256 `0866662f…4d99e` with real owner enrollment/cancel,
   same-tenant different-user denial, cross-tenant denial, effective access,

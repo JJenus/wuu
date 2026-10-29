@@ -6,6 +6,7 @@ export const allowedBases: Record<string, string> = {
   notifications: '/api/notifications',
   subscriptions: '/api/v1/subscriptions',
   access: '/api/v1/users/me/access',
+  roles: '/api/v1/roles',
 }
 
 const loopbackHosts = new Set(['localhost', '127.0.0.1', '[::1]'])
@@ -52,6 +53,8 @@ export function upstreamPath(raw: string | undefined): string | null {
     return null
   const [resource, ...rest] = segments
   if (resource === 'access' && rest.length) return null
+  // The catalog is a tenant-selected collection; no client can address another org.
+  if (resource === 'roles' && rest.length) return null
   const base =
     resource && Object.hasOwn(allowedBases, resource) ? allowedBases[resource] : undefined
   if (!base) return null
