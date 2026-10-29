@@ -25,6 +25,8 @@ tracking:
       port: ${TCP_PORT:8888}
       message-delimiter: "#"
       worker-threads: 4
+      # Raw frames contain device IDs and coordinates; keep tracing off by default.
+      wiretap-enabled: ${TCP_WIRETAP_ENABLED:false}
 
 management:
   endpoints:

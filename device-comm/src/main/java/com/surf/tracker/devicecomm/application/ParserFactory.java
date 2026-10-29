@@ -8,8 +8,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 
 @Component
 public class ParserFactory {
@@ -26,67 +24,12 @@ public class ParserFactory {
             throw ProtocolException.parserNotFound("null or empty data");
         }
 
-        log.debug("getParser() called with data (length: {}): {}",
-                rawData.length(),
-                rawData);
-
-        log.debug("Total parsers available: {}", parsers.size());
-        parsers.forEach(parser ->
-                log.debug("Available parser: {}", parser.getProtocolName()));
-
-        // AtomicBoolean to track if we found any parser
-        final AtomicBoolean parserFound = new AtomicBoolean(false);
-        final AtomicReference<String> selectedParserName = new AtomicReference<>("");
-
+        log.debug("Selecting protocol parser for {} characters", rawData.length());
         ITrackerProtocolParser selectedParser = parsers.stream()
-                .filter(parser -> {
-                    boolean canParse = parser.canParse(rawData);
-                    String status = canParse ? "PASS" : "FAIL";
-                    log.debug("Testing parser '{}': {} for data: {}...",
-                            parser.getProtocolName(),
-                            status,
-                            rawData);
-
-                    if (canParse && !parserFound.get()) {
-                        parserFound.set(true);
-                        selectedParserName.set(parser.getProtocolName());
-                    }
-
-                    return canParse;
-                })
+                .filter(parser -> parser.canParse(rawData))
                 .findFirst()
-                .orElseGet(() -> {
-                    // This block executes if no parser is found
-                    log.debug("No parser successfully parsed the data. Testing complete.");
-
-                    // Log detailed failure analysis
-                    log.error("Failed to find parser for data ({} chars): {}",
-                            rawData.length(),
-                            rawData.substring(0, Math.min(rawData.length(), 150)));
-
-                    // Check if data has expected format
-                    if (!rawData.startsWith("*")) {
-                        log.error("Data doesn't start with '*'");
-                    }
-                    if (!rawData.endsWith("#")) {
-                        log.error("Data doesn't end with '#'");
-                    }
-
-                    String[] parts = rawData.substring(1, rawData.length() - 1).split(",");
-                    log.error("Data parts ({}): {}", parts.length, String.join("|", parts));
-
-                    throw ProtocolException.parserNotFound(rawData);
-                });
-
-        if (selectedParser != null) {
-            log.info("Selected parser '{}' for data: {}",
-                    selectedParser.getProtocolName(),
-                    rawData);
-
-            log.debug("Parser selection successful for protocol: {}",
-                    selectedParser.getProtocolName());
-        }
-
+                .orElseThrow(() -> ProtocolException.parserNotFound(" (unrecognized frame)"));
+        log.debug("Selected protocol parser '{}'", selectedParser.getProtocolName());
         return selectedParser;
     }
 

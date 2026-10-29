@@ -10,9 +10,14 @@ import org.slf4j.LoggerFactory;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.ResolverStyle;
+import java.time.temporal.ChronoField;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Locale;
 import java.util.regex.Pattern;
 
 public class AutoseekerProtocolParser implements ITrackerProtocolParser {
@@ -21,7 +26,24 @@ public class AutoseekerProtocolParser implements ITrackerProtocolParser {
     );
 
     private static final DateTimeFormatter DATE_TIME_FORMATTER =
-            DateTimeFormatter.ofPattern("ddMMyyHHmmss");
+            new DateTimeFormatterBuilder().appendPattern("ddMM")
+                .appendValueReduced(ChronoField.YEAR, 2, 2, 2000).appendPattern("HHmmss")
+                .toFormatter(Locale.ROOT).withResolverStyle(ResolverStyle.STRICT);
+
+    private final ZoneId timestampZone;
+    private final int maxMessageLength;
+
+    public AutoseekerProtocolParser() {
+        this(ZoneOffset.UTC, 1024);
+    }
+
+    public AutoseekerProtocolParser(ZoneId timestampZone, int maxMessageLength) {
+        this.timestampZone = java.util.Objects.requireNonNull(timestampZone);
+        if (maxMessageLength < 1 || maxMessageLength > 65536) {
+            throw new IllegalArgumentException("Autoseeker maximum message length must be between 1 and 65536");
+        }
+        this.maxMessageLength = maxMessageLength;
+    }
 
     private final Logger log = LoggerFactory.getLogger(AutoseekerProtocolParser.class);
     private volatile String lastParsedType;
@@ -35,7 +57,7 @@ public class AutoseekerProtocolParser implements ITrackerProtocolParser {
 
             // Remove * and #
             String cleanData = data.substring(1, data.length() - 1);
-            String[] parts = cleanData.split(",");
+            String[] parts = cleanData.split(",", -1);
 
             String protocolType = parts[2]; // V1, V4, etc.
             this.lastParsedType = protocolType;
@@ -59,69 +81,7 @@ public class AutoseekerProtocolParser implements ITrackerProtocolParser {
                 throw new ProtocolParseException("Incomplete heart pack packet");
             }
 
-            String deviceId = parts[1];
-            String timeStr = parts[3];
-            String validity = parts[4];
-            String latStr = parts[5];
-            String latDir = parts[6];
-            String lonStr = parts[7];
-            String lonDir = parts[8];
-            String speedStr = parts[9];
-            String directionStr = parts[10];
-            String dateStr = parts[11];
-            String vehicleStatus = parts[12];
-
-            // Parse latitude (DDMM.MMMM format)
-            double latitude = parseDDMMtoDecimal(latStr);
-            if ("S".equals(latDir)) {
-                latitude = -latitude;
-            }
-
-            // Parse longitude (DDDMM.MMMM format)
-            double longitude = parseDDMMtoDecimal(lonStr);
-            if ("W".equals(lonDir)) {
-                longitude = -longitude;
-            }
-
-            // Parse speed (knots to km/h)
-            float speedKnots = Float.parseFloat(speedStr);
-            float speedKmh = speedKnots * 1.852f;
-
-            // Parse timestamp
-            Instant timestamp = parseDateTime(dateStr, timeStr);
-
-            // Data is only valid if validity is 'A'
-            boolean isValid = "A".equals(validity);
-            if (!isValid) {
-                speedKmh = 0.0f;
-                log.debug("GPS data not valid (validity={})", validity);
-            }
-
-            // Parse additional network information if available
-            if (parts.length > 13) {
-                String mcc = parts[13];
-                String mnc = parts[14];
-                String lac = parts[15];
-                String cellId = parts[16];
-
-                log.debug("Network info: MCC={}, MNC={}, LAC={}, CellID={}",
-                        mcc, mnc, lac, cellId);
-
-                // Parse GPS/GSM signal and voltage if available
-                if (parts.length > 19) {
-                    int gpsSignal = Integer.parseInt(parts[17]);
-                    int gsmSignal = Integer.parseInt(parts[18]);
-                    int voltage = Integer.parseInt(parts[19]);
-
-                    log.debug("Signal info: GPS={}, GSM={}, Voltage={}",
-                            gpsSignal, gsmSignal, voltage);
-                }
-            }
-
-            log.debug("Parsed Autoseeker location: lat={}, lon={}, speed={} km/h, time={}, status={}",
-                    latitude, longitude, speedKmh, timestamp, vehicleStatus);
-
-            return new LocationPoint(latitude, longitude, speedKmh, timestamp);
+            return parseGpsFix(parts, 4, parts[3], false);
 
         } catch (Exception e) {
             throw new ProtocolParseException("Failed to parse heart pack packet: " + e.getMessage());
@@ -138,122 +98,78 @@ public class AutoseekerProtocolParser implements ITrackerProtocolParser {
                 throw new ProtocolParseException("Incomplete command response packet");
             }
 
-            String deviceId = parts[1];
             String commandCode = parts[3];
-            String status = parts[4];
-
-            int gpsDataStartIndex;
-            String responseTime;
-            String gpsTime;
-
-            // Different response formats for different commands
-            if ("D1".equals(commandCode)) {
-                // D1 format: V4,D1,30,65535,062108,062025,A,...
-                responseTime = parts[5];  // 062108
-                gpsTime = parts[6];       // 062025
-                gpsDataStartIndex = 7;
-            } else if ("S20".equals(commandCode)) {
-                // S20 format: V4,S20,DONE,061158,061116,A,...
-                responseTime = parts[4];  // DONE (but actually it's status)
-                gpsTime = parts[5];       // 061158
-                gpsDataStartIndex = 6;
-            } else {
-                // Default format for other commands
-                responseTime = parts[4];
-                gpsTime = parts[5];
-                gpsDataStartIndex = 6;
-            }
-
-            // Parse GPS data if available
-            if (parts.length > gpsDataStartIndex + 9) {
-                String validity = parts[gpsDataStartIndex];
-                String latStr = parts[gpsDataStartIndex + 1];
-                String latDir = parts[gpsDataStartIndex + 2];
-                String lonStr = parts[gpsDataStartIndex + 3];
-                String lonDir = parts[gpsDataStartIndex + 4];
-                String speedStr = parts[gpsDataStartIndex + 5];
-                String directionStr = parts[gpsDataStartIndex + 6];
-                String dateStatus = parts[gpsDataStartIndex + 7]; // May contain date and status combined
-
-                // Parse latitude
-                double latitude = parseDDMMtoDecimal(latStr);
-                if ("S".equals(latDir)) {
-                    latitude = -latitude;
-                }
-
-                // Parse longitude
-                double longitude = parseDDMMtoDecimal(lonStr);
-                if ("W".equals(lonDir)) {
-                    longitude = -longitude;
-                }
-
-                // Parse speed
-                float speedKnots = Float.parseFloat(speedStr);
-                float speedKmh = speedKnots * 1.852f;
-
-                // Extract date from combined field (e.g., "160716F7FFBBFF")
-                String dateStr;
-                if (dateStatus.length() >= 6) {
-                    dateStr = dateStatus.substring(0, 6);
-                } else {
-                    dateStr = getCurrentDateString();
-                }
-
-                // Parse timestamp
-                Instant timestamp = parseDateTime(dateStr, gpsTime);
-
-                log.debug("Command response parsed: cmd={}, status={}, lat={}, lon={}, speed={} km/h",
-                        commandCode, status, latitude, longitude, speedKmh);
-
-                return new LocationPoint(latitude, longitude, speedKmh, timestamp);
-            } else {
-                // No GPS data in response, use current time
-                log.debug("Command response without GPS data: cmd={}, status={}", commandCode, status);
-                return new LocationPoint(0.0, 0.0, 0.0f, Instant.now());
-            }
+            // Match the D1/S20/SCF layouts documented above and emitted by our simulator.
+            int gpsDataStartIndex = "D1".equals(commandCode) ? 8 : "S20".equals(commandCode) ? 7 : 6;
+            return parseGpsFix(parts, gpsDataStartIndex, parts[gpsDataStartIndex - 1], "S20".equals(commandCode));
 
         } catch (Exception e) {
             throw new ProtocolParseException("Failed to parse command response packet: " + e.getMessage());
         }
     }
 
-    private double parseDDMMtoDecimal(String ddmm) {
-        try {
-            // Handle formats like "2234.9273" or "22349273"
-            String normalized = ddmm;
-            if (ddmm.length() == 8 && !ddmm.contains(".")) {
-                // Format: DDMMmmm (e.g., 22349273)
-                // Insert decimal point at appropriate position
-                normalized = ddmm.substring(0, 4) + "." + ddmm.substring(4);
-            }
-
-            double value = Double.parseDouble(normalized);
-            int degrees = (int)(value / 100);
-            double minutes = value - (degrees * 100);
-            return degrees + (minutes / 60.0);
-        } catch (NumberFormatException e) {
-            log.warn("Failed to parse DDMM coordinate: {}", ddmm);
-            return 0.0;
+    private LocationPoint parseGpsFix(String[] parts, int start, String time, boolean combinedDateStatus) {
+        if (parts.length <= start + 7 || !"A".equals(parts[start])) {
+            throw new IllegalArgumentException("Packet does not contain a valid GPS fix");
         }
+        double latitude = parseCoordinate(parts[start + 1], parts[start + 2], true);
+        double longitude = parseCoordinate(parts[start + 3], parts[start + 4], false);
+        String speedText = parts[start + 5];
+        if (!speedText.matches("[0-9]+(?:\\.[0-9]+)?")) throw new IllegalArgumentException("Invalid speed");
+        float speed = Float.parseFloat(speedText) * 1.852f;
+        if (!Float.isFinite(speed)) throw new IllegalArgumentException("Speed is not finite");
+        String headingText = parts[start + 6];
+        if (!headingText.matches("[0-9]+(?:\\.[0-9]+)?")) throw new IllegalArgumentException("Invalid heading");
+        double heading = Double.parseDouble(headingText);
+        if (!Double.isFinite(heading) || heading >= 360) throw new IllegalArgumentException("Heading outside [0,360)");
+        String date = parts[start + 7];
+        if (combinedDateStatus && date.matches("[0-9]{6}[0-9A-Fa-f]{1,8}")) date = date.substring(0, 6);
+        return new LocationPoint(latitude, longitude, speed, parseDateTime(date, time));
+    }
+
+    private double parseCoordinate(String text, String direction, boolean latitude) {
+        int degreesLength = latitude ? 2 : 3;
+        String normalized = text;
+        if (!text.contains(".") && text.length() > degreesLength + 2 && text.matches("[0-9]+")) {
+            normalized = text.substring(0, degreesLength + 2) + "." + text.substring(degreesLength + 2);
+        }
+        if (!normalized.matches("[0-9]{" + (degreesLength + 2) + "}(?:\\.[0-9]+)?")) {
+            throw new IllegalArgumentException("Invalid coordinate representation");
+        }
+        boolean negative = latitude ? "S".equals(direction) : "W".equals(direction);
+        boolean positive = latitude ? "N".equals(direction) : "E".equals(direction);
+        if (!negative && !positive) throw new IllegalArgumentException("Invalid coordinate hemisphere");
+        int degrees = Integer.parseInt(normalized.substring(0, degreesLength));
+        double minutes = Double.parseDouble(normalized.substring(degreesLength));
+        int maximum = latitude ? 90 : 180;
+        if (!Double.isFinite(minutes) || minutes >= 60 || degrees > maximum || (degrees == maximum && minutes > 0)) {
+            throw new IllegalArgumentException("Coordinate outside valid range");
+        }
+        double value = degrees + minutes / 60.0;
+        return negative ? -value : value;
     }
 
     private Instant parseDateTime(String dateStr, String timeStr) {
-        try {
-            String dateTimeStr = dateStr + timeStr;
-            LocalDateTime ldt = LocalDateTime.parse(dateTimeStr, DATE_TIME_FORMATTER);
-            return ldt.atZone(ZoneId.systemDefault()).toInstant();
-        } catch (Exception e) {
-            log.warn("Failed to parse timestamp, using current time: {}", e.getMessage());
-            return Instant.now();
+        if (!dateStr.matches("[0-9]{6}") || !timeStr.matches("[0-9]{6}")) {
+            throw new IllegalArgumentException("Invalid GPS date or time");
         }
+        LocalDateTime localTime = LocalDateTime.parse(dateStr + timeStr, DATE_TIME_FORMATTER);
+        var validOffsets = timestampZone.getRules().getValidOffsets(localTime);
+        if (validOffsets.size() != 1) {
+            throw new IllegalArgumentException("GPS time is nonexistent or ambiguous in configured timezone");
+        }
+        return localTime.toInstant(validOffsets.getFirst());
     }
 
     @Override
     public boolean canParse(String data) {
-        if (data == null || data.isEmpty()) {
+        if (data == null || data.isEmpty() || data.length() > maxMessageLength) {
             return false;
         }
-
+        for (int index = 0; index < data.length(); index++) {
+            char c = data.charAt(index);
+            if (c < 32 || c > 126 || (c == '#' && index != data.length() - 1)) return false;
+        }
         return AUTOSEEKER_PATTERN.matcher(data).matches();
     }
 
@@ -375,10 +291,4 @@ public class AutoseekerProtocolParser implements ITrackerProtocolParser {
                 java.time.LocalTime.now().getSecond());
     }
 
-    private String getCurrentDateString() {
-        return String.format("%02d%02d%02d",
-                java.time.LocalDate.now().getDayOfMonth(),
-                java.time.LocalDate.now().getMonthValue(),
-                java.time.LocalDate.now().getYear() % 100);
-    }
 }

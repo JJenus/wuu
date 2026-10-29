@@ -56,6 +56,9 @@ public class ReactiveTcpServer {
     @Value("${tracking.tcp.server.read-timeout:300}")
     private int readTimeoutSeconds;
 
+    @Value("${tracking.tcp.server.wiretap-enabled:false}")
+    private boolean wiretapEnabled;
+
     private DisposableServer server;
     private volatile boolean running = false;
 
@@ -75,7 +78,7 @@ public class ReactiveTcpServer {
         logger.info("Starting Reactive TCP Server on port {}", tcpPort);
 
         try {
-            server = TcpServer.create()
+            TcpServer tcp = TcpServer.create()
                     .port(tcpPort)
                     .option(ChannelOption.SO_BACKLOG, 100)
                     .option(ChannelOption.SO_REUSEADDR, true)
@@ -84,8 +87,14 @@ public class ReactiveTcpServer {
                     .doOnConnection(this::handleNewConnection)
                     .doOnBind(bind -> logger.info("TCP Server binding to port {}", tcpPort))
                     .doOnBound(bound -> logger.info("TCP Server successfully bound"))
-                    .doOnUnbound(unbound -> logger.info("TCP Server unbound"))
-                    .wiretap("reactor.netty.tcp.TcpServer", LogLevel.DEBUG)
+                    .doOnUnbound(unbound -> logger.info("TCP Server unbound"));
+            if (wiretapEnabled) {
+                // Opt-in payload tracing is unsafe in normal production because frames
+                // contain device identifiers and coordinates.
+                tcp = tcp.wiretap("reactor.netty.tcp.TcpServer", LogLevel.DEBUG,
+                        reactor.netty.transport.logging.AdvancedByteBufFormat.SIMPLE);
+            }
+            server = tcp
                     .handle((inbound, outbound) -> {
                         String connectionId = "conn-" + CONNECTION_COUNTER.incrementAndGet();
 
@@ -160,8 +169,7 @@ public class ReactiveTcpServer {
                                         // Add byte to buffer (INCLUDING the delimiter '#')
                                         if (buffer.position() >= maxMessageLength) {
                                             sink.error(new RuntimeException(
-                                                    "Message exceeds maximum length of " + maxMessageLength + " bytes. " +
-                                                            "Current buffer: " + new String(buffer.array(), 0, buffer.position(), StandardCharsets.US_ASCII)));
+                                                    "Message exceeds maximum length of " + maxMessageLength + " bytes"));
                                             return;
                                         }
                                         buffer.put(b);
@@ -173,7 +181,9 @@ public class ReactiveTcpServer {
                                             buffer.get(messageBytes);
 
                                             // Convert to string WITH the delimiter included
-                                            String fullMessage = new String(messageBytes, StandardCharsets.US_ASCII);
+                                            // REPORT malformed bytes instead of silently replacing them with '?'.
+                                            String fullMessage = StandardCharsets.US_ASCII.newDecoder()
+                                                    .decode(ByteBuffer.wrap(messageBytes)).toString();
 
                                             // Send to parser
                                             sink.next(fullMessage);
@@ -212,8 +222,8 @@ public class ReactiveTcpServer {
             }
 
             // Log raw message for debugging
-            logger.debug("Received raw message ({} chars) from connection {}: {}",
-                    rawMessage.length(), connectionId, rawMessage);
+            logger.debug("Received raw message ({} chars) from connection {}",
+                    rawMessage.length(), connectionId);
 
             // Ensure message ends with delimiter for parser
             String messageForParser = rawMessage;
@@ -224,12 +234,6 @@ public class ReactiveTcpServer {
 
             // Extract device ID
             String deviceId = extractDeviceIdFromRawMessage(messageForParser);
-
-            // Update connection tracker
-            if (!"unknown".equals(deviceId)) {
-                connectionTracker.updateConnectionDevice(connectionId, deviceId);
-                logger.debug("Updated connection {} with device ID {}", connectionId, deviceId);
-            }
 
             // Create and process packet
             DeviceDataPacket packet = new DeviceDataPacket(
@@ -243,6 +247,11 @@ public class ReactiveTcpServer {
             Mono.fromRunnable(() -> {
                         try {
                             deviceDataProcessor.processDeviceData(packet);
+                            // Only successfully parsed/published packets may claim device routing/activity.
+                            if (!"unknown".equals(deviceId)) {
+                                connectionTracker.updateConnectionDevice(connectionId, deviceId);
+                            }
+                            connectionTracker.updateLastSeen(connectionId);
                         } catch (Exception e) {
                             logger.error("Error in device data processor for connection {}",
                                     connectionId, e);
@@ -254,9 +263,6 @@ public class ReactiveTcpServer {
                             error -> logger.error("Subscription error for connection {}",
                                     connectionId, error)
                     );
-
-            // Update last seen
-            connectionTracker.updateLastSeen(connectionId);
 
         } catch (Exception e) {
             logger.error("Error processing message from connection {}: {}",
@@ -283,8 +289,7 @@ public class ReactiveTcpServer {
                 }
             }
         } catch (Exception e) {
-            logger.warn("Failed to extract device ID from message: {}",
-                    rawMessage != null ? rawMessage.substring(0, Math.min(rawMessage.length(), 100)) : "null");
+            logger.warn("Failed to extract device ID from frame");
         }
         return "unknown";
     }

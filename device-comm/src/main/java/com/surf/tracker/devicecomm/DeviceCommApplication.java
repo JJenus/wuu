@@ -5,8 +5,6 @@ import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.surf.tracker.devicecomm.service.ReactiveTcpServer;
-import com.surf.tracker.devicecomm.infrastructure.AutoseekerProtocolParser;
-import com.surf.tracker.devicecomm.infrastructure.GT06ProtocolParser;
 import com.surf.tracker.shared.pubsub.ArtemisEventPublisher;
 import com.surf.tracker.shared.redis.RedisConnectionTracker;
 import com.surf.tracker.shared.redis.RedisJsonSerializer;
@@ -23,8 +21,7 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 import java.time.Clock;
 
 @SpringBootApplication
-@Import({RedisConnectionTracker.class, ArtemisEventPublisher.class,
-        AutoseekerProtocolParser.class, GT06ProtocolParser.class})
+@Import({RedisConnectionTracker.class, ArtemisEventPublisher.class})
 public class DeviceCommApplication {
 
     public static void main(String[] args) {

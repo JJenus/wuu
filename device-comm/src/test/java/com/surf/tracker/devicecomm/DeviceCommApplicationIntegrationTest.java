@@ -1,6 +1,8 @@
 package com.surf.tracker.devicecomm;
 
 import com.surf.tracker.devicecomm.application.DeviceDataProcessor;
+import com.surf.tracker.devicecomm.application.ParserFactory;
+import com.surf.tracker.devicecomm.infrastructure.AutoseekerProtocolParser;
 import com.surf.tracker.devicecomm.service.ReactiveTcpServer;
 import com.surf.tracker.shared.pubsub.ArtemisEventPublisher;
 import com.surf.tracker.shared.pubsub.DeviceCommandTransport;
@@ -23,16 +25,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 class DeviceCommApplicationIntegrationTest {
 
     @Test
-    void run_standaloneConfiguration_startsDeviceInfrastructureWithoutBusinessModules(CapturedOutput output) {
+    void run_standaloneConfiguration_startsDeviceInfrastructureWithoutBusinessModules(CapturedOutput output) throws Exception {
         // given
         var application = new SpringApplicationBuilder(DeviceCommApplication.class);
 
         // when
         try (var context = application.run("--tracking.tcp.server.port=0",
-                "--spring.main.keep-alive=false")) {
+                "--spring.main.keep-alive=false", "--tracking.tcp.autoseeker.timestamp-zone=Asia/Singapore")) {
             // then
             assertThat(context.getBean(DeviceDataProcessor.class)).isNotNull();
             assertThat(context.getBean(ReactiveTcpServer.class)).isNotNull();
+            String packet = "*HQ,8168000008,V1,043602,A,2234.9273,N,11354.3980,E,000.06,000,100715,FBFBBFF,460,00,10342,4283,10,25,128#";
+            var configuredParser = context.getBean(AutoseekerProtocolParser.class);
+            assertThat(context.getBean(ParserFactory.class).getParser(packet)).isSameAs(configuredParser);
+            assertThat(configuredParser.parse(packet).timestamp()).isEqualTo(java.time.Instant.parse("2015-07-09T20:36:02Z"));
             assertThat(context.getBean(DeviceCommandTransport.class)).isNotNull();
             assertThat(context.getBean(RedisConnectionTracker.class)).isNotNull();
             assertThat(context.getBean(EventPublisher.class)).isInstanceOf(ArtemisEventPublisher.class);
