@@ -46,6 +46,32 @@ test('actual Java: tenant fleet, sealed sessions and account-wide revocation', a
     expect(vehicle.status(), 'API creates real persisted vehicle').toBe(201)
   }
   expect(owners[0]!.organization).not.toBe(owners[1]!.organization)
+  const catalogFor = (owner: (typeof owners)[number], override?: number) =>
+    request.get(`${backend}/api/v1/roles?page=0&size=100${override ? `&orgId=${override}` : ''}`, {
+      headers: { authorization: `Bearer ${owner.token}` },
+    })
+  const alphaCatalog = await catalogFor(owners[0]!, owners[1]!.organization)
+  const betaCatalog = await catalogFor(owners[1]!)
+  expect(alphaCatalog.status()).toBe(200)
+  expect(betaCatalog.status()).toBe(200)
+  const alphaRoles = (await alphaCatalog.json()).content as Array<{
+    id: number
+    name: string
+    permissions: string[]
+  }>
+  const betaRoles = (await betaCatalog.json()).content as Array<{
+    id: number
+    name: string
+    permissions: string[]
+  }>
+  expect(alphaRoles.map((role) => role.name)).toContain('TENANT_ADMIN')
+  expect(alphaRoles.find((role) => role.name === 'TENANT_ADMIN')?.permissions).toContain(
+    'roles.read',
+  )
+  expect(alphaRoles.map((role) => role.id)).not.toEqual(
+    expect.arrayContaining(betaRoles.map((role) => role.id)),
+  )
+  expect((await catalogFor(owners[0]!, undefined)).status()).toBe(200)
 
   async function signIn(page: Page, owner: (typeof owners)[number]) {
     let browserBearer = false
@@ -162,6 +188,45 @@ test('actual Java: tenant fleet, sealed sessions and account-wide revocation', a
     const subscriptions = await (await alpha!.request.get('/api/_wuu/subscriptions')).json()
     expect(subscriptions).toHaveLength(1)
     const subscriptionPath = `/api/_wuu/subscriptions/${subscriptions[0].id}`
+    // Same tenant, different user: Java ownership is user-scoped, not tenant-wide.
+    const colleagueEmail = `alpha-colleague-${run}@example.test`
+    const colleaguePassword = randomBytes(24).toString('hex')
+    const colleague = await request.post(`${backend}/api/v1/users`, {
+      headers: { authorization: `Bearer ${owners[0]!.token}` },
+      data: {
+        email: colleagueEmail,
+        password: colleaguePassword,
+        first_name: 'Same',
+        last_name: 'Tenant',
+      },
+    })
+    expect(colleague.status(), 'same-tenant colleague creation').toBe(201)
+    const colleagueLogin = await request.post(`${backend}/api/v1/auth/login`, {
+      data: { email: colleagueEmail, password: colleaguePassword },
+    })
+    expect(colleagueLogin.status()).toBe(200)
+    const colleagueHeaders = {
+      authorization: `Bearer ${(await colleagueLogin.json()).access_token as string}`,
+    }
+    expect(
+      (await request.get(`${backend}/api/v1/roles`, { headers: colleagueHeaders })).status(),
+      'same-tenant OPERATOR lacks roles.read',
+    ).toBe(403)
+    const directSubscription = `${backend}/api/v1/subscriptions/${subscriptions[0].id}`
+    expect((await request.get(directSubscription, { headers: colleagueHeaders })).status()).toBe(
+      404,
+    )
+    expect(
+      (
+        await request.post(`${directSubscription}/cancel`, {
+          headers: colleagueHeaders,
+          data: {},
+        })
+      ).status(),
+    ).toBe(404)
+    expect(
+      (await request.get(`${backend}/api/v1/subscriptions`, { headers: colleagueHeaders })).json(),
+    ).resolves.toEqual([])
     expect((await beta!.request.get(subscriptionPath)).status()).toBe(404)
     expect(
       (
