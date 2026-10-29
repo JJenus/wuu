@@ -7,9 +7,15 @@ import com.surf.tracker.userauth.application.dto.LoginResponse;
 import com.surf.tracker.userauth.application.dto.RegisterRequest;
 import com.surf.tracker.userauth.application.dto.RegisterResponse;
 import com.surf.tracker.userauth.application.dto.UserResponse;
+import com.surf.tracker.userauth.application.dto.RoleResponse;
+import com.surf.tracker.shared.security.TenantContext;
 import com.surf.tracker.userauth.domain.entity.*;
 import com.surf.tracker.userauth.domain.enums.FailureReason;
 import com.surf.tracker.userauth.infrastructure.repository.*;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.surf.tracker.userauth.infrastructure.security.*;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -214,6 +220,21 @@ public class AuthService {
         user.setPasswordHash(passwordService.hash(newPassword));
         userRepository.save(user);
         logout(userId, ip, userAgent);
+    }
+
+    @Transactional(readOnly = true)
+    @PreAuthorize("hasAuthority('roles.read')")
+    public Page<RoleResponse> listRoles(int page, int size) {
+        Long orgId = TenantContext.getCurrentOrgId();
+        if (orgId == null) throw new AccessDeniedException("Tenant required");
+        if (page < 0 || size < 1 || size > 100) {
+            throw new IllegalArgumentException("page must be nonnegative and size must be between 1 and 100");
+        }
+        // Page role rows in SQL, never fetch-join their to-many permissions into a paged query.
+        // Lazy collections are mapped before this read-only transaction ends.
+        return roleRepository.findByOrgId(orgId, PageRequest.of(page, size, Sort.by("name", "id")))
+            .map(role -> new RoleResponse(role.getId(), role.getName(), role.getDescription(),
+                role.getPermissions().stream().map(Permission::getKey).sorted().toList()));
     }
 
     @Transactional(readOnly = true)

@@ -415,6 +415,18 @@ class PostgresDeploymentIT {
         // given: independent ordinary administrators, neither has system.admin.
         HttpHeaders owner = tenantHeaders();
         HttpHeaders outsider = tenantHeaders();
+        var identity = request(owner, HttpMethod.GET, "/api/v1/users/me", null).getBody();
+        long ownerOrg = ((Number) identity.get("organization_id")).longValue();
+        // The minimal login fixture seeds only TENANT_ADMIN. Add same-tenant roles
+        // through the fixture transaction to exercise real ordering/paging.
+        new TransactionTemplate(transactions).executeWithoutResult(status -> {
+            var org = organizations.findById(ownerOrg).orElseThrow();
+            for (String name : List.of("OPERATOR", "VIEWER")) {
+                Role role = Role.orgRole(org, name, name + " deployment fixture");
+                role.addPermission(permissions.findByKey("vehicles.read").orElseThrow());
+                roles.save(role);
+            }
+        });
         var ownerRoles = content(owner, "/api/v1/roles");
         var foreignRoles = content(outsider, "/api/v1/roles");
         // when
@@ -423,7 +435,7 @@ class PostgresDeploymentIT {
         // then: actual PostgreSQL paging, lazy permission mapping and deterministic ordering.
         assertThat(first.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(first.getHeaders().getCacheControl()).isEqualTo("private, no-store");
-        assertThat(first.getBody().get("totalElements")).isEqualTo(ownerRoles.size());
+        assertThat(first.getBody().get("total_elements")).isEqualTo(ownerRoles.size());
         assertThat(ownerRoles).extracting(row -> row.get("name"))
             .containsExactly("OPERATOR", "TENANT_ADMIN", "VIEWER");
         assertThat(ownerRoles).extracting(row -> row.get("id"))

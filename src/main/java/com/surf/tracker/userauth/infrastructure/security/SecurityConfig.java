@@ -49,6 +49,7 @@ public class SecurityConfig {
                     "/api/v1/commands/*/send", "/api/v1/commands/*/deliver", "/api/v1/commands/*/fail").denyAll()
                 .requestMatchers("/actuator/**", "/v3/api-docs/**", "/swagger-ui/**").hasAuthority("system.admin")
                 .requestMatchers(HttpMethod.GET, "/api/v1/users/me", "/api/v1/users/me/access").authenticated()
+                .requestMatchers(HttpMethod.GET, "/api/v1/roles").hasAuthority("roles.read")
                 .requestMatchers("/api/v1/users/*/roles").hasAuthority("users.assign_roles")
                 .requestMatchers(HttpMethod.GET, "/api/v1/users/**").hasAuthority("users.read")
                 .requestMatchers(HttpMethod.DELETE, "/api/v1/users/**").hasAuthority("users.delete")

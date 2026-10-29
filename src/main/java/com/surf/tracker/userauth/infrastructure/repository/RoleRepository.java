@@ -12,5 +12,6 @@ public interface RoleRepository extends JpaRepository<Role, Long> {
     Optional<Role> findByNameAndOrgIsNull(String name);
     Optional<Role> findByNameAndOrgId(String name, Long orgId);
     List<Role> findByOrgId(Long orgId);
+    org.springframework.data.domain.Page<Role> findByOrgId(Long orgId, org.springframework.data.domain.Pageable pageable);
     List<Role> findByOrgIsNull();
 }
