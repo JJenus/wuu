@@ -3,6 +3,7 @@ import { errorMessage } from '~/features/core/domain/errors'
 import { useDataSource } from '~/features/core/composables/useDataSource'
 import { usePreferences } from '~/features/workspace/composables/usePreferences'
 import type { Preferences } from '~/features/workspace/domain/types'
+import EffectiveAccessPanel from '~/features/auth/components/EffectiveAccessPanel.vue'
 
 const source = useDataSource()
 const { preferences, isPending, isError, error, refetch, savePreferences, isSaving } =
@@ -73,6 +74,7 @@ async function save() {
       description="A workspace that works the way you do."
       eyebrow="WORKSPACE SETTINGS"
     />
+    <EffectiveAccessPanel v-if="!source.isPreview" />
     <UiAsyncState
       :pending="isPending && !preferences"
       :error="isError ? error : null"

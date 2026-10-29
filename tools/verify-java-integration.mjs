@@ -8,7 +8,10 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { stop, terminateProcessGroups } from './fixture-lifecycle.mjs'
 
 const root = resolve(import.meta.dirname, '..')
-const jar = resolve(root, '../sidie/target/tracking-engine-1.0.0-SNAPSHOT.jar')
+const jar = resolve(
+  root,
+  process.env.WUU_JAVA_JAR || '../sidie/target/tracking-engine-1.0.0-SNAPSHOT.jar',
+)
 const digest = createHash('sha256').update(readFileSync(jar)).digest('hex')
 const run = `wuu-java-${randomUUID()}`
 const directory = mkdtempSync('/tmp/opencode/wuu-java-')

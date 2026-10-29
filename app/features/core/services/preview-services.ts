@@ -6,6 +6,14 @@ export function createPreviewServices(): WorkspaceServices {
   const service = createPreviewService()
   return {
     mode: 'preview',
+    access: {
+      async get() {
+        throw new ApiError({
+          kind: 'unavailable',
+          message: 'Preview role templates are not effective server permissions.',
+        })
+      },
+    },
     subscriptions: {
       catalog: unavailableSubscriptions,
       list: unavailableSubscriptions,

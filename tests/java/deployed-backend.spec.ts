@@ -243,6 +243,22 @@ test('actual Java: tenant fleet, sealed sessions and account-wide revocation', a
     console.log(
       'PASS real system-admin API denial and platform guard preserve permitted fleet/trip access',
     )
+    await beta!.goto('/settings')
+    const accessPanel = beta!.getByRole('region', { name: 'Current server access' })
+    await expect(accessPanel.getByText('vehicles.read', { exact: true })).toBeVisible()
+    await expect(accessPanel.getByText('system.admin', { exact: true })).toHaveCount(0)
+    const accessResponse = await beta!.request.get('/api/_wuu/access')
+    expect(accessResponse.status()).toBe(200)
+    const access = await accessResponse.json()
+    expect(access.organization_id).toBe(owners[1]!.organization)
+    expect(access.permissions).toContain('vehicles.read')
+    expect(access.permissions).not.toContain('system.admin')
+    expect(Object.keys(access)).not.toContain('session_id')
+    await accessPanel.getByRole('button', { name: 'Recheck access', exact: true }).click()
+    await expect(accessPanel.getByText('vehicles.read', { exact: true })).toBeVisible()
+    console.log(
+      'PASS actual Java current-tenant effective access, no role-name platform elevation or session identifier leak',
+    )
   } finally {
     await Promise.all(contexts.map((c) => c.close()))
   }

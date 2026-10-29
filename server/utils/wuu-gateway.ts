@@ -5,6 +5,7 @@ export const allowedBases: Record<string, string> = {
   geofences: '/alerts/geofences',
   notifications: '/api/notifications',
   subscriptions: '/api/v1/subscriptions',
+  access: '/api/v1/users/me/access',
 }
 
 const loopbackHosts = new Set(['localhost', '127.0.0.1', '[::1]'])
@@ -50,6 +51,7 @@ export function upstreamPath(raw: string | undefined): string | null {
   )
     return null
   const [resource, ...rest] = segments
+  if (resource === 'access' && rest.length) return null
   const base = resource ? allowedBases[resource] : undefined
   if (!base) return null
   return `${base}/${rest.map((segment) => encodeURIComponent(segment)).join('/')}`.replace(

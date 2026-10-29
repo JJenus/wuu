@@ -101,6 +101,13 @@ createServer(async (request, response) => {
   }
   if (path === '/api/v1/users/me' && email === 'unavailable@example.com')
     return send(503, { code: 'UNAVAILABLE' })
+  if (path === '/api/v1/users/me/access')
+    return send(200, {
+      user_id: email === 'forbidden@example.com' ? 8 : 7,
+      organization_id: 12,
+      permissions: ['vehicles.read'],
+      access_expires_at: '2099-01-01T00:00:00Z',
+    })
   if (path === '/api/v1/users/me')
     return send(200, {
       id: email === 'forbidden@example.com' ? 8 : 7,

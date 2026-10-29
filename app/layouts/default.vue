@@ -274,7 +274,7 @@ watch(mobileOpen, async (open) => {
           }}</strong>
         </div>
         <div class="topbar-actions">
-          <button class="search-trigger" @click="searchOpen = true">
+          <button class="search-trigger" aria-label="Search anything... ⌘ K" @click="searchOpen = true">
             <UIcon name="i-lucide-search" /><span>Search anything...</span
             ><kbd aria-hidden="true">⌘ K</kbd></button
           ><span class="topbar-divider" /><UPopover

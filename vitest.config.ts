@@ -19,6 +19,7 @@ export default defineConfig({
         'app/features/core/services/**/*.ts',
         'app/features/auth/domain/**/*.ts',
         'app/features/auth/api/local-accounts-client.ts',
+        'app/features/auth/api/access-service.ts',
         'app/policies/**/*.ts',
         'app/features/workspace/api/preview-service.ts',
         'app/features/workspace/domain/trip-export.ts',
