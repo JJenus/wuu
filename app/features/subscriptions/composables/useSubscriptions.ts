@@ -4,6 +4,7 @@ import {
   useWorkspaceServices,
 } from '../../workspace/composables/useWorkspaceServices'
 import { errorMessage } from '../../core/domain/errors'
+import { createEnrollmentIntents } from '../domain/enrollment-intents'
 
 export function useSubscriptions() {
   const services = useWorkspaceServices()
@@ -22,18 +23,20 @@ export function useSubscriptions() {
     enabled,
   })
   // Keep the operation key across ambiguous failures. It is released only after a confirmed receipt.
-  const attempts = new Map<string, string>()
+  const attempts = () =>
+    createEnrollmentIntents(sessionStorage, `${context.organizationId}:${context.userId}`, () =>
+      crypto.randomUUID(),
+    )
   const message = ref('')
   const failure = ref('')
   const enroll = useMutation({
     mutationFn: ({ planId, version }: { planId: string; version: number }) => {
       const plan = `${planId}:${version}`
-      const key = attempts.get(plan) ?? crypto.randomUUID()
-      attempts.set(plan, key)
+      const key = attempts().key(plan)
       return services.subscriptions.enroll(planId, version, key)
     },
     onSuccess: async (_, plan) => {
-      attempts.delete(`${plan.planId}:${plan.version}`)
+      attempts().confirm(`${plan.planId}:${plan.version}`)
       message.value = 'Enrollment recorded. This is not payment or active access.'
       await cache.invalidateQueries({ queryKey: [...root, 'owned'] })
     },

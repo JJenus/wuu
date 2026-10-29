@@ -27,6 +27,8 @@ test('owner enrollment/cancel, stable retry key, CSRF and administrative gateway
   })
   await page.getByRole('button', { name: 'Request pending enrollment' }).click()
   await expect(page.getByRole('alert')).toBeVisible()
+  await page.reload()
+  await expect(page.getByText('Status: PENDING', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Request pending enrollment' }).click()
   await expect(page.getByText('Status: PENDING', { exact: true })).toBeVisible()
   expect(keys).toHaveLength(2)
