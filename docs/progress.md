@@ -1,5 +1,10 @@
 # Progress and next slice
 
+Post-publication preview regression: **31 browser tests PASS**, receipt
+`/tmp/opencode/renewal-preview-final.log`. The next live alert-transition slice
+first needs backend-authoritative audit actor binding; it must not trust actor
+names supplied by the UI. Existing frontend detail/list work remains separate.
+
 ## Single-process session renewal — 2026-10-29
 
 The BFF now retains encrypted HttpOnly refresh credentials using Java's additive

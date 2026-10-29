@@ -2,6 +2,10 @@
 
 ## Single-process session renewal — 2026-10-29
 
+- Post-publication preview browser suite **31 PASS** against the production
+  frontend build (`/tmp/opencode/renewal-preview-final.log`). Preview remains
+  public sample data; this is not Java/live mutation acceptance.
+
 - Selected-source Vitest gate **133 tests / 19 files PASS**, coverage **92.79%
   lines / 85.56% branches / 95.11% functions**. The newly instrumented renewal
   utility has **95.2% lines / 84.05% branches / 100% functions**. No whole-UI or
