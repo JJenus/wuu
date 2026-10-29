@@ -865,6 +865,62 @@ class PostgresDeploymentIT {
         return http.postForEntity("/api/v1/auth/login", Map.of("email", email, "password", USER_PASSWORD), Map.class);
     }
 
+    @Test void subscription_usage_realPostgres_serializesFinalUnitAndReplaysReceipt() throws Exception {
+        var admin = scopedSystemAdministratorHeaders();
+        var outsider = scopedSystemAdministratorHeaders();
+        String base = "/api/v1/subscriptions";
+        var plan = java.util.UUID.randomUUID().toString();
+        assertThat(request(admin, HttpMethod.POST, base + "/catalog", Map.of(
+            "plan_id", plan, "version", 1, "model", "USAGE_TOKEN", "meter", "locations",
+            "usage_limit", 1, "amount", new java.math.BigDecimal("0.25"), "currency", "EUR")).getStatusCode())
+            .isEqualTo(HttpStatus.CREATED);
+        var enrolled = request(admin, HttpMethod.POST, base, Map.of("plan_id", plan, "version", 1, "operation_key", "enroll"));
+        assertThat(enrolled.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        String path = base + "/" + enrolled.getBody().get("id");
+        var grant = Map.of("operation_key", "grant", "kind", "COMPLIMENTARY", "reason", "vendor acceptance",
+            "start", "2026-01-01T00:00:00Z", "end", "2099-01-01T00:00:00Z", "units", 1);
+        assertThat(request(outsider, HttpMethod.POST, path + "/grants", grant).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(request(admin, HttpMethod.POST, path + "/grants", grant).getStatusCode()).isEqualTo(HttpStatus.OK);
+        var pool = Executors.newFixedThreadPool(6);
+        var start = new CountDownLatch(1);
+        Map winningReceipt = null;
+        String winningKey = null;
+        try {
+            var work = new java.util.ArrayList<Future<ResponseEntity<Map>>>();
+            for (int i = 0; i < 6; i++) {
+                String key = "use-" + i;
+                work.add(pool.submit(() -> { start.await(); return request(admin, HttpMethod.POST,
+                    path + "/consumptions", Map.of("operation_key", key, "meter", "locations", "units", 1)); }));
+            }
+            start.countDown();
+            int successes = 0;
+            for (int i = 0; i < work.size(); i++) {
+                var response = work.get(i).get(20, TimeUnit.SECONDS);
+                if (response.getStatusCode() == HttpStatus.OK) {
+                    successes++; winningReceipt = response.getBody(); winningKey = "use-" + i;
+                } else assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            }
+            assertThat(successes).isEqualTo(1);
+        } finally { pool.shutdownNow(); assertThat(pool.awaitTermination(5, TimeUnit.SECONDS)).isTrue(); }
+        assertThat(request(admin, HttpMethod.POST, path + "/consumptions",
+            Map.of("operation_key", winningKey, "meter", "locations", "units", 1)).getBody()).isEqualTo(winningReceipt);
+        assertThat(request(admin, HttpMethod.GET, path, null).getBody()).containsEntry("remaining_units", 0);
+        assertThat(request(outsider, HttpMethod.POST, path + "/consumptions",
+            Map.of("operation_key", winningKey, "meter", "locations", "units", 1)).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    private HttpHeaders scopedSystemAdministratorHeaders() {
+        String email = provisionUser();
+        new TransactionTemplate(transactions).executeWithoutResult(status -> {
+            var user = users.findByEmail(email).orElseThrow();
+            user.assignRole(roles.findByNameAndOrgIsNull("SUPER_ADMIN").orElseThrow());
+        });
+        var tokens = auth.login(email, USER_PASSWORD, "127.0.0.1", "subscription-admin-fixture");
+        var headers = new HttpHeaders();
+        headers.setBearerAuth(tokens.getAccessToken());
+        return headers;
+    }
+
     @Test void health_realPostgresRedisAndArtemis_returnsUp() {
         // when / then: no disabled health indicators or listeners
         ResponseEntity<Map> response = http.getForEntity("/actuator/health", Map.class);
@@ -961,7 +1017,7 @@ class PostgresDeploymentIT {
         var result = Flyway.configure().dataSource(jdbcUrl(), "tracker_test", PASSWORD)
             .schemas("upgrade_check").locations(locations).load().migrate();
         // then
-        assertThat(result.migrationsExecuted).isEqualTo(3);
+        assertThat(result.migrationsExecuted).isEqualTo(4);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM upgrade_check.alert_event_outbox", Long.class)).isZero();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM upgrade_check.sessions WHERE revoked_at IS NULL", Long.class)).isZero();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM upgrade_check.refresh_tokens WHERE revoked_at IS NULL", Long.class)).isZero();

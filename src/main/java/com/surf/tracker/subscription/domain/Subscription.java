@@ -19,6 +19,37 @@ public final class Subscription {
     public record Consumption(UUID subscriptionId, String operationKey, String meter, long units,
                               Instant recordedAt, long remainingUnits) { }
 
+    /** Trusted persistence state only; successful-operation receipts live in the durable adapter. */
+    public record State(Status status, AdminGrant grant, long remainingUnits) { }
+
+    public static Subscription restore(UUID id, PlanVersion plan, State state) {
+        Objects.requireNonNull(state, "state");
+        Objects.requireNonNull(state.status(), "status");
+        var result = new Subscription(id, plan);
+        var grant = state.grant();
+        if (state.remainingUnits() < 0
+                || (state.status() == Status.PENDING && (grant != null || state.remainingUnits() != 0))
+                || (state.status() == Status.CANCELED && state.remainingUnits() != 0)
+                || (grant != null && (grant.units() > plan.usageLimit() || state.remainingUnits() > grant.units()))) {
+            throw new IllegalArgumentException("Invalid persistent subscription balance/state");
+        }
+        if (state.status() == Status.TRIALING || state.status() == Status.ADMIN_GRANTED) {
+            if (grant == null || (state.status() == Status.TRIALING) != (grant.kind() == AdminGrant.Kind.TRIAL)) {
+                throw new IllegalArgumentException("Active lifecycle requires a matching explicit grant");
+            }
+        }
+        result.status = state.status();
+        result.grant = grant;
+        result.remainingUnits = state.remainingUnits();
+        return result;
+    }
+
+    /** Raw balance is retained for future-start grants; remaining(clock) is the spendable projection. */
+    public synchronized State snapshot(Clock clock) {
+        expire(Objects.requireNonNull(clock, "clock").instant());
+        return new State(status, grant, remainingUnits);
+    }
+
     public static final class IdempotencyConflict extends IllegalStateException {
         public IdempotencyConflict() {
             super("Operation key already used with a different consumption payload");

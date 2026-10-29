@@ -1,6 +1,8 @@
 package com.surf.tracker.subscription.infrastructure.persistence;
 
 import jakarta.persistence.*;
+import com.surf.tracker.subscription.domain.AdminGrant;
+import com.surf.tracker.subscription.domain.Subscription;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -53,6 +55,51 @@ public class SubscriptionEntity {
 
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+
+    @Column(name = "grant_operation_key", length = 200)
+    private String grantOperationKey;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "grant_kind", length = 32)
+    private AdminGrant.Kind grantKind;
+    @Column(name = "grant_administrator_id", length = 40)
+    private String grantAdministratorId;
+    @Column(name = "grant_reason", length = 500)
+    private String grantReason;
+    @Column(name = "grant_start")
+    private Instant grantStart;
+    @Column(name = "grant_end")
+    private Instant grantEnd;
+    @Column(name = "grant_units")
+    private Long grantUnits;
+
+    public AdminGrant configuredGrant() {
+        return grantOperationKey == null ? null : new AdminGrant(grantKind, grantAdministratorId,
+            grantReason, grantStart, grantEnd, grantUnits);
+    }
+
+    public String getGrantOperationKey() { return grantOperationKey; }
+
+    public Subscription aggregate() {
+        return Subscription.restore(id, planVersion.toDomain(),
+            new Subscription.State(Subscription.Status.valueOf(status.name()), configuredGrant(), remainingUnits));
+    }
+
+    public void apply(Subscription.State state, Instant now) {
+        status = Status.valueOf(state.status().name());
+        remainingUnits = state.remainingUnits();
+        updatedAt = now;
+    }
+
+    public void recordGrant(String key, AdminGrant grant) {
+        if (grantOperationKey != null) throw new IllegalStateException("Grant is immutable");
+        grantOperationKey = key;
+        grantKind = grant.kind();
+        grantAdministratorId = grant.administratorId();
+        grantReason = grant.reason();
+        grantStart = grant.start();
+        grantEnd = grant.end();
+        grantUnits = grant.units();
+    }
 
     protected SubscriptionEntity() {
     }

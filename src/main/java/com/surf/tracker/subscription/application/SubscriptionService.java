@@ -4,6 +4,9 @@ import com.surf.tracker.shared.security.TenantContext;
 import com.surf.tracker.subscription.api.dto.*;
 import com.surf.tracker.subscription.domain.Money;
 import com.surf.tracker.subscription.domain.PlanVersion;
+import com.surf.tracker.subscription.domain.AdminGrant;
+import com.surf.tracker.subscription.domain.Subscription;
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.surf.tracker.subscription.infrastructure.persistence.*;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -14,6 +17,8 @@ import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.Currency;
 import java.util.List;
 import java.util.Objects;
@@ -23,10 +28,9 @@ import java.util.UUID;
 /**
  * Authenticated enrollment and immutable plan-catalog persistence.
  *
- * <p>This service deliberately exposes no paid activation, entitlement check, token
- * consumption or renewal. Enrollments are pending configuration records; the
- * reviewed domain aggregate remains the only place that can grant configured trial
- * or complimentary access, and it is not wired to this HTTP surface.</p>
+ * <p>Configured trial/complimentary grants and administrator-recorded usage reuse
+ * the domain aggregate under a database row lock. Enrollment alone grants nothing.
+ * Paid activation, business-feature enforcement and recurring renewal remain absent.</p>
  */
 @Service
 public class SubscriptionService {
@@ -36,11 +40,14 @@ public class SubscriptionService {
     private final PlanVersionRepository planVersions;
     private final SubscriptionRepository enrollments;
     private final Clock clock;
+    private final UsageReceiptRepository usageReceipts;
 
-    public SubscriptionService(PlanVersionRepository planVersions, SubscriptionRepository enrollments, Clock clock) {
+    public SubscriptionService(PlanVersionRepository planVersions, SubscriptionRepository enrollments, Clock clock,
+                               UsageReceiptRepository usageReceipts) {
         this.planVersions = planVersions;
         this.enrollments = enrollments;
         this.clock = clock;
+        this.usageReceipts = usageReceipts;
     }
 
     @Transactional(readOnly = true)
@@ -153,9 +160,96 @@ public class SubscriptionService {
 
     @Transactional
     public EnrollmentResponse cancel(UUID id) {
-        var entity = findEnrollment(id);
-        entity.cancel(clock.instant());
+        var owner = requireOwner();
+        var entity = enrollments.lockForOwner(owner.organizationId(), owner.userId(), id)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Subscription not found"));
+        var aggregate = entity.aggregate();
+        aggregate.cancel();
+        entity.apply(aggregate.snapshot(clock), clock.instant());
         return live(entity);
+    }
+
+    @Transactional
+    @PreAuthorize("hasAuthority('system.admin')")
+    public AdminGrant grant(UUID id, GrantRequest request) {
+        var owner = requireOwner();
+        String key = validOperationKey(request.operationKey());
+        String reason = required(request.reason(), "reason");
+        if (reason.isBlank() || reason.length() > 500) {
+            throw new IllegalArgumentException("reason must be nonblank and at most 500 characters");
+        }
+        var grant = new AdminGrant(parseEnum(AdminGrant.Kind.class, request.kind(), "kind"),
+            Long.toString(owner.userId()), reason, durableInstant(request.start()), durableInstant(request.end()),
+            required(request.units(), "units"));
+        var entity = lockedForAdministrator(owner, id);
+        if (entity.getGrantOperationKey() != null) {
+            if (!entity.getGrantOperationKey().equals(key) || !entity.configuredGrant().equals(grant)) {
+                throw conflict("Subscription already has a different grant");
+            }
+            return entity.configuredGrant();
+        }
+        var aggregate = entity.aggregate();
+        try {
+            aggregate.activate(grant, clock);
+        } catch (IllegalStateException rejected) {
+            throw conflict("Only pending subscriptions can receive a grant");
+        }
+        entity.recordGrant(key, grant);
+        entity.apply(aggregate.snapshot(clock), clock.instant());
+        return grant;
+    }
+
+    /** Trusted administrator recording only; this is not customer-supplied product metering. */
+    @Transactional
+    @PreAuthorize("hasAuthority('system.admin')")
+    public Subscription.Consumption consume(UUID id, UsageRequest request) {
+        var owner = requireOwner();
+        String key = validOperationKey(request.operationKey());
+        String meter = validMeter(request.meter());
+        long units = required(request.units(), "units");
+        var entity = lockedForAdministrator(owner, id);
+        var existing = usageReceipts.findBySubscriptionIdAndOperationKey(id, key);
+        if (existing.isPresent()) {
+            var receipt = existing.get().receipt();
+            if (!receipt.meter().equals(meter) || receipt.units() != units) {
+                throw conflict("Operation key already used with different usage");
+            }
+            return receipt;
+        }
+        var aggregate = entity.aggregate();
+        // Database timestamp precision is microseconds; persist and return the same receipt.
+        var operationClock = Clock.fixed(clock.instant().truncatedTo(ChronoUnit.MICROS), ZoneOffset.UTC);
+        Subscription.Consumption receipt;
+        try {
+            receipt = aggregate.consume(key, meter, units, operationClock);
+        } catch (IllegalStateException rejected) {
+            throw conflict("No current activation grant");
+        }
+        entity.apply(aggregate.snapshot(operationClock), operationClock.instant());
+        usageReceipts.saveAndFlush(new UsageReceiptEntity(receipt));
+        return receipt;
+    }
+
+    private SubscriptionEntity lockedForAdministrator(Owner owner, UUID id) {
+        return enrollments.lockForAdministrator(owner.organizationId(), id)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Subscription not found"));
+    }
+
+    private static Instant durableInstant(Instant value) {
+        required(value, "grant time");
+        if (value.getNano() % 1000 != 0 || value.isBefore(Instant.parse("0001-01-01T00:00:00Z"))
+                || value.isAfter(Instant.parse("9999-12-31T23:59:59.999999Z"))) {
+            throw new IllegalArgumentException("Grant times require microsecond precision and years 1 through 9999");
+        }
+        return value;
+    }
+
+    private static String validOperationKey(String value) {
+        required(value, "operationKey");
+        if (value.isBlank() || value.length() > MAX_OPERATION_KEY) {
+            throw new IllegalArgumentException("operationKey must be nonblank and at most 200 characters");
+        }
+        return value;
     }
 
     private SubscriptionEntity findEnrollment(UUID id) {
@@ -170,8 +264,10 @@ public class SubscriptionService {
     }
 
     private EnrollmentResponse live(SubscriptionEntity entity) {
+        var aggregate = entity.aggregate();
+        var readClock = Clock.fixed(clock.instant(), ZoneOffset.UTC);
         return new EnrollmentResponse(entity.getId(), entity.getPlanVersion().getPlanId(),
-            entity.getPlanVersion().getVersion(), entity.getStatus().name(), entity.getRemainingUnits());
+            entity.getPlanVersion().getVersion(), aggregate.status(readClock).name(), aggregate.remaining(readClock));
     }
 
     private EnrollmentResponse receipt(SubscriptionEntity entity) {

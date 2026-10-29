@@ -32,6 +32,7 @@ class SubscriptionStateTest {
                 new Subscription.State(Subscription.Status.PENDING, null, 1),
                 new Subscription.State(Subscription.Status.TRIALING, null, 0),
                 new Subscription.State(Subscription.Status.TRIALING, grant(10), 11),
+                new Subscription.State(Subscription.Status.TRIALING, grant(11), 10),
                 new Subscription.State(Subscription.Status.TRIALING, grant(10), -1),
                 new Subscription.State(Subscription.Status.ADMIN_GRANTED, grant(10), 10),
                 new Subscription.State(Subscription.Status.CANCELED, grant(10), 1))) {

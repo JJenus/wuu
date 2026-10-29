@@ -80,7 +80,7 @@ class SubscriptionControllerIntegrationTest {
         jdbc.update("delete from subscription_usage_receipts");
         jdbc.update("delete from subscription_enrollments");
         jdbc.update("delete from subscription_plan_versions");
-        jdbc.update("delete from users where id in (801,802,803,804)");
+        jdbc.update("delete from users where id in (801,802,803,804,805)");
         jdbc.update("delete from organizations where id in (810,820)");
         for (long org : List.of(810L, 820L)) {
             jdbc.update("insert into organizations(id,name,slug,created_at,updated_at) values (?,?,?,current_timestamp,current_timestamp)", org, "org" + org, "org" + org);
@@ -180,10 +180,28 @@ class SubscriptionControllerIntegrationTest {
 
     @Test void grant_andUsage_rejectedWritesDoNotReserveKeys() throws Exception {
         var id = ownEnrollment();
+        for (var invalid : List.of(
+                grant("g", 10).replace("2026-01-01T00:00:00Z", "2026-01-01T00:00:00.000000001Z"),
+                grant("g", 10).replace("2099-01-01T00:00:00Z", "+10000-01-01T00:00:00Z"),
+                grant("g", 10).replace("configured test trial", " "),
+                grant("g", 10).replace("configured test trial", "r".repeat(501)),
+                grant("g", 10).replace("\"reason\":\"configured test trial\"", "\"reason\":null"),
+                grant("g", 10).replace("\"start\":\"2026-01-01T00:00:00Z\"", "\"start\":null"),
+                grant("g", 10).replace("\"units\":10", "\"units\":null"),
+                grant("g", 10).replace("\"operation_key\":\"g\"", "\"operation_key\":null"),
+                grant("g", 10).replace("\"operation_key\":\"g\"", "\"operation_key\":\" \""),
+                grant("g", 10).replace("\"operation_key\":\"g\"", "\"operation_key\":\"" + "k".repeat(201) + "\""),
+                grant("g", 10).replace("TRIAL", "PAID"),
+                grant("g", 10).replace("2099-01-01T00:00:00Z", "2026-01-01T00:00:00Z"))) {
+            assertThat(request(HttpMethod.POST, "/" + id + "/grants", admin, invalid).getStatusCode().value()).isEqualTo(400);
+        }
         assertThat(request(HttpMethod.POST, "/" + id + "/grants", admin, grant("g", 101)).getStatusCode().value()).isEqualTo(400);
         assertThat(request(HttpMethod.POST, "/" + id + "/grants", admin, grant("g", 10)).getStatusCode().value()).isEqualTo(200);
         assertThat(request(HttpMethod.POST, "/" + id + "/grants", admin, grant("g", 9)).getStatusCode().value()).isEqualTo(409);
         assertThat(request(HttpMethod.POST, "/" + id + "/grants", admin, grant("other", 10)).getStatusCode().value()).isEqualTo(409);
+        for (var invalid : List.of(usage("u", 0), usage("u", -1), usage("u", 1).replace("locations", "wrong"))) {
+            assertThat(request(HttpMethod.POST, "/" + id + "/consumptions", admin, invalid).getStatusCode().value()).isEqualTo(400);
+        }
         assertThat(request(HttpMethod.POST, "/" + id + "/consumptions", admin, usage("u", 11)).getStatusCode().value()).isEqualTo(400);
         assertThat(request(HttpMethod.POST, "/" + id + "/consumptions", admin, usage("u", 3)).getStatusCode().value()).isEqualTo(200);
         assertThat(request(HttpMethod.POST, "/" + id + "/consumptions", admin, usage("u", 4)).getStatusCode().value()).isEqualTo(409);
@@ -207,6 +225,82 @@ class SubscriptionControllerIntegrationTest {
             for (var future : work) statuses.add(future.get(20, TimeUnit.SECONDS));
             assertThat(statuses).containsExactlyInAnyOrder(200, 400, 400, 400, 400, 400);
             assertThat(jdbc.queryForObject("select count(*) from subscription_usage_receipts", Long.class)).isEqualTo(1);
+        } finally { pool.shutdownNow(); assertThat(pool.awaitTermination(5, TimeUnit.SECONDS)).isTrue(); }
+    }
+
+    @Test void usage_rollbackAfterReceiptFlush_restoresBalanceAndKey() throws Exception {
+        var id = ownEnrollment();
+        assertThat(request(HttpMethod.POST, "/" + id + "/grants", admin, grant("g", 10)).getStatusCode().value()).isEqualTo(200);
+        com.surf.tracker.shared.security.TenantContext.setCurrentOrgId(810L);
+        com.surf.tracker.shared.security.TenantContext.setCurrentUserId(801L);
+        var security = org.springframework.security.core.context.SecurityContextHolder.getContext();
+        security.setAuthentication(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+            "fixture-admin", null, List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("system.admin"))));
+        try {
+            assertThatThrownBy(() -> new TransactionTemplate(transactions).executeWithoutResult(status -> {
+                service.consume(UUID.fromString(id), new com.surf.tracker.subscription.api.dto.UsageRequest("rollback", "locations", 4L));
+                throw new IllegalStateException("injected after flush");
+            })).isInstanceOf(IllegalStateException.class).hasMessage("injected after flush");
+        } finally {
+            com.surf.tracker.shared.security.TenantContext.clear();
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
+        assertThat(jdbc.queryForObject("select count(*) from subscription_usage_receipts", Long.class)).isZero();
+        assertThat(body(request(HttpMethod.GET, "/" + id, owner, null)).get("remaining_units").asLong()).isEqualTo(10);
+        assertThat(request(HttpMethod.POST, "/" + id + "/consumptions", admin, usage("rollback", 4)).getStatusCode().value()).isEqualTo(200);
+    }
+
+    @Test void grant_futureWindow_andExpiry_neverPermitPrematureOrLateUsage() throws Exception {
+        var id = ownEnrollment();
+        var future = grant("g", 10).replace("2026-01-01", "2090-01-01");
+        assertThat(request(HttpMethod.POST, "/" + id + "/grants", admin, future).getStatusCode().value()).isEqualTo(200);
+        assertThat(body(request(HttpMethod.GET, "/" + id, owner, null)).get("remaining_units").asLong()).isZero();
+        assertThat(request(HttpMethod.POST, "/" + id + "/consumptions", admin, usage("u", 1)).getStatusCode().value()).isEqualTo(409);
+        // Persisted clock-window boundary exercises reconstruction, not a time/sleep race.
+        jdbc.update("update subscription_enrollments set grant_start=?, grant_end=? where id=?",
+            Instant.parse("2020-01-01T00:00:00Z"), Instant.parse("2021-01-01T00:00:00Z"), UUID.fromString(id));
+        var expired = body(request(HttpMethod.GET, "/" + id, owner, null));
+        assertThat(expired.get("status").asText()).isEqualTo("CANCELED");
+        assertThat(expired.get("remaining_units").asLong()).isZero();
+        assertThat(request(HttpMethod.POST, "/" + id + "/consumptions", admin, usage("u", 1)).getStatusCode().value()).isEqualTo(409);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(com.surf.tracker.subscription.domain.PlanVersion.Cadence.class)
+    void grant_periodicCadences_supportExplicitComplimentaryAccessWithoutRenewal(
+            com.surf.tracker.subscription.domain.PlanVersion.Cadence cadence) throws Exception {
+        assertThat(request(HttpMethod.POST, "/catalog", admin, plan(1, "PERIODIC", cadence.name())).getStatusCode().value()).isEqualTo(201);
+        var id = body(request(HttpMethod.POST, "", owner, enroll("periodic", 1))).get("id").asText();
+        assertThat(request(HttpMethod.POST, "/" + id + "/grants", admin,
+            grant("g", 4).replace("TRIAL", "COMPLIMENTARY")).getStatusCode().value()).isEqualTo(200);
+        var projected = body(request(HttpMethod.GET, "/" + id, owner, null));
+        assertThat(projected.get("status").asText()).isEqualTo("ADMIN_GRANTED");
+        assertThat(projected.get("remaining_units").asLong()).isEqualTo(4);
+        assertThat(request(HttpMethod.POST, "/" + id + "/consumptions", admin,
+            usage("u", 4)).getStatusCode().value()).isEqualTo(200);
+        assertThat(body(request(HttpMethod.GET, "/" + id, owner, null)).get("remaining_units").asLong()).isZero();
+    }
+
+    @Test void usage_concurrentSameKey_returnsSameDurableReceipt() throws Exception {
+        var id = ownEnrollment();
+        assertThat(request(HttpMethod.POST, "/" + id + "/grants", admin, grant("g", 10)).getStatusCode().value()).isEqualTo(200);
+        var pool = Executors.newFixedThreadPool(6);
+        var start = new CountDownLatch(1);
+        try {
+            var work = new ArrayList<Future<ResponseEntity<String>>>();
+            for (int i = 0; i < 6; i++) work.add(pool.submit(() -> {
+                start.await(); return request(HttpMethod.POST, "/" + id + "/consumptions", admin, usage("same", 4));
+            }));
+            start.countDown();
+            JsonNode original = null;
+            for (var future : work) {
+                var response = future.get(20, TimeUnit.SECONDS);
+                assertThat(response.getStatusCode().value()).as(response.getBody()).isEqualTo(200);
+                if (original == null) original = body(response);
+                else assertThat(body(response)).isEqualTo(original);
+            }
+            assertThat(jdbc.queryForObject("select count(*) from subscription_usage_receipts", Long.class)).isEqualTo(1);
+            assertThat(body(request(HttpMethod.GET, "/" + id, owner, null)).get("remaining_units").asLong()).isEqualTo(6);
         } finally { pool.shutdownNow(); assertThat(pool.awaitTermination(5, TimeUnit.SECONDS)).isTrue(); }
     }
 

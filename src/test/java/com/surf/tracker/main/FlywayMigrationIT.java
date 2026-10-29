@@ -36,7 +36,7 @@ class FlywayMigrationIT {
         var result = flyway.migrate();
 
         // then - all migrations applied, schema present
-        assertThat(result.migrationsExecuted).isEqualTo(5);
+        assertThat(result.migrationsExecuted).isEqualTo(6);
         assertThat(result.success).isTrue();
         assertThat(new org.springframework.jdbc.core.JdbcTemplate(ds)
                 .queryForObject("select count(*) from alert_event_outbox", Long.class)).isZero();

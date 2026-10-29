@@ -72,4 +72,16 @@ public class SubscriptionController {
     public ResponseEntity<EnrollmentResponse> cancel(@PathVariable UUID id) {
         return ResponseEntity.ok(subscriptions.cancel(id));
     }
+
+    @PostMapping("/{id}/grants")
+    public ResponseEntity<com.surf.tracker.subscription.domain.AdminGrant> grant(
+            @PathVariable UUID id, @RequestBody GrantRequest request) {
+        return ResponseEntity.ok(subscriptions.grant(id, request));
+    }
+
+    @PostMapping("/{id}/consumptions")
+    public ResponseEntity<com.surf.tracker.subscription.domain.Subscription.Consumption> consume(
+            @PathVariable UUID id, @RequestBody UsageRequest request) {
+        return ResponseEntity.ok(subscriptions.consume(id, request));
+    }
 }

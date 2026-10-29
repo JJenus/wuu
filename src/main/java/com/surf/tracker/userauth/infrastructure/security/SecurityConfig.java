@@ -55,6 +55,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/users/**").hasAuthority("users.write")
                 .requestMatchers("/api/v1/organizations/**").authenticated()
                 .requestMatchers(HttpMethod.POST, "/api/v1/subscriptions/catalog").hasAuthority("system.admin")
+                .requestMatchers(HttpMethod.POST, "/api/v1/subscriptions/*/grants",
+                    "/api/v1/subscriptions/*/consumptions").hasAuthority("system.admin")
                 .requestMatchers(HttpMethod.GET, "/api/v1/subscriptions/catalog/**").authenticated()
                 .requestMatchers("/api/v1/subscriptions/**").authenticated()
                 .requestMatchers("/api/notifications/templates/**").hasAuthority("system.admin")
