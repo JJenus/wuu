@@ -961,7 +961,7 @@ class PostgresDeploymentIT {
         var result = Flyway.configure().dataSource(jdbcUrl(), "tracker_test", PASSWORD)
             .schemas("upgrade_check").locations(locations).load().migrate();
         // then
-        assertThat(result.migrationsExecuted).isEqualTo(2);
+        assertThat(result.migrationsExecuted).isEqualTo(3);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM upgrade_check.alert_event_outbox", Long.class)).isZero();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM upgrade_check.sessions WHERE revoked_at IS NULL", Long.class)).isZero();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM upgrade_check.refresh_tokens WHERE revoked_at IS NULL", Long.class)).isZero();
