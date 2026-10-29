@@ -208,6 +208,29 @@ try {
     java,
   )
   console.log('PASS Java /actuator/health (PostgreSQL, Redis, Artemis)')
+  // Test-only catalog provisioning in this runner's disposable database. No user
+  // elevation or production configuration; browser enrollment still uses real APIs.
+  docker([
+    'exec',
+    pg.name,
+    'psql',
+    '-U',
+    'wuu_fixture',
+    '-d',
+    'wuu_fixture',
+    '-v',
+    'ON_ERROR_STOP=1',
+    '-c',
+    `
+    insert into subscription_plan_versions
+      (id, plan_id, version, model, cadence, meter, usage_limit, amount, currency, created_at)
+    values
+      ('00000000-0000-4000-8000-000000000011', '00000000-0000-4000-8000-000000000001', 1, 'USAGE_TOKEN', null, 'locations', 100, 2.5, 'EUR', now()),
+      ('00000000-0000-4000-8000-000000000012', '00000000-0000-4000-8000-000000000002', 1, 'PERIODIC', 'MONTHLY', 'locations', 1000, 10, 'EUR', now()),
+      ('00000000-0000-4000-8000-000000000013', '00000000-0000-4000-8000-000000000003', 1, 'PERIODIC', 'YEARLY', 'locations', 12000, 100, 'EUR', now())
+  `,
+  ])
+  console.log('PASS disposable token/monthly/yearly catalog fixture provisioned')
   await frontendReservation.release()
   const nuxt = start(
     'node',

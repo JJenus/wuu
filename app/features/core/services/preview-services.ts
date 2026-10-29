@@ -1,10 +1,17 @@
 import { createPreviewService } from '../../workspace/api/preview-service'
 import type { WorkspaceServices } from './workspace-services'
+import { ApiError } from '../domain/errors'
 
 export function createPreviewServices(): WorkspaceServices {
   const service = createPreviewService()
   return {
     mode: 'preview',
+    subscriptions: {
+      catalog: unavailableSubscriptions,
+      list: unavailableSubscriptions,
+      enroll: unavailableSubscriptions,
+      cancel: unavailableSubscriptions,
+    },
     fleet: {
       async list() {
         return (await service.load()).vehicles
@@ -58,4 +65,11 @@ export function createPreviewServices(): WorkspaceServices {
       save: (input) => service.savePreferences(input),
     },
   }
+}
+
+async function unavailableSubscriptions(): Promise<never> {
+  throw new ApiError({
+    kind: 'unavailable',
+    message: 'Subscriptions require a live signed-in workspace. No preview billing is simulated.',
+  })
 }

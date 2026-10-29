@@ -152,6 +152,54 @@ test('actual Java: tenant fleet, sealed sessions and account-wide revocation', a
     console.log(
       'PASS own live fleet/detail and bidirectional foreign isolation; no preview fallback',
     )
+    await alpha!.goto('/subscriptions')
+    for (const name of ['Usage tokens', 'Monthly plan', 'Yearly plan']) {
+      await expect(alpha!.getByRole('heading', { name, exact: true })).toBeVisible()
+    }
+    await alpha!.getByRole('button', { name: 'Request pending enrollment' }).first().click()
+    await expect(alpha!.getByText('Status: PENDING', { exact: true })).toBeVisible()
+    await expect(alpha!.getByText('Spendable units: 0', { exact: true })).toBeVisible()
+    const subscriptions = await (await alpha!.request.get('/api/_wuu/subscriptions')).json()
+    expect(subscriptions).toHaveLength(1)
+    const subscriptionPath = `/api/_wuu/subscriptions/${subscriptions[0].id}`
+    expect((await beta!.request.get(subscriptionPath)).status()).toBe(404)
+    expect(
+      (
+        await beta!.request.post(`${subscriptionPath}/cancel`, {
+          headers: { origin: frontend },
+          data: {},
+        })
+      ).status(),
+    ).toBe(404)
+    expect(
+      (
+        await alpha!.request.post(`${subscriptionPath}/grants`, {
+          headers: { origin: frontend },
+          data: {},
+        })
+      ).status(),
+    ).toBe(405)
+    expect(
+      (
+        await alpha!.request.post(`${subscriptionPath}/cancel`, {
+          headers: { origin: 'https://evil.test' },
+          data: {},
+        })
+      ).status(),
+    ).toBe(403)
+    await alpha!.reload()
+    await expect(alpha!.getByText('Status: PENDING', { exact: true })).toBeVisible()
+    await alpha!.getByRole('button', { name: 'Cancel enrollment', exact: true }).click()
+    await alpha!.getByRole('button', { name: 'Confirm cancellation', exact: true }).click()
+    await expect(alpha!.getByText('Status: CANCELED', { exact: true })).toBeVisible()
+    await alpha!.reload()
+    await expect(alpha!.getByText('Status: CANCELED', { exact: true })).toBeVisible()
+    await beta!.goto('/subscriptions')
+    await expect(beta!.getByRole('heading', { name: 'No enrollments', exact: true })).toBeVisible()
+    await alpha!.goto('/vehicles')
+    console.log(
+      'PASS actual Java subscription catalog, pending enrollment, persisted cancellation, foreign ownership and CSRF/admin denials',
+    )
     await alpha!.getByRole('button', { name: 'Sign out all sessions' }).click()
     await expect(alpha!).toHaveURL('/sign-in')
     expect((await alpha!.request.get('/api/auth/session')).status()).toBe(401)

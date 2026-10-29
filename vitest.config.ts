@@ -12,6 +12,7 @@ export default defineConfig({
         'app/features/trips/api/**/*.ts',
         'app/features/geofences/api/**/*.ts',
         'app/features/settings/api/**/*.ts',
+        'app/features/subscriptions/api/**/*.ts',
         'app/features/core/api/**/*.ts',
         'app/features/core/domain/**/*.ts',
         'app/features/core/services/**/*.ts',

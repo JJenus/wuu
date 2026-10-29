@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import type { H3Event } from 'h3'
-import { originIsSafe, upstreamPath } from '../../utils/wuu-gateway'
-import { currentSession } from '../../utils/wuu-session'
+import { originIsSafe, upstreamPath, subscriptionRequestAllowed } from '../../utils/wuu-gateway'
+import { assertSameOrigin, currentSession } from '../../utils/wuu-session'
+import { z } from 'zod'
 
 const methods = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])
 
@@ -32,11 +33,16 @@ export default defineEventHandler(async (event) => {
     )
 
   const method = (event.method || 'GET').toUpperCase()
-  if (!methods.has(method) || method !== 'GET')
+  const target = upstreamPath(getRouterParam(event, 'path'))
+  const subscription = target?.startsWith('/api/v1/subscriptions') ?? false
+  if (
+    !methods.has(method) ||
+    (subscription ? !subscriptionRequestAllowed(method, target!) : method !== 'GET')
+  )
     return jsonError(event, 405, 'This request method is not allowed.', requestId)
 
-  const target = upstreamPath(getRouterParam(event, 'path'))
   if (!target) return jsonError(event, 404, 'Unknown API resource.', requestId)
+  if (method !== 'GET') assertSameOrigin(event)
 
   const query = getQuery(event)
   const params = new URLSearchParams()
@@ -61,8 +67,41 @@ export default defineEventHandler(async (event) => {
 
   let body: string | undefined
   if (!['GET', 'HEAD'].includes(method)) {
-    const raw = await readRawBody(event, false)
-    body = raw ? raw.toString() : undefined
+    if (!contentType?.toLowerCase().startsWith('application/json'))
+      return jsonError(event, 415, 'A JSON request body is required.', requestId)
+    const chunks: Buffer[] = []
+    let size = 0
+    // Bound memory even when Content-Length is absent or untrusted. Do not
+    // destroy the socket on iterator exit: the caller must receive the 413.
+    for await (const chunk of event.node.req.iterator({ destroyOnReturn: false })) {
+      const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
+      size += bytes.length
+      if (size > 4096) {
+        event.node.req.resume()
+        return jsonError(event, 413, 'Request body is too large.', requestId)
+      }
+      chunks.push(bytes)
+    }
+    body = Buffer.concat(chunks).toString('utf8')
+    try {
+      const schema =
+        target === '/api/v1/subscriptions'
+          ? z
+              .object({
+                plan_id: z.string().uuid(),
+                version: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+                operation_key: z
+                  .string()
+                  .min(1)
+                  .max(200)
+                  .refine((key) => key.trim().length > 0),
+              })
+              .strict()
+          : z.object({}).strict()
+      body = JSON.stringify(schema.parse(JSON.parse(body || '{}')))
+    } catch {
+      return jsonError(event, 400, 'Invalid subscription request.', requestId)
+    }
   }
 
   const controller = new AbortController()

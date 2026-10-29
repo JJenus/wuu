@@ -7,6 +7,7 @@ import { createLiveAlertService } from '../../alerts/api/live-alert-service'
 import { createLiveTripService } from '../../trips/api/live-trip-service'
 import { createLiveGeofenceService } from '../../geofences/api/live-geofence-service'
 import { createLivePreferencesService } from '../../settings/api/live-preferences-service'
+import { createSubscriptionService } from '../../subscriptions/api/subscription-service'
 
 export function createServices(mode: DataMode, client: GatewayClient): WorkspaceServices {
   if (mode === 'preview') return createPreviewServices()
@@ -17,5 +18,6 @@ export function createServices(mode: DataMode, client: GatewayClient): Workspace
     trips: createLiveTripService(client),
     geofences: createLiveGeofenceService(client),
     preferences: createLivePreferencesService(),
+    subscriptions: createSubscriptionService(client),
   }
 }

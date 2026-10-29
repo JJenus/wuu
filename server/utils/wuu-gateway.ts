@@ -4,9 +4,21 @@ export const allowedBases: Record<string, string> = {
   alerts: '/alerts',
   geofences: '/alerts/geofences',
   notifications: '/api/notifications',
+  subscriptions: '/api/v1/subscriptions',
 }
 
 const loopbackHosts = new Set(['localhost', '127.0.0.1', '[::1]'])
+
+/** Only customer-owned enrollment use cases are exposed, never grants or catalog administration. */
+export function subscriptionRequestAllowed(method: string, target: string): boolean {
+  const base = '/api/v1/subscriptions'
+  const id = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'
+  if (method === 'GET')
+    return (
+      target === base || target === `${base}/catalog` || new RegExp(`^${base}/${id}$`).test(target)
+    )
+  return method === 'POST' && (target === base || new RegExp(`^${base}/${id}/cancel$`).test(target))
+}
 
 /**
  * Map a browser-facing gateway path to a known upstream base. Unknown resources,

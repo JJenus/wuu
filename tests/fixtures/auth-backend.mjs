@@ -2,6 +2,8 @@
 import { createServer } from 'node:http'
 import { randomUUID } from 'node:crypto'
 const sessions = new Map()
+const enrollments = new Map()
+const planId = '00000000-0000-4000-8000-000000000001'
 const accounts = new Map([
   ['operator@example.com', 'Fleet Operator'],
   ['admin@example.com', 'Local Administrator'],
@@ -51,6 +53,47 @@ createServer(async (request, response) => {
   const token = request.headers.authorization?.replace('Bearer ', '')
   const email = sessions.get(token)
   if (!email) return send(401, { code: 'UNAUTHENTICATED' })
+  if (path.startsWith('/api/v1/subscriptions')) {
+    if (email === 'subscription-denied@example.com') return send(403, { code: 'FORBIDDEN' })
+    if (path === '/api/v1/subscriptions/catalog' && request.method === 'GET')
+      return send(200, [
+        {
+          plan_id: planId,
+          version: 1,
+          model: 'USAGE_TOKEN',
+          cadence: null,
+          meter: 'locations',
+          usage_limit: 100,
+          price: { amount: 2.5, currency: 'EUR' },
+        },
+      ])
+    const owned = enrollments.get(email) ?? []
+    enrollments.set(email, owned)
+    if (path === '/api/v1/subscriptions' && request.method === 'GET') return send(200, owned)
+    if (path === '/api/v1/subscriptions' && request.method === 'POST') {
+      const input = JSON.parse(body)
+      const previous = owned.find((item) => item.operation_key === input.operation_key)
+      if (previous) return send(200, previous)
+      const item = {
+        id: randomUUID(),
+        plan_id: input.plan_id,
+        version: input.version,
+        status: 'PENDING',
+        remaining_units: 0,
+        operation_key: input.operation_key,
+      }
+      owned.push(item)
+      return send(201, item)
+    }
+    if (path.endsWith('/cancel') && request.method === 'POST') {
+      const item = owned.find((item) => path === `/api/v1/subscriptions/${item.id}/cancel`)
+      if (!item) return send(404, { code: 'NOT_FOUND' })
+      item.status = 'CANCELED'
+      item.remaining_units = 0
+      return send(200, item)
+    }
+    return send(404, { code: 'NOT_FOUND' })
+  }
   if (path === '/api/v1/auth/logout') {
     if (email === 'logout-failure@example.com') return send(503, { code: 'UNAVAILABLE' })
     for (const [key, value] of sessions) if (value === email) sessions.delete(key)

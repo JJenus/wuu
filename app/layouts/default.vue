@@ -68,6 +68,7 @@ const navigation = [
   { label: 'Live map', icon: 'i-lucide-map', to: '/map' },
   { label: 'Vehicles', icon: 'i-lucide-truck', to: '/vehicles' },
   { label: 'Trips', icon: 'i-lucide-route', to: '/trips' },
+  { label: 'Subscriptions', icon: 'i-lucide-credit-card', to: '/subscriptions' },
   { label: 'Alerts', icon: 'i-lucide-bell-ring', to: '/alerts' },
   { label: 'Geofences', icon: 'i-lucide-scan', to: '/geofences' },
 ]
@@ -273,8 +274,9 @@ watch(mobileOpen, async (open) => {
           }}</strong>
         </div>
         <div class="topbar-actions">
-          <button class="search-trigger" aria-label="Search anything" @click="searchOpen = true">
-            <UIcon name="i-lucide-search" /><span>Search anything...</span><kbd>⌘ K</kbd></button
+          <button class="search-trigger" @click="searchOpen = true">
+            <UIcon name="i-lucide-search" /><span>Search anything...</span
+            ><kbd aria-hidden="true">⌘ K</kbd></button
           ><span class="topbar-divider" /><UPopover
             v-model:open="notificationsOpen"
             :content="{ align: 'end' }"

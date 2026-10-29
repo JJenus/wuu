@@ -4,6 +4,7 @@ import type { AlertService } from '../../alerts/services/alert-service'
 import type { TripService } from '../../trips/services/trip-service'
 import type { GeofenceService } from '../../geofences/services/geofence-service'
 import type { PreferencesService } from '../../settings/services/preferences-service'
+import type { SubscriptionService } from '../../subscriptions/api/subscription-service'
 
 export interface WorkspaceServices {
   mode: DataMode
@@ -12,4 +13,5 @@ export interface WorkspaceServices {
   trips: TripService
   geofences: GeofenceService
   preferences: PreferencesService
+  subscriptions: SubscriptionService
 }
