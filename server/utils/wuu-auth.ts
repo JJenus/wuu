@@ -5,14 +5,37 @@ import { originIsSafe } from './wuu-gateway'
 
 const sessionSchema = z.object({
   accessToken: z.string().min(1).max(6000),
+  refreshToken: z.string().min(1).max(6000),
   expiresAt: z.number().finite(),
+  refreshExpiresAt: z.number().finite(),
+  renewalEpoch: z.string().uuid().optional(),
 })
-type Session = z.infer<typeof sessionSchema>
+export type WuuSession = z.infer<typeof sessionSchema>
 const tokensSchema = z.object({
   access_token: z.string().min(1).max(6000),
+  refresh_token: z.string().min(1).max(6000),
   expires_in: z.number().int().positive().max(86400),
+  refresh_expires_in: z
+    .number()
+    .int()
+    .positive()
+    .max(365 * 24 * 60 * 60),
   token_type: z.literal('Bearer'),
 })
+export interface AuthTokens {
+  accessToken: string
+  refreshToken: string
+  expiresIn: number
+  refreshExpiresIn: number
+}
+export function sessionFromTokens(tokens: AuthTokens, now = Date.now()): WuuSession {
+  return sessionSchema.parse({
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken,
+    expiresAt: now + tokens.expiresIn * 1000,
+    refreshExpiresAt: now + tokens.refreshExpiresIn * 1000,
+  })
+}
 
 export class AuthFailure extends Error {
   constructor(
@@ -28,7 +51,7 @@ function key(password: string) {
     throw new AuthFailure(503, 'Secure sessions are not configured on this server.')
   return createHash('sha256').update(password).digest()
 }
-export function sealWuuSession(session: Session, password: string): string {
+export function sealWuuSession(session: WuuSession, password: string): string {
   const iv = randomBytes(12)
   const cipher = createCipheriv('aes-256-gcm', key(password), iv)
   const encrypted = Buffer.concat([
@@ -41,7 +64,7 @@ export function openSession(
   cookie: string | undefined,
   password: string,
   now = Date.now(),
-): Session | null {
+): WuuSession | null {
   if (!cookie || cookie.length > 10000) return null
   try {
     const data = Buffer.from(cookie, 'base64url')
@@ -51,7 +74,7 @@ export function openSession(
     const result = sessionSchema.parse(
       JSON.parse(Buffer.concat([decipher.update(data.subarray(28)), decipher.final()]).toString()),
     )
-    return result.expiresAt > now ? result : null
+    return result.refreshExpiresAt > now ? result : null
   } catch {
     return null
   }
@@ -110,16 +133,33 @@ export function createAuthBackend(origin: string, fetcher: typeof fetch = global
       throw new AuthFailure(401, 'This account is unavailable. Please sign in again.')
     return result.data
   }
+  function parseTokens(value: unknown): AuthTokens {
+    const result = tokensSchema.safeParse(value)
+    if (!result.success)
+      throw new AuthFailure(502, 'The sign-in service returned an invalid session.')
+    return {
+      accessToken: result.data.access_token,
+      refreshToken: result.data.refresh_token,
+      expiresIn: result.data.expires_in,
+      refreshExpiresIn: result.data.refresh_expires_in,
+    }
+  }
+  async function authenticatedTokens(value: unknown) {
+    const tokens = parseTokens(value)
+    const user = await me(tokens.accessToken)
+    return { user, tokens }
+  }
   return {
     me,
     async login(input: z.infer<typeof loginSchema>) {
-      const result = tokensSchema.safeParse(
+      return authenticatedTokens(
         await request('/api/v1/auth/login', undefined, loginSchema.parse(input)),
       )
-      if (!result.success)
-        throw new AuthFailure(502, 'The sign-in service returned an invalid session.')
-      const user = await me(result.data.access_token)
-      return { user, accessToken: result.data.access_token, expiresIn: result.data.expires_in }
+    },
+    async refresh(refreshToken: string) {
+      return authenticatedTokens(
+        await request('/api/v1/auth/refresh', undefined, { refresh_token: refreshToken }),
+      )
     },
     async logout(token: string) {
       await request('/api/v1/auth/logout', token)

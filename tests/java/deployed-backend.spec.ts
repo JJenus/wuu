@@ -108,9 +108,22 @@ test('actual Java: tenant fleet, sealed sessions and account-wide revocation', a
     ).toBeVisible()
     const cookie = (await page.context().cookies()).find((c) => c.name === 'wuu_session')
     expect(Boolean(cookie?.httpOnly && cookie.sameSite === 'Strict')).toBe(true)
+    expect(cookie?.expires).toBeGreaterThan(Date.now() / 1000 + 3_600)
     expect(
       Boolean(cookie && !cookie.value.includes(owner.token) && !cookie.value.includes('.')),
     ).toBe(true)
+    const refreshed = await page.request.post('/api/auth/refresh', {
+      headers: { origin: frontend },
+    })
+    expect(refreshed.status(), 'BFF rotates the real Java refresh token').toBe(200)
+    expect(refreshed.headers()['set-cookie']).toContain('wuu_session=')
+    const refreshedBody = await refreshed.json()
+    expect(refreshedBody.user.email).toBe(owner.email)
+    expect(refreshedBody.expires_at).toBeGreaterThan(Date.now())
+    expect(
+      /access_token|refresh_token|accessToken|refreshToken/.test(JSON.stringify(refreshedBody)),
+    ).toBe(false)
+    expect((await page.request.get('/api/_wuu/vehicles')).status()).toBe(200)
     const visibleState = await page.evaluate(() => ({
       cookie: document.cookie,
       local: JSON.stringify(localStorage),

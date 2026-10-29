@@ -4,6 +4,7 @@ import {
   authError,
   clearWuuSession,
   currentSession,
+  ensureFreshSession,
   noStore,
 } from '../../utils/wuu-session'
 import { AuthFailure } from '../../utils/wuu-auth'
@@ -11,19 +12,21 @@ import { AuthFailure } from '../../utils/wuu-auth'
 export default defineEventHandler(async (event) => {
   noStore(event)
   assertSameOrigin(event)
-  let token: string | undefined
+  let session
   try {
-    token = currentSession(event).accessToken
+    session = currentSession(event)
   } catch {
     /* Already signed out locally. */
   }
-  clearWuuSession(event)
-  if (token) {
-    try {
-      await authBackend(event).logout(token)
-    } catch (error) {
-      if (!(error instanceof AuthFailure && error.status === 401)) authError(error)
+  try {
+    if (session) {
+      const fresh = await ensureFreshSession(event, session)
+      await authBackend(event).logout(fresh.accessToken)
     }
+  } catch (error) {
+    if (!(error instanceof AuthFailure && error.status === 401)) authError(error)
+  } finally {
+    clearWuuSession(event)
   }
   setResponseStatus(event, 204)
   return null

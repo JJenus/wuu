@@ -72,6 +72,25 @@ test('sign-in preserves safe deep links, hides credentials, verifies identity, g
   expect((await page.request.get('/api/_wuu/vehicles')).status()).toBe(401)
 })
 
+test('automatic renewal rotates before short access expiry without losing the session', async ({
+  page,
+}) => {
+  await page.goto('/vehicles')
+  const renewal = page.waitForResponse(
+    (response) =>
+      response.url().endsWith('/api/auth/refresh') && response.request().method() === 'POST',
+    { timeout: 15_000 },
+  )
+  await signIn(page, 'renew@example.com')
+  const response = await renewal
+  expect(response.status()).toBe(200)
+  expect((await response.json()).expires_at).toBeGreaterThan(Date.now() + 60_000)
+  await expect(page).toHaveURL('/vehicles')
+  await expect(page.getByText('WUU LIVE 01').first()).toBeVisible()
+  await expect(page).toHaveURL('/vehicles')
+  expect((await page.request.get('/api/_wuu/vehicles')).status()).toBe(200)
+})
+
 test('invalid credentials and rate limiting stay errors without preview fallback', async ({
   page,
 }) => {

@@ -36,7 +36,11 @@ createServer(async (request, response) => {
   }
   if (path === '/__test/refresh-sessions' && request.method === 'POST') {
     const input = JSON.parse(body)
-    refreshTokens.set(input.refresh_token, { email: input.email, used: false, accessSeconds: input.access_seconds })
+    refreshTokens.set(input.refresh_token, {
+      email: input.email,
+      used: false,
+      accessSeconds: input.access_seconds,
+    })
     return send(201, { testOnly: true })
   }
   if (path === '/api/v1/auth/local-accounts')
@@ -74,7 +78,11 @@ createServer(async (request, response) => {
     const token = `private-access-${randomUUID()}`
     const refreshToken = `private-refresh-${randomUUID()}`
     sessions.set(token, issued.email)
-    refreshTokens.set(refreshToken, { email: issued.email, used: false, accessSeconds: issued.accessSeconds })
+    refreshTokens.set(refreshToken, {
+      email: issued.email,
+      used: false,
+      accessSeconds: issued.accessSeconds,
+    })
     return send(200, {
       access_token: token,
       refresh_token: refreshToken,

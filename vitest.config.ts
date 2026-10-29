@@ -1,6 +1,12 @@
 import { defineConfig } from 'vitest/config'
+import { createRequire } from 'node:module'
+
+const require = createRequire(import.meta.url)
 
 export default defineConfig({
+  resolve: {
+    alias: { h3: require.resolve('h3', { paths: [require.resolve('nuxt/package.json')] }) },
+  },
   test: {
     include: ['tests/unit/**/*.test.ts'],
     coverage: {
@@ -31,6 +37,7 @@ export default defineConfig({
         'app/features/maps/composables/useMapSearch.ts',
         'server/utils/wuu-gateway.ts',
         'server/utils/wuu-auth.ts',
+        'server/utils/wuu-session.ts',
         'server/utils/wuu-local-accounts.ts',
       ],
       thresholds: { lines: 80, functions: 80, statements: 80, branches: 80 },

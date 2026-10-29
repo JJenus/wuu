@@ -5,7 +5,7 @@ import { createEvent } from 'h3'
 import { sealWuuSession, type WuuSession } from '../../server/utils/wuu-auth'
 
 const password = 'test-only-session-password-at-least-32-characters'
-const session: WuuSession = {
+let session: WuuSession = {
   accessToken: 'old-access',
   refreshToken: 'old-refresh',
   expiresAt: 0,
@@ -41,14 +41,27 @@ function tokenResponse() {
 }
 
 describe('single-process session renewal', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.resetModules()
     vi.stubGlobal('useRuntimeConfig', () => ({
       apiOrigin: 'http://localhost:8080',
       sessionPassword: password,
     }))
+    const { createLoginSession } = await import('../../server/utils/wuu-session')
+    session = {
+      ...createLoginSession({
+        accessToken: 'old-access',
+        refreshToken: 'old-refresh',
+        expiresIn: 1,
+        refreshExpiresIn: 3600,
+      }),
+      expiresAt: 0,
+    }
   })
-  afterEach(() => vi.unstubAllGlobals())
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
 
   it('coalesces independently sealed cookies carrying one refresh credential', async () => {
     const fetcher = vi
@@ -93,7 +106,21 @@ describe('single-process session renewal', () => {
     release(tokenResponse())
     await rejected
     expect(String(request.node.res.getHeader('set-cookie'))).not.toContain('Max-Age=3600')
-    expect(currentSession(event()).refreshToken).toBe('old-refresh')
+    expect(() => currentSession(event())).toThrow()
+  })
+
+  it('invalidates ancestor receipts when the replacement credential signs out', async () => {
+    const fetcher = vi
+      .fn()
+      .mockImplementation(async (url: string) =>
+        url.endsWith('/refresh') ? tokenResponse() : Response.json(user),
+      )
+    vi.stubGlobal('fetch', fetcher)
+    const { refreshSession, clearWuuSession, currentSession } =
+      await import('../../server/utils/wuu-session')
+    const rotated = await refreshSession(event(), session)
+    clearWuuSession(event(rotated))
+    expect(() => currentSession(event())).toThrow()
   })
 
   it('clears the local cookie on an ambiguous upstream failure without replaying the credential', async () => {
@@ -107,7 +134,9 @@ describe('single-process session renewal', () => {
     expect(fetcher).toHaveBeenCalledTimes(1)
     expect(String(request.node.res.getHeader('set-cookie'))).toContain('Max-Age=0')
     const replay = event()
-    await expect(async () => refreshSession(replay, currentSession(replay))).rejects.toMatchObject({ statusCode: 401 })
+    await expect(async () => refreshSession(replay, currentSession(replay))).rejects.toMatchObject({
+      statusCode: 401,
+    })
     expect(fetcher).toHaveBeenCalledTimes(1)
   })
 
@@ -117,5 +146,99 @@ describe('single-process session renewal', () => {
     const request = event()
     request.node.req.headers.cookie = 'wuu_session=forged'
     expect(() => currentSession(request)).toThrow()
+  })
+
+  it('does not rotate a fresh session and preserves explicit HTTP errors', async () => {
+    const { ensureFreshSession, authError, noStore, assertSameOrigin } =
+      await import('../../server/utils/wuu-session')
+    const fresh = { ...session, expiresAt: Date.now() + 900_000 }
+    const request = event(fresh)
+    expect(await ensureFreshSession(request, fresh)).toBe(fresh)
+    noStore(request)
+    expect(request.node.res.getHeader('cache-control')).toBe('no-store')
+    expect(request.node.res.getHeader('vary')).toBe('Cookie')
+    expect(() => assertSameOrigin(request)).toThrow()
+    request.node.req.headers.origin = 'http://localhost:3001'
+    expect(() => assertSameOrigin(request)).not.toThrow()
+    expect(() => authError(new Error('private upstream detail'))).toThrow(
+      'The sign-in request could not be completed.',
+    )
+  })
+
+  it('bounds receipts without evicting in-window recovery and reclaims expired receipts', async () => {
+    const fetcher = vi
+      .fn()
+      .mockImplementation(async (url: string) =>
+        url.endsWith('/refresh') ? tokenResponse() : Response.json(user),
+      )
+    vi.stubGlobal('fetch', fetcher)
+    const { currentSession, refreshSession } = await import('../../server/utils/wuu-session')
+    for (let i = 0; i < 256; i++) {
+      const value = { ...session, refreshToken: `bounded-${i}` }
+      await refreshSession(event(value), value)
+    }
+    const excess = { ...session, refreshToken: 'excess' }
+    await expect(refreshSession(event(excess), excess)).rejects.toMatchObject({ status: 503 })
+    expect(currentSession(event({ ...session, refreshToken: 'bounded-0' })).refreshToken).toBe(
+      'new-refresh',
+    )
+    const now = Date.now()
+    vi.spyOn(Date, 'now').mockReturnValue(now + 31_000)
+    expect(currentSession(event({ ...session, refreshToken: 'bounded-0' })).refreshToken).toBe(
+      'bounded-0',
+    )
+    await expect(refreshSession(event(excess), excess)).resolves.toHaveProperty(
+      'refreshToken',
+      'new-refresh',
+    )
+  })
+
+  it('rejects oversized replacement cookies and missing session credentials', async () => {
+    const { writeSession, refreshSession } = await import('../../server/utils/wuu-session')
+    expect(() => writeSession(event(), { ...session, accessToken: 'x'.repeat(4000) })).toThrow(
+      'oversized session',
+    )
+    const request = event()
+    delete request.node.req.headers.cookie
+    await expect(refreshSession(request, session)).rejects.toMatchObject({ statusCode: 401 })
+  })
+
+  it('permits renewal after a fresh sign-in when an outage exhausted rejection tracking', async () => {
+    const fetcher = vi.fn().mockRejectedValue(new Error('upstream outage'))
+    vi.stubGlobal('fetch', fetcher)
+    const { currentSession, refreshSession, createLoginSession } =
+      await import('../../server/utils/wuu-session')
+    for (let i = 0; i < 256; i++) {
+      const value = { ...session, refreshToken: `failed-${i}` }
+      await expect(refreshSession(event(value), value)).rejects.toMatchObject({ statusCode: 502 })
+    }
+    fetcher.mockImplementation(async (url: string) =>
+      url.endsWith('/refresh') ? tokenResponse() : Response.json(user),
+    )
+    const fresh = createLoginSession({
+      accessToken: 'healthy-access',
+      refreshToken: 'healthy-refresh',
+      expiresIn: 1,
+      refreshExpiresIn: 3600,
+    })
+    const request = event(fresh)
+    await expect(refreshSession(request, currentSession(request))).resolves.toHaveProperty(
+      'refreshToken',
+      'new-refresh',
+    )
+    expect(() => currentSession(event({ ...session, refreshToken: 'failed-0' }))).toThrow()
+  })
+
+  it('requires sign-in after process-local coordination is restarted', async () => {
+    const { createLoginSession } = await import('../../server/utils/wuu-session')
+    const old = createLoginSession({
+      accessToken: 'restart-access',
+      refreshToken: 'restart-refresh',
+      expiresIn: 900,
+      refreshExpiresIn: 3600,
+    })
+    vi.resetModules()
+    const restarted = await import('../../server/utils/wuu-session')
+    expect(() => restarted.currentSession(event(old))).toThrow()
   })
 })

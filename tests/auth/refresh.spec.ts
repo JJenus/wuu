@@ -18,7 +18,14 @@ async function expiredSession(
   email = 'operator@example.com',
   accessSeconds = 900,
 ): Promise<{ oldCookie: string; aliasCookie: string; refreshToken: string }> {
-  const refreshToken = `test-refresh-${randomUUID()}`
+  const login = await request.post('/api/auth/login', {
+    headers: { origin },
+    data: { email, password: 'test-only-password' },
+  })
+  expect(login.status()).toBe(200)
+  const loginCookie = setCookie(login).match(/wuu_session=([^;]+)/)?.[1]
+  const issued = openSession(loginCookie, sessionPassword)!
+  const refreshToken = issued.refreshToken
   expect(
     (
       await request.post('http://127.0.0.1:18080/__test/refresh-sessions', {
@@ -27,6 +34,7 @@ async function expiredSession(
     ).status(),
   ).toBe(201)
   const session = {
+    ...issued,
     accessToken: 'expired-private-access-token',
     refreshToken,
     expiresAt: Date.now() - 1_000,
@@ -82,17 +90,27 @@ test('rotates a refresh token once for concurrent requests and recovers a lost r
   ).toBe(403)
 })
 
-test('recovery returns the same short-lived token generation without rotating again', async ({ request }) => {
-  const { oldCookie, aliasCookie } = await expiredSession(request, `short-${randomUUID()}@example.com`, 120)
+test('recovery returns the same short-lived token generation without rotating again', async ({
+  request,
+}) => {
+  const { oldCookie, aliasCookie } = await expiredSession(
+    request,
+    `short-${randomUUID()}@example.com`,
+    120,
+  )
   const headers = { cookie: oldCookie, origin }
   const initial = await request.post('/api/auth/refresh', { headers })
   expect(initial.status()).toBe(200)
   const initialCookie = setCookie(initial).match(/wuu_session=([^;]+)/)?.[1]
   const initialSession = openSession(initialCookie, sessionPassword)!
-  const replay = await request.post('/api/auth/refresh', { headers: { cookie: aliasCookie, origin } })
+  const replay = await request.post('/api/auth/refresh', {
+    headers: { cookie: aliasCookie, origin },
+  })
   expect(replay.status()).toBe(200)
   const recoveredCookie = setCookie(replay).match(/wuu_session=([^;]+)/)?.[1]
-  expect(openSession(recoveredCookie, sessionPassword)?.refreshToken).toBe(initialSession.refreshToken)
+  expect(openSession(recoveredCookie, sessionPassword)?.refreshToken).toBe(
+    initialSession.refreshToken,
+  )
 })
 
 test('server-rendered renewal forwards its replacement HttpOnly cookie', async ({ request }) => {

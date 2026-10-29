@@ -6,6 +6,7 @@ import {
   authError,
   noStore,
   writeSession,
+  createLoginSession,
 } from '../../utils/wuu-session'
 
 export default defineEventHandler(async (event) => {
@@ -43,8 +44,9 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: 'Enter a valid email and password.' })
   try {
     const result = await authBackend(event).login(parsed.data)
-    writeSession(event, result.accessToken, result.expiresIn)
-    return { user: result.user }
+    const session = createLoginSession(result.tokens)
+    writeSession(event, session)
+    return { user: result.user, expires_at: session.expiresAt }
   } catch (error) {
     authError(error)
   }

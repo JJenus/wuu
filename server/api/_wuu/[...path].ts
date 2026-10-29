@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { H3Event } from 'h3'
 import { originIsSafe, upstreamPath, subscriptionRequestAllowed } from '../../utils/wuu-gateway'
-import { assertSameOrigin, currentSession } from '../../utils/wuu-session'
+import { assertSameOrigin, currentSession, ensureFreshSession } from '../../utils/wuu-session'
 import { z } from 'zod'
 
 const methods = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])
@@ -17,7 +17,7 @@ export default defineEventHandler(async (event) => {
   setResponseHeader(event, 'x-request-id', requestId)
   setResponseHeader(event, 'cache-control', 'no-store')
   setResponseHeader(event, 'x-content-type-options', 'nosniff')
-  const session = currentSession(event)
+  const session = await ensureFreshSession(event, currentSession(event))
 
   const config = useRuntimeConfig(event)
   // Support the deployment's WUU_* names at runtime without baking the token into a build.

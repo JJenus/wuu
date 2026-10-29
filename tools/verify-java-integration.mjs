@@ -197,6 +197,8 @@ try {
       ARTEMIS_USER: 'wuu_fixture',
       ARTEMIS_PASSWORD: brokerPassword,
       JWT_SECRET: secret(),
+      // Exercise real rotation without waiting for the default 15-minute TTL.
+      USERAUTH_JWT_ACCESS_TOKEN_EXPIRY: '2m',
       REGISTRATION_ENABLED: 'true',
       LOGGING_LEVEL_ROOT: 'WARN',
       LOGGING_LEVEL_ORG_HIBERNATE_SQL: 'WARN',

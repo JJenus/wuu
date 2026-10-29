@@ -40,15 +40,31 @@ describe('authentication boundaries', () => {
       expect(safeReturnPath(value)).toBe('/')
     expect(safeReturnPath('/vehicles?status=offline')).toBe('/vehicles?status=offline')
   })
-  it('seals session tokens, rejects tampering, wrong keys, and expiry', () => {
-    const sealed = sealWuuSession({ accessToken: 'private-token', expiresAt: 2000 }, password)
+  it('seals session tokens, rejects tampering, wrong keys, and refresh expiry', () => {
+    const sealed = sealWuuSession(
+      {
+        accessToken: 'private-token',
+        refreshToken: 'private-refresh',
+        expiresAt: 2000,
+        refreshExpiresAt: 3000,
+      },
+      password,
+    )
     expect(sealed).not.toContain('private-token')
+    expect(sealed).not.toContain('private-refresh')
     expect(openSession(sealed, password, 1000)?.accessToken).toBe('private-token')
-    expect(openSession(sealed, password, 2000)).toBeNull()
+    // An expired access token remains renewable until the refresh session expires.
+    expect(openSession(sealed, password, 2500)?.refreshToken).toBe('private-refresh')
+    expect(openSession(sealed, password, 3000)).toBeNull()
     expect(openSession(`${sealed}x`, password, 1000)).toBeNull()
     expect(openSession(sealed, `${password}wrong`, 1000)).toBeNull()
     expect(openSession(undefined, password, 1000)).toBeNull()
-    expect(() => sealWuuSession({ accessToken: 'x', expiresAt: 2000 }, 'short')).toThrow()
+    expect(() =>
+      sealWuuSession(
+        { accessToken: 'x', refreshToken: 'y', expiresAt: 2000, refreshExpiresAt: 3000 },
+        'short',
+      ),
+    ).toThrow()
   })
   it('requires exact same-origin HTTPS or loopback for mutations', () => {
     expect(sameOrigin('https://wuu.example', 'wuu.example')).toBe(true)
@@ -69,8 +85,9 @@ describe('authentication boundaries', () => {
       .mockResolvedValueOnce(
         Response.json({
           access_token: 'access',
-          refresh_token: 'discard',
+          refresh_token: 'refresh',
           expires_in: 900,
+          refresh_expires_in: 604800,
           token_type: 'Bearer',
         }),
       )
@@ -78,9 +95,36 @@ describe('authentication boundaries', () => {
     const backend = createAuthBackend('http://localhost:8080', fetcher)
     const result = await backend.login({ email: 'operator@example.com', password: 'password' })
     expect(result.user.id).toBe(7)
-    expect(result).not.toHaveProperty('refreshToken')
+    expect(result.tokens).toEqual({
+      accessToken: 'access',
+      refreshToken: 'refresh',
+      expiresIn: 900,
+      refreshExpiresIn: 604800,
+    })
     expect(fetcher.mock.calls[1]?.[1].headers.authorization).toBe('Bearer access')
     expect(fetcher.mock.calls[0]?.[1].redirect).toBe('manual')
+  })
+  it('rotates refresh tokens through the exact upstream route and verifies identity', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({
+          access_token: 'next-access',
+          refresh_token: 'next-refresh',
+          expires_in: 900,
+          refresh_expires_in: 604700,
+          token_type: 'Bearer',
+        }),
+      )
+      .mockResolvedValueOnce(Response.json(user))
+    const backend = createAuthBackend('http://localhost:8080', fetcher)
+    const result = await backend.refresh('old-refresh')
+    expect(result.tokens.refreshToken).toBe('next-refresh')
+    expect(String(fetcher.mock.calls[0]?.[0])).toBe('http://localhost:8080/api/v1/auth/refresh')
+    expect(JSON.parse(String(fetcher.mock.calls[0]?.[1].body))).toEqual({
+      refresh_token: 'old-refresh',
+    })
+    expect(fetcher.mock.calls[1]?.[1].headers.authorization).toBe('Bearer next-access')
   })
   it('keeps invalid credentials, rate limits, malformed identity, and upstream failures as errors', async () => {
     for (const status of [401, 403, 429, 503]) {
