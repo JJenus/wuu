@@ -30,6 +30,8 @@ import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 
 @SpringJUnitConfig(SecurityBoundaryIntegrationTest.Config.class)
 @WebAppConfiguration
@@ -103,6 +105,43 @@ class SecurityBoundaryIntegrationTest {
         verify(authService).getCurrentUser(1L);
         assertThat(TenantContext.getCurrentUserId()).isNull();
         assertThat(TenantContext.getCurrentOrgId()).isNull();
+    }
+
+    @Test void currentAccess_viewerWithoutUserRead_returnsOnlyCurrentTenantEffectivePermissions() throws Exception {
+        var current = user.getRoles().iterator().next();
+        current.addPermission(Permission.of("vehicles.read", "read vehicles"));
+        current.addPermission(Permission.of("alerts.read", "read alerts"));
+        var foreign = Organization.create("Other", "other");
+        foreign.setId(20L);
+        var foreignRole = Role.orgRole(foreign, "TENANT_ADMIN", "foreign role");
+        foreignRole.addPermission(Permission.of("users.write", "write users"));
+        user.assignRole(foreignRole);
+
+        mvc.perform(get("/api/v1/users/me/access").header("Authorization", "Bearer " + token()))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Cache-Control", "private, no-store"))
+            .andExpect(jsonPath("$.user_id").value(1))
+            .andExpect(jsonPath("$.organization_id").value(10))
+            .andExpect(jsonPath("$.permissions[0]").value("alerts.read"))
+            .andExpect(jsonPath("$.permissions[1]").value("vehicles.read"))
+            .andExpect(jsonPath("$.permissions.length()").value(2))
+            .andExpect(jsonPath("$.session_id").doesNotExist())
+            .andExpect(jsonPath("$.access_token").doesNotExist());
+        verifyNoInteractions(authService);
+        assertThat(TenantContext.getCurrentOrgId()).isNull();
+    }
+
+    @Test void currentAccess_rechecksDatabaseRolesAndRevocation_notForgedTokenRole() throws Exception {
+        var bearer = token(); // JWT claims SUPER_ADMIN, database role is only VIEWER.
+        mvc.perform(get("/api/v1/users/me/access").header("Authorization", "Bearer " + bearer))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.permissions").isEmpty());
+        user.getRoles().iterator().next().addPermission(Permission.of("vehicles.read", "read"));
+        mvc.perform(get("/api/v1/users/me/access").header("Authorization", "Bearer " + bearer))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.permissions[0]").value("vehicles.read"));
+        session.revokeAt(Instant.now());
+        mvc.perform(get("/api/v1/users/me/access").header("Authorization", "Bearer " + bearer))
+            .andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/v1/users/me/access")).andExpect(status().isUnauthorized());
     }
 
     @Test void request_revokedSession_returns401() throws Exception {
