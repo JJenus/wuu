@@ -8,6 +8,11 @@ import com.surf.tracker.userauth.application.service.OrganizationService;
 import com.surf.tracker.userauth.application.service.AuthService;
 import com.surf.tracker.userauth.domain.entity.*;
 import com.surf.tracker.userauth.infrastructure.repository.*;
+import com.surf.tracker.alerting.api.AlertController;
+import com.surf.tracker.alerting.api.dto.AlertResponse;
+import com.surf.tracker.alerting.api.dto.AcknowledgeAlertRequest;
+import com.surf.tracker.alerting.api.dto.ResolveAlertRequest;
+import com.surf.tracker.alerting.application.service.AlertService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,7 +44,8 @@ class SecurityBoundaryIntegrationTest {
     @org.springframework.boot.test.context.TestConfiguration
     @EnableWebMvc
     @Import({SecurityConfig.class, JwtAuthFilter.class, AuthIdentityService.class,
-        AuthController.class, UserController.class, OrganizationController.class, AuthRateLimitFilter.class})
+        AuthController.class, UserController.class, OrganizationController.class, AuthRateLimitFilter.class,
+        AlertController.class})
     static class Config {
         @Bean java.time.Clock clock() { return java.time.Clock.systemUTC(); }
         @Bean JwtService jwtService() {
@@ -51,6 +57,7 @@ class SecurityBoundaryIntegrationTest {
         @Bean SessionRepository sessions() { return mock(SessionRepository.class); }
         @Bean AuthService authService() { return mock(AuthService.class); }
         @Bean OrganizationService organizationService() { return mock(OrganizationService.class); }
+        @Bean AlertService alertService() { return mock(AlertService.class); }
     }
 
     @Autowired WebApplicationContext context;
@@ -59,13 +66,14 @@ class SecurityBoundaryIntegrationTest {
     @Autowired SessionRepository sessions;
     @Autowired AuthService authService;
     @Autowired OrganizationService organizations;
+    @Autowired AlertService alerts;
     MockMvc mvc;
     User user;
     Session session;
 
     @BeforeEach
     void setUp() {
-        reset(users, sessions, authService, organizations);
+        reset(users, sessions, authService, organizations, alerts);
         mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
         Organization org = Organization.create("Acme", "acme");
         org.setId(10L);
@@ -81,6 +89,68 @@ class SecurityBoundaryIntegrationTest {
 
     String token() {
         return jwt.generateAccessToken(1L, 10L, user.getEmail(), List.of("SUPER_ADMIN"), session.getSessionUuid());
+    }
+
+    @Test void acknowledgeAlert_forgedActor_usesAuthenticatedUserId() throws Exception {
+        user.getRoles().iterator().next().addPermission(Permission.of("alerts.write", "write alerts"));
+        when(alerts.acknowledgeAlert(eq(91L), any())).thenReturn(new AlertResponse());
+        mvc.perform(post("/alerts/91/acknowledge").header("Authorization", "Bearer " + token())
+            .contentType("application/json").content("{\"acknowledgedBy\":\"forged administrator\"}"))
+            .andExpect(status().isOk());
+        verify(alerts).acknowledgeAlert(eq(91L), argThat(request -> "1".equals(request.getAcknowledgedBy())));
+    }
+
+    @Test void resolveAlert_forgedActor_usesAuthenticatedUserIdAndPreservesNotes() throws Exception {
+        user.getRoles().iterator().next().addPermission(Permission.of("alerts.write", "write alerts"));
+        when(alerts.resolveAlert(eq(91L), any())).thenReturn(new AlertResponse());
+        mvc.perform(post("/alerts/91/resolve").header("Authorization", "Bearer " + token())
+            .contentType("application/json").content("{\"resolvedBy\":\"forged administrator\",\"resolutionNotes\":\"Reviewed and confirmed safe\"}"))
+            .andExpect(status().isOk());
+        verify(alerts).resolveAlert(eq(91L), argThat(request -> "1".equals(request.getResolvedBy())
+            && "Reviewed and confirmed safe".equals(request.getResolutionNotes())));
+    }
+
+    @Test void alertTransitions_omittedActor_deriveIdentityWithoutClientSelection() throws Exception {
+        user.getRoles().iterator().next().addPermission(Permission.of("alerts.write", "write alerts"));
+        mvc.perform(post("/alerts/91/acknowledge").header("Authorization", "Bearer " + token())
+            .contentType("application/json").content("{}"))
+            .andExpect(status().isOk());
+        mvc.perform(post("/alerts/91/resolve").header("Authorization", "Bearer " + token())
+            .contentType("application/json").content("{\"resolutionNotes\":\"Reviewed and confirmed safe\"}"))
+            .andExpect(status().isOk());
+        verify(alerts).acknowledgeAlert(eq(91L), argThat(request -> "1".equals(request.getAcknowledgedBy())));
+        verify(alerts).resolveAlert(eq(91L), argThat(request -> "1".equals(request.getResolvedBy())));
+    }
+
+    @Test void bulkAlertTransitions_forgedOrMissingActor_deriveAuthenticatedIdentity() throws Exception {
+        user.getRoles().iterator().next().addPermission(Permission.of("alerts.write", "write alerts"));
+        mvc.perform(post("/alerts/bulk/acknowledge").param("acknowledgedBy", "forged administrator")
+            .header("Authorization", "Bearer " + token()).contentType("application/json").content("[91,92]"))
+            .andExpect(status().isOk());
+        mvc.perform(post("/alerts/bulk/resolve").param("resolutionNotes", "Reviewed and confirmed safe")
+            .header("Authorization", "Bearer " + token()).contentType("application/json").content("[91,92]"))
+            .andExpect(status().isOk());
+        verify(alerts).bulkAcknowledgeAlerts(List.of(91L, 92L), "1");
+        verify(alerts).bulkResolveAlerts(List.of(91L, 92L), "1", "Reviewed and confirmed safe");
+    }
+
+    @Test void alertTransitions_withoutDatabasePermissionOrAuthentication_remainDenied() throws Exception {
+        for (String path : List.of("/alerts/91/acknowledge", "/alerts/91/resolve", "/alerts/bulk/acknowledge", "/alerts/bulk/resolve")) {
+            mvc.perform(post(path).header("Authorization", "Bearer " + token())
+                .contentType("application/json").content("{}"))
+                .andExpect(status().isForbidden());
+            mvc.perform(post(path).contentType("application/json").content("{}"))
+                .andExpect(status().isUnauthorized());
+        }
+        verifyNoInteractions(alerts);
+    }
+
+    @Test void resolveAlert_shortNotes_stillRejectedBeforeMutation() throws Exception {
+        user.getRoles().iterator().next().addPermission(Permission.of("alerts.write", "write alerts"));
+        mvc.perform(post("/alerts/91/resolve").header("Authorization", "Bearer " + token())
+            .contentType("application/json").content("{\"resolvedBy\":\"1\",\"resolutionNotes\":\"short\"}"))
+            .andExpect(status().isBadRequest());
+        verifyNoInteractions(alerts);
     }
 
     @Test void request_anonymous_returns401() throws Exception {
