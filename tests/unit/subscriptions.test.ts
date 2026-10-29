@@ -77,6 +77,9 @@ describe('subscription contracts and owner workflows', () => {
     await expect(
       fixture([{ ...enrollment, remaining_units: 9007199254740992 }]).service.list(),
     ).rejects.toMatchObject({ kind: 'contract' })
+    for (const status of ['PENDING', 'CANCELED']) {
+      await expect(fixture([{ ...enrollment, status, remaining_units: 1 }]).service.list()).rejects.toMatchObject({ kind: 'contract' })
+    }
   })
 })
 describe('narrow subscription gateway policy', () => {
