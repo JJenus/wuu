@@ -52,7 +52,8 @@ export function upstreamPath(raw: string | undefined): string | null {
     return null
   const [resource, ...rest] = segments
   if (resource === 'access' && rest.length) return null
-  const base = resource ? allowedBases[resource] : undefined
+  const base =
+    resource && Object.hasOwn(allowedBases, resource) ? allowedBases[resource] : undefined
   if (!base) return null
   return `${base}/${rest.map((segment) => encodeURIComponent(segment)).join('/')}`.replace(
     /\/$/,
