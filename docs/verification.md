@@ -1,5 +1,34 @@
 # Verification — Wuu preview and live read-only integration
 
+## Subscription owner/access continuation — 2026-10-29
+
+- Frontend selected-source unit gate **110 PASS** under Vitest 4.1.12, coverage
+  **92.47% lines / 85.61% branches / 95.09% functions**; the earlier higher
+  percentages used Vitest 3 and are not directly comparable. Typecheck, build,
+  boundaries and formatting passed after reviewer fixes
+  (`vitest4-coverage.log`, `vitest4-build.log`).
+- Auth browser suite **23 PASS**, including mounted snapshot refresh and
+  failed-cancellation retry (`reviewer-fixes-auth.log`); preview suite 31 PASS and
+  focused mobile subset 12 PASS before these follow-ups.
+- Actual Java final subscription/access acceptance passed on isolated backend
+  artifact SHA256 `0866662f…4d99e` with real owner enrollment/cancel,
+  same-tenant different-user denial, cross-tenant denial, effective access,
+  tenant role reads with ignored override, bearer secrecy and revocation.
+  Receipt `/tmp/opencode/role-catalog-java-final.log`; private browser
+  `/tmp/opencode/wuu-java-ht67wt/browser.log`.
+- Backend full gate **729 / 91 PASS** including the tenant role-catalog slice;
+  focused role HTTP 10/10 and real PostgreSQL role regression 1/1
+  (`tracker-role-catalog-full-gate.log`).
+- Independent review found no confirmed critical/high regression. Both warnings
+  (stale mounted snapshot, failed cancellation dismissing confirmation) are fixed
+  with regressions. Dependency overrides and Vitest 4 remove the prior
+  high/critical advisories; one low `deepmerge` advisory remains because its
+  advertised fixed version is unpublished. Audit is **NOT_CLEAN**, but no
+  critical/high/moderate remains (`frontend-audit-vitest4.json`).
+
+Receipts are under `/tmp/opencode/` unless an explicit path is given. These results
+do not establish production readiness; `IN_PROGRESS` remains set.
+
 ## Actual-Java fixture lifecycle — 2026-10-29
 
 Final post-review rerun **PASS**: `/tmp/opencode/tracker-reviewed-browser-gate.log`,

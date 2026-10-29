@@ -1,5 +1,14 @@
 # Scope and acceptance contract
 
+## Owner-directed scope continuation — 2026-10-29
+
+The owner's autonomous-delivery directive includes configurable subscriptions;
+only ride-hailing is deferred. The subscription owner UI now covers configured
+catalog/owner reads, pending enrollment and confirmed cancellation, not paid
+billing. See `subscriptions.md`. The older future-scope/exclusion wording below
+does not defer these now-authorized subscription use cases. Production
+deployment, payment evidence and external-provider authorization remain gated.
+
 ## Product
 
 Wuu is a calm fleet-operations workspace for customers/businesses and a separate platform-administration experience. One Nuxt application, feature-first modules, semantic design tokens, pnpm only. No React.

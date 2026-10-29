@@ -1,5 +1,21 @@
 # Progress and next slice
 
+## Subscription owner integration — 2026-10-29
+
+`/subscriptions` now reads the live configured token/monthly/yearly catalog and
+owner enrollments. Narrow same-origin authenticated pending-enrollment and
+confirmed owner-cancellation workflows are implemented; grants/catalog writes
+remain blocked at the BFF. Preview explicitly offers no simulated billing.
+Reload-safe operation IDs are scoped to owner/pinned version, with no tokens in
+browser storage. See `subscriptions.md` for contracts and current gate receipts.
+Actual Java acceptance passed for these workflows and the effective-access
+settings panel; full backend729/device91 passed including the role-catalog slice,
+and the final same-tenant Java acceptance passed on the rebuilt artifact. Independent
+review found no confirmed critical/high regression; its refresh and
+failed-cancellation warnings are fixed, and own-property gateway hardening is
+green. No production deployment certification claimed.
+The pre-existing detail/list changes remain separate and preserved.
+
 ## Actual-Java read acceptance — 2026-10-29
 
 The disposable production-Nitro/Java browser fixture passed after lifecycle hardening. It verifies two-tenant fleet/detail isolation, real password sign-in, sealed-cookie/bearer secrecy, account-wide revocation, forged-cookie denial and a genuine system-admin-only denial while permitted trips/fleet remain accessible. Cleanup left no owned containers or Java/Nitro/Playwright processes. See `deployed-java-acceptance.md` for exact artifact hash, receipts and limits. These dated results supersede older non-verification statements only for the exercised assertions; expiry/refresh, production TLS, writes and billing remain unverified.

@@ -1,5 +1,22 @@
 # Architecture contract
 
+## Subscription integration exception — 2026-10-29
+
+Subscription state follows the same service-container → adapter → gateway path
+and Vue Query ownership, keyed by verified context. Only pending enrollment and
+owner cancellation are now allowlisted writes; both use exact-origin checks,
+strict bounded JSON and Java's owner authorization. All other resource writes
+remain blocked. Owner/version-scoped sessionStorage holds only operation IDs for
+ambiguous enrollment retries, never credentials. Preview billing is unavailable,
+not fabricated. See `subscriptions.md` for contracts, tests and limits.
+
+Settings also consumes `WorkspaceServices.access` through a separate Vue Query,
+showing current effective permissions independently of notification preferences.
+The fixed `/api/_wuu/access` alias maps only to Java's current-access endpoint;
+there is no general users proxy. Role templates remain non-authoritative and
+platform concept routes remain blocked. All gateway bases must be own properties
+of the explicit allowlist, not inherited Object members.
+
 ## Decisions
 
 - Nuxt 4, Vue 3, TypeScript, Nuxt UI v4, Tailwind 4; pnpm 11 lockfile.

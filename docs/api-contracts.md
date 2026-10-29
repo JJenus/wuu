@@ -1,5 +1,22 @@
 # Backend and live adapter contracts
 
+## Superseding subscription contract — 2026-10-29
+
+Java now has V5/V6 durable subscription catalog/enrollment/grant/usage APIs.
+The frontend exposes only authenticated catalog/owner reads and same-origin
+pending enrollment/owner cancellation, not grant/catalog administration or paid
+activation. Other domains remain read-only. See `subscriptions.md` for the exact
+allowlist, precision limits, retry recovery and current acceptance evidence.
+Older no-billing-controller/read-only-only statements below are historical.
+
+`GET /api/_wuu/access` maps exactly to `/api/v1/users/me/access` and returns the
+current database-derived `{user_id,organization_id,permissions,access_expires_at}`.
+The organization may be null; no tenant switching or implicit tenant selection is
+offered. Settings shows the snapshot, not role-name guesses. Both Java response
+and BFF are no-store; every subsequent action still rechecks server authorization.
+No nested `access/*` routes, tokens or session UUID are exposed. This supersedes
+the older no-effective-permissions-endpoint limitation only for this read use case.
+
 Status (2026-10-23): **authenticated live read-only frontend implemented; no authenticated end-to-end run against the actual Java deployment has been performed.** Read-only inspection found the active backend refactored under `../sidie/src/main/java/com/surf/tracker/`, with auth hardening documented in `../sidie/SECURITY.md`. HEAD is `551db79`, but the inspected auth/refactor is uncommitted working-tree code. Backend files were not changed or built by this frontend task. Browser tests use a test-only contract server, not Java.
 
 Local runtime update (2026-10-25): the checkout defaults to `http://127.0.0.1:8080` without a context prefix. A limited HTTP smoke against the existing executable JAR verified Wuu login/session/logout and some reads, but alerts returned 401 and health returned 503 (Artemis unavailable). This is not current-source build certification or full browser/authorization verification; see `verification.md`.

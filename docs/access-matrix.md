@@ -1,5 +1,22 @@
 # Access matrix and role register
 
+## Subscription owner exception — 2026-10-29
+
+Authenticated subscription reads, pending enrollment and confirmed cancellation
+are available to the current Java-authorized tenant/user. The BFF exposes only
+those two mutation shapes with exact-origin validation, bounded strict JSON and
+sealed sessions. Role names confer no authority; Java enforces owner isolation.
+Catalog administration, grants and trusted usage recording remain unavailable
+through this UI/gateway. Enrollment grants no access or payment success. See
+`subscriptions.md`; other live resource writes remain disabled.
+
+The new current-access endpoint/panel reports request-time effective permissions
+resolved by Java for the active tenant (or null tenant), not JWT role names. It
+does not enable platform concept pages, tenant switching or role writes. Revoking
+a persisted permission is verified to remove it from the next response and deny
+the corresponding action server-side. Older endpoint-absence statements below
+are historical; full production access certification remains outstanding.
+
 ## Current frontend security posture
 
 Preview mode is a **public sample-data workspace**, including `/admin`. There is no authentication or authorization claim. No real tenant data, credentials, commands, or administrative mutations are available. UI templates are descriptive, not security boundaries.
