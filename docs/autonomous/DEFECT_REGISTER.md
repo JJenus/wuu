@@ -1,6 +1,7 @@
 # Defect register
 
 ## Latest superseding disposition (2026-10-29)
+- SUB-LEDGER: V6 durable explicit non-paid grants and administrator usage recording now pass focused61/PostgreSQL2 and full backend714/device91. Receipt/balance commit atomically under a shared enrollment row lock; reconstruction/future/expiry and rollback-after-flush tested. This supersedes no-durable-grant/usage statements below only; paid activation, real business metering and subscription UI remain OPEN.
 - SUB-ENROLL: authenticated V5 catalog/enrollment is durable and HTTP-verified (7 cases), with owner/key uniqueness in the database and exact-price storage guards. It creates only `PENDING` rows with zero units; grants/consumption, entitlement checks, payment, renewal and dunning remain OPEN. Do not describe enrollment as a subscription sale or access grant. See subscription-enrollment-slice.md.
 - API-03: unsupported HTTP methods previously fell through servlet error dispatch and became 401. `GlobalExceptionHandler` now returns explicit 405 without permitting `/error`; exercised by the subscription catalog immutability test.
 - FLOW-02 follow-up: device raw-frame wiretap is opt-in/default-off and the latest standalone device suite is 91/91; physical hardware/commands remain OPEN.

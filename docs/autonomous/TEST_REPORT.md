@@ -1,5 +1,19 @@
 # Verification report
 
+## Durable non-paid grant/usage continuation — 2026-10-29
+
+Focused **61 tests passed**, including 18 actual HTTP cases; real PostgreSQL
+final-unit contention/replay and V2→V6 upgrade **2 tests passed**. Explicit
+package-filtered JaCoCo: subscription372/398 lines (93.47%),162/178 branches
+(91.01%); domain123/123 lines and98/98 branches (100%). See
+[subscription-ledger-slice.md](subscription-ledger-slice.md) for RED, the corrected
+administrator fixture, transactional rollback, exact commands and limits.
+The full post-V6 vendor gate **PASSED backend714/device91**, zero failures/errors/
+skips, both executable JARs built (`tracker-subscription-ledger-full-gate.log`).
+No whole-backend coverage or new browser-artifact claim. The backend701/device91
+and browser receipts below predate V6; they must not be described as current-source
+full verification of grant/usage.
+
 Final rebuilt-artifact actual-Java browser run **PASS**:
 `/tmp/opencode/tracker-reviewed-browser-gate.log`, private logs
 `/tmp/opencode/wuu-java-uWqSb5/`, JAR SHA256

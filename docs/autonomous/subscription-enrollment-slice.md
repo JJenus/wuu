@@ -1,5 +1,10 @@
 # Authenticated subscription catalog and enrollment — 2026-10-29
 
+**Historical V5 scope:** the later [V6 grant/usage slice](subscription-ledger-slice.md)
+adds durable explicit non-paid grants and trusted-admin consumption. Statements
+below about absent grant/usage routes describe this earlier checkpoint. Payment,
+automatic product metering, renewal and subscription UI are still not delivered.
+
 **PARTIAL: durable catalog and pending enrollment only. This is not billing,
 payment, entitlement or a finished subscription product.** The reviewed
 [domain slice](subscription-domain-slice.md) remains the only implementation of

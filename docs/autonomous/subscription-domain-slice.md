@@ -1,5 +1,11 @@
 # Bounded subscription domain slice — 2026-10-29
 
+**Historical scope:** [V6 grant/usage integration](subscription-ledger-slice.md)
+now wires validated domain state snapshots to durable grants/receipts and
+tenant-scoped administrative commands. Original process-local-only limitations
+below describe the initial kernel, not a claim that V6 grants are non-durable.
+Payment and actual product-feature enforcement remain absent.
+
 **PARTIAL: reusable domain invariants only. Not a completed subscription system.**
 Owner scope authorizes configurable usage/token and monthly/yearly periodic models;
 only ride-hailing is deferred. This slice implements neither payment processing

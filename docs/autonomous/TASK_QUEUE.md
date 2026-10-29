@@ -4,6 +4,12 @@ Delegation budget: at most **two active subagents**, direct work by default; see
 
 ## Superseding scope/work — 2026-10-29
 
+- Current slice: V6 durable explicit trial/complimentary grants and trusted-admin
+  usage recording implemented with shared row locks, atomic receipt/balance and
+  domain state restoration. Focused61 and PostgreSQL2 pass; final full gate
+  **backend714/device91 PASS** (`tracker-subscription-ledger-full-gate.log`). No paid activation,
+  automatic product metering/renewal or subscription UI. See subscription-ledger-slice.md.
+
 - Final checkpoint: vendor **backend701/device91 PASS** and rebuilt-artifact actual-Java browser **PASS** with no fixture container/process leftovers. Review regressions resolved. Next independent engineering work: durable authenticated grant/usage integration and subscription frontend; notification/payment/provider decisions and production/command acceptance remain open. See final-slice-review.md. Historical pending statuses below are superseded only within this bounded scope.
 
 - Latest post-review gate: **backend701/device91 PASS**, both packaged, no failures/errors/skips (`tracker-reviewed-vendor-gate.log`). Subscription storage-bound validation and process-group escalation review findings are resolved with regressions; final rebuilt-artifact browser acceptance is in progress. Publication pending, `STATUS=IN_PROGRESS`.

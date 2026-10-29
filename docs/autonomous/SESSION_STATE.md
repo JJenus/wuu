@@ -1,5 +1,25 @@
 # Recoverable execution state
 
+## Current state — durable grant/usage slice
+
+- Local RED/GREEN commits: `697d880` and `9293dc8`, not pushed yet.
+- Authenticated tenant-scoped system-administrator non-paid grant/usage routes,
+  V6 migrations, row-locked balance/receipt transaction and validated domain state
+  reconstruction implemented. See subscription-ledger-slice.md for exact limits.
+- Focused instrumented **61/61** passed (18 HTTP cases); PostgreSQL usage race/
+  replay and V2→V6 upgrade **2/2** passed. Package coverage93.47%line/91.01%branch,
+  domain100%; not whole-backend coverage.
+- Full vendor gate **PASSED backend714/device91**, zero failures/errors/skips,
+  both executable JARs built: `/tmp/opencode/tracker-subscription-ledger-full-gate.log`.
+  Do not repeat completed gates without relevant source changes.
+- Current publication step: commit docs and push scoped backend commits.
+  Subscription UI and actual feature-meter enforcement remain next work;
+  payment/provider and recipient decisions remain unresolved. STATUS=IN_PROGRESS.
+- Preserve unrelated backend README/start-backend.sh and all existing frontend
+  edits. No frontend source/device source change belongs to this new slice.
+
+## Previous checkpoint (historical)
+
 - Date: 2026-10-29
 - Publication verified: `origin/main` reached `34ee76136e300267cb777dc908dfdd464d52601a` and `origin/frontend-app` reached `c541e91ecfc011bf240832acc8f242551a237925` via normal pushes; remote refs checked. Feature code and evidence are published. This receipt is a follow-up documentation commit. Remaining backend README/start-backend.sh and pre-existing frontend detail/list changes were deliberately not staged or discarded. Next task is durable authenticated grant/usage integration; do not repeat the completed vendor/browser gates unless source changes warrant it.
 - Final superseding checkpoint: post-review vendor **backend701/device91 PASS**, rebuilt-artifact browser **PASS**, no fixture container/process leftovers. Browser receipt `tracker-reviewed-browser-gate.log`, artifact SHA256 `a452439bf220fa78a7cbcaaf975348531fb9ded8fbdbad2c6c9da3b2049e6ecb`. Remaining work is durable grant/usage/entitlement integration, subscription UI, payment/provider and notification recipient decisions, command/ACK and production acceptance. Preserve unrelated frontend edits and backend README/start-backend.sh. Current slices are being published; STATUS remains IN_PROGRESS. Entries below are historical recovery snapshots, not new rerun requests.
