@@ -144,6 +144,18 @@ class SecurityBoundaryIntegrationTest {
         mvc.perform(get("/api/v1/users/me/access")).andExpect(status().isUnauthorized());
     }
 
+    @Test void currentAccess_globalAdministrator_doesNotInventAnActiveTenant() throws Exception {
+        user.clearRoles();
+        user.assignRole(Role.systemRole("SUPER_ADMIN", "test administrator"));
+        session.setOrgId(null);
+        var bearer = jwt.generateAccessToken(1L, null, user.getEmail(), List.of("SUPER_ADMIN"), session.getSessionUuid());
+        mvc.perform(get("/api/v1/users/me/access").header("Authorization", "Bearer " + bearer))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.organization_id").isEmpty())
+            .andExpect(jsonPath("$.permissions[0]").value("system.admin"))
+            .andExpect(jsonPath("$.permissions.length()").value(1));
+    }
+
     @Test void request_revokedSession_returns401() throws Exception {
         session.revokeAt(Instant.now());
         mvc.perform(get("/api/v1/users/me").header("Authorization", "Bearer " + token()))

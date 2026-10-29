@@ -11,6 +11,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import com.surf.tracker.userauth.infrastructure.security.AuthPrincipal;
 
 @RestController
 @RequestMapping("/api/v1/users")
@@ -26,6 +28,18 @@ public class UserController {
     public ResponseEntity<UserResponse> me() {
         Long userId = TenantContext.getCurrentUserId();
         return ResponseEntity.ok(authService.getCurrentUser(userId));
+    }
+
+    @GetMapping("/me/access")
+    public ResponseEntity<CurrentAccessResponse> currentAccess(@AuthenticationPrincipal AuthPrincipal principal) {
+        if (principal == null) {
+            throw new org.springframework.security.access.AccessDeniedException("Authenticated identity required");
+        }
+        // The filter resolved current database roles, membership and session validity
+        // for this request. JWT role claims never become effective authority here.
+        return ResponseEntity.ok().header("Cache-Control", "private, no-store")
+            .body(new CurrentAccessResponse(principal.userId(), principal.orgId(),
+                principal.permissions().stream().sorted().toList(), principal.accessExpiresAt()));
     }
 
     @GetMapping

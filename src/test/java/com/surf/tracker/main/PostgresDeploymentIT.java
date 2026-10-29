@@ -861,6 +861,29 @@ class PostgresDeploymentIT {
         return email;
     }
 
+    @Test void currentAccess_realPostgres_reflectsPermissionRemovalAndSessionRevocation() {
+        String email = provisionUser();
+        var tokens = auth.login(email, USER_PASSWORD, "127.0.0.1", "effective-access-fixture");
+        var headers = new HttpHeaders();
+        headers.setBearerAuth(tokens.getAccessToken());
+        var initial = request(headers, HttpMethod.GET, "/api/v1/users/me/access", null);
+        assertThat(initial.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(initial.getHeaders().getCacheControl()).isEqualTo("private, no-store");
+        assertThat((List<String>) initial.getBody().get("permissions")).contains("vehicles.read");
+        assertThat(initial.getBody()).doesNotContainKeys("session_id", "access_token", "refresh_token");
+        new TransactionTemplate(transactions).executeWithoutResult(status -> {
+            var member = users.findByEmail(email).orElseThrow();
+            var role = member.getRoles().iterator().next();
+            role.getPermissions().removeIf(permission -> permission.getKey().equals("vehicles.read"));
+        });
+        var changed = request(headers, HttpMethod.GET, "/api/v1/users/me/access", null);
+        assertThat(changed.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat((List<String>) changed.getBody().get("permissions")).doesNotContain("vehicles.read");
+        assertThat(request(headers, HttpMethod.GET, "/api/v1/vehicles", null).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(request(headers, HttpMethod.POST, "/api/v1/auth/logout", null).getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(request(headers, HttpMethod.GET, "/api/v1/users/me/access", null).getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
     private ResponseEntity<Map> login(String email) {
         return http.postForEntity("/api/v1/auth/login", Map.of("email", email, "password", USER_PASSWORD), Map.class);
     }
