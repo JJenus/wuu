@@ -24,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -105,7 +106,7 @@ public class AuthService {
 
         return new RegisterResponse(
             user.getId(), org.getId(), issued.accessToken(),
-            issued.refreshToken(), jwtService.getAccessTokenExpirySeconds()
+            issued.refreshToken(), jwtService.getAccessTokenExpirySeconds(), issued.refreshExpiresIn()
         );
     }
 
@@ -146,7 +147,7 @@ public class AuthService {
         IssuedTokens issued = issueTokens(user, primaryOrgId(user));
         loginAttemptRepository.save(LoginAttempt.success(user, ip, userAgent));
         return new LoginResponse(issued.accessToken(), issued.refreshToken(),
-            jwtService.getAccessTokenExpirySeconds());
+            jwtService.getAccessTokenExpirySeconds(), issued.refreshExpiresIn());
     }
 
     @Transactional(noRollbackFor = {AuthException.class, com.surf.tracker.userauth.infrastructure.security.SecurityException.class})
@@ -184,7 +185,7 @@ public class AuthService {
 
         IssuedTokens issued = rotateTokens(user, orgId, session, existing);
         return new LoginResponse(issued.accessToken(), issued.refreshToken(),
-            jwtService.getAccessTokenExpirySeconds());
+            jwtService.getAccessTokenExpirySeconds(), issued.refreshExpiresIn());
     }
 
     @Transactional
@@ -396,7 +397,7 @@ public class AuthService {
         refreshTokenRepository.save(refresh);
 
         String access = generateAccessToken(user, orgId, session);
-        return new IssuedTokens(access, refreshRaw);
+        return new IssuedTokens(access, refreshRaw, jwtConfig.getRefreshTokenExpiry().toSeconds());
     }
 
     private IssuedTokens rotateTokens(User user, Long orgId, Session session, RefreshToken oldToken) {
@@ -406,7 +407,8 @@ public class AuthService {
         RefreshToken next = RefreshToken.rotateFrom(session, oldToken, refreshHash, refreshExpires);
         refreshTokenRepository.save(next);
         String access = generateAccessToken(user, orgId, session);
-        return new IssuedTokens(access, refreshRaw);
+        long refreshSeconds = Math.max(0, Duration.between(Instant.now(clock), refreshExpires).toSeconds());
+        return new IssuedTokens(access, refreshRaw, refreshSeconds);
     }
 
     private String generateAccessToken(User user, Long orgId, Session session) {
@@ -467,5 +469,5 @@ public class AuthService {
         return base;
     }
 
-    private record IssuedTokens(String accessToken, String refreshToken) {}
+    private record IssuedTokens(String accessToken, String refreshToken, long refreshExpiresIn) {}
 }

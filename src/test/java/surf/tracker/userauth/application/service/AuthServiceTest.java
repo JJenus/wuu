@@ -117,6 +117,7 @@ class AuthServiceTest {
         assertThat(response.getAccessToken()).isNotBlank();
         assertThat(response.getRefreshToken()).isNotBlank();
         assertThat(response.getExpiresIn()).isEqualTo(15 * 60);
+        assertThat(response.getRefreshExpiresIn()).isEqualTo(7 * 24 * 60 * 60);
 
         ArgumentCaptor<LoginAttempt> attemptCaptor = ArgumentCaptor.forClass(LoginAttempt.class);
         verify(loginAttemptRepository).save(attemptCaptor.capture());
@@ -161,6 +162,7 @@ class AuthServiceTest {
         assertThat(response).isNotNull();
         assertThat(response.getAccessToken()).isNotBlank();
         assertThat(response.getRefreshToken()).isNotBlank();
+        assertThat(response.getRefreshExpiresIn()).isEqualTo(7 * 24 * 60 * 60);
     }
 
     @Test
@@ -246,6 +248,7 @@ class AuthServiceTest {
         assertThat(response).isNotNull();
         assertThat(response.getAccessToken()).isNotBlank();
         assertThat(response.getRefreshToken()).isNotBlank();
+        assertThat(response.getRefreshExpiresIn()).isEqualTo(3600);
         assertThat(existing.getRevokedAt()).isNotNull();
     }
 

@@ -4,14 +4,16 @@ public class LoginResponse {
     private String accessToken;
     private String refreshToken;
     private long expiresIn;
+    private long refreshExpiresIn;
     private String tokenType = "Bearer";
 
     public LoginResponse() {}
 
-    public LoginResponse(String accessToken, String refreshToken, long expiresIn) {
+    public LoginResponse(String accessToken, String refreshToken, long expiresIn, long refreshExpiresIn) {
         this.accessToken = accessToken;
         this.refreshToken = refreshToken;
         this.expiresIn = expiresIn;
+        this.refreshExpiresIn = refreshExpiresIn;
     }
 
     public String getAccessToken() { return accessToken; }
@@ -22,6 +24,9 @@ public class LoginResponse {
 
     public long getExpiresIn() { return expiresIn; }
     public void setExpiresIn(long expiresIn) { this.expiresIn = expiresIn; }
+
+    public long getRefreshExpiresIn() { return refreshExpiresIn; }
+    public void setRefreshExpiresIn(long refreshExpiresIn) { this.refreshExpiresIn = refreshExpiresIn; }
 
     public String getTokenType() { return tokenType; }
     public void setTokenType(String tokenType) { this.tokenType = tokenType; }

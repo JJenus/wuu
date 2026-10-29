@@ -6,16 +6,18 @@ public class RegisterResponse {
     private String accessToken;
     private String refreshToken;
     private long expiresIn;
+    private long refreshExpiresIn;
 
     public RegisterResponse() {}
 
     public RegisterResponse(Long userId, Long organizationId, String accessToken,
-                            String refreshToken, long expiresIn) {
+                            String refreshToken, long expiresIn, long refreshExpiresIn) {
         this.userId = userId;
         this.organizationId = organizationId;
         this.accessToken = accessToken;
         this.refreshToken = refreshToken;
         this.expiresIn = expiresIn;
+        this.refreshExpiresIn = refreshExpiresIn;
     }
 
     public Long getUserId() { return userId; }
@@ -32,4 +34,7 @@ public class RegisterResponse {
 
     public long getExpiresIn() { return expiresIn; }
     public void setExpiresIn(long expiresIn) { this.expiresIn = expiresIn; }
+
+    public long getRefreshExpiresIn() { return refreshExpiresIn; }
+    public void setRefreshExpiresIn(long refreshExpiresIn) { this.refreshExpiresIn = refreshExpiresIn; }
 }

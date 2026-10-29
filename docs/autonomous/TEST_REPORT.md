@@ -1,5 +1,22 @@
 # Verification report
 
+## Session refresh lifetime contract — 2026-10-29
+
+- Focused `AuthServiceTest`: **PASS**, asserting seven-day refresh lifetime on
+  login/registration and session-bound rotation lifetime (`mvn -Dtest=AuthServiceTest`).
+- Full `TMPDIR=/tmp/opencode sh tools/verify-release.sh`: **backend 729**,
+  **device 91**, zero failures/errors/skips, both executable JARs built
+  (`/tmp/opencode/session-refresh-full-gate.log`). Backend JAR SHA256
+  `4f4a24c329537252e06f6f5aab97347054172046a2e32196fa9c260030767454`;
+  device JAR SHA256
+  `8329c651be98d0dc00d9f8eb926e552a0d5a99f3c0baabff52edeeab1fa0dfcf`.
+- Actual-Java production-Nitro acceptance **PASS** with this JAR, including a real
+  BFF refresh rotation and an authorized vehicle read
+  (`/tmp/opencode/refresh-java-acceptance.log`; private browser receipt
+  `/tmp/opencode/wuu-java-guAgb5/browser.log`). Owned fixture cleanup completed.
+  No whole-backend coverage, distributed refresh coordination or production
+  release/security certification follows.
+
 ## Tenant role catalog — 2026-10-29
 
 - Focused `RoleControllerIntegrationTest`: **10 tests, 0 failures/errors/skips**,
@@ -14,9 +31,10 @@
   `0866662ffa28b86072a262fa3c6236af12759048b94d264c6180cf9f80d4d99e`;
   device JAR SHA256
   `fb8302d55f8ed4d43c952a9f5ba27d189c4b4642f56637bda5c18e7c7ff96cb2`.
-- This proves the backend catalog contract, not a frontend role UI. No role
+- This proves the backend catalog contract. The independent frontend now consumes
+  the exact collection in a read-only settings panel; no role
   write/assignment/admin UI, whole-backend coverage claim or release certification
-  follows. Same JAR is used for the pending final frontend actual-Java rerun.
+  follows. The frontend UI is verified by its contract and actual-Java suites.
 
 ## Effective access and subscription owner UI — 2026-10-29
 

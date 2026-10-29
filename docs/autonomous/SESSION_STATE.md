@@ -1,6 +1,33 @@
 # Recoverable execution state
 
-## Active continuation — role catalog and publication
+## Active continuation — refresh lifetime contract and frontend renewal
+
+- Additive `refresh_expires_in` is implemented on branch
+  `feat/session-refresh-expiry` for login, registration and refresh responses; it
+  reports the existing session refresh lifetime without changing rotation or
+  revocation policy. See session-refresh-expiry-slice.md.
+- Fresh full vendor gate **PASS**: backend **729**, device **91**, zero
+  failures/errors/skips; both executable JARs built. Receipt
+  `/tmp/opencode/session-refresh-full-gate.log`. Backend JAR SHA256
+  `4f4a24c329537252e06f6f5aab97347054172046a2e32196fa9c260030767454`;
+  device JAR SHA256
+  `8329c651be98d0dc00d9f8eb926e552a0d5a99f3c0baabff52edeeab1fa0dfcf`.
+- Actual-Java production-Nitro acceptance **PASS** against that JAR, now including
+  a real BFF refresh rotation followed by an authorized read. Receipt
+  `/tmp/opencode/refresh-java-acceptance.log`; private browser log
+  `/tmp/opencode/wuu-java-guAgb5/browser.log`. Owned cleanup completed.
+- The independent frontend now persists the sealed refresh credential in the BFF
+  cookie, coalesces concurrent rotation in-process, recovers a lost refresh receipt
+  for 30 seconds, auto-refreshes before access expiry and keeps refresh tokens out
+  of browser-readable state. Actual-Java browser **1/1 PASS**; full frontend auth
+  browser suite **26 PASS**, selected unit **123 PASS**. Publication of the scoped
+  frontend and backend commits remains the immediate next action.
+- The cache is deliberately process-local and bounded; distributed multi-instance
+  refresh coordination is not claimed. Paid provider/recipient policy, physical
+  device acceptance and production deployment remain blocked. STATUS stays
+  IN_PROGRESS.
+
+## Historical continuation — role catalog and publication
 
 - Tenant-scoped read-only `GET /api/v1/roles` is implemented on branch
   `feat/tenant-role-catalog`: RED `46e25e2`, GREEN `a2db590`. It requires the
