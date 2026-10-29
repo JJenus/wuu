@@ -63,7 +63,7 @@ public class SubscriptionService {
             required(request.version(), "version"),
             parseEnum(PlanVersion.BillingModel.class, request.model(), "model"),
             request.cadence() == null ? null : parseEnum(PlanVersion.Cadence.class, request.cadence(), "cadence"),
-            required(request.meter(), "meter"),
+            validMeter(request.meter()),
             required(request.usageLimit(), "usageLimit"),
             storablePrice(required(request.amount(), "amount"),
                 Currency.getInstance(required(request.currency(), "currency"))));
@@ -195,11 +195,19 @@ public class SubscriptionService {
         return value;
     }
 
+    private static String validMeter(String meter) {
+        required(meter, "meter");
+        if (meter.isBlank() || meter.length() > 100) {
+            throw new IllegalArgumentException("meter must be nonblank and at most 100 characters");
+        }
+        return meter;
+    }
+
     /** Reject precision the durable numeric(38,18) column would silently round. */
     private static Money storablePrice(BigDecimal amount, Currency currency) {
         var money = new Money(amount, currency);
         var stripped = money.amount().stripTrailingZeros();
-        if (stripped.scale() > 18 || stripped.precision() - stripped.scale() > 20) {
+        if (stripped.scale() > 18 || (long) stripped.precision() - stripped.scale() > 20) {
             throw new IllegalArgumentException("amount exceeds the storable 38-digit, 18-decimal scale");
         }
         return money;
