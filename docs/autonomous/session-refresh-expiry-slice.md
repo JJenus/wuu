@@ -31,6 +31,15 @@ session on rotation; it never extends the original session.
 
 ## Limits
 
+Final follow-up: frontend `5b7278c` implements single-process renewal with a random
+restart epoch, bounded credential-keyed recovery and explicit outage cutover.
+Final **133 unit / 32 auth browser tests PASS**, actual-Java **PASS** with a
+disposable two-minute access TTL forcing real rotation:
+`/tmp/opencode/renewal-java-final2.log`, private
+`/tmp/opencode/wuu-java-50ejEH/browser.log`. This supersedes the narrower earlier
+default-TTL refresh-route assertion. Owned cleanup confirmed; production remains
+unauthorized and distributed durable coordination remains open.
+
 This field is contract support for a single-process BFF rotation cache. It does
 not implement distributed refresh coordination, multi-instance replay receipts,
 production TLS/session hardening, refresh-token theft detection beyond the backend

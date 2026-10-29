@@ -2,6 +2,16 @@
 
 ## Session refresh lifetime contract — 2026-10-29
 
+- Final frontend at `5b7278c`: **133 unit / 32 auth browser tests PASS**;
+  selected coverage92.79%line/85.56%branch/95.11%function, not whole-UI coverage.
+  Actual-Java final acceptance forces real rotation with a disposable two-minute
+  access TTL: **PASS**, `/tmp/opencode/renewal-java-final2.log`, private browser
+  `/tmp/opencode/wuu-java-50ejEH/browser.log`. Owned cleanup confirmed. Earlier
+  default-TTL route acceptance below did not itself force rotation.
+  One-process renewal only; restart requires reauthentication and distributed
+  durable coordination remains open. See independent frontend
+  `docs/session-renewal.md` for RED/GREEN and bounded security-review evidence.
+
 - Focused `AuthServiceTest`: **PASS**, asserting seven-day refresh lifetime on
   login/registration and session-bound rotation lifetime (`mvn -Dtest=AuthServiceTest`).
 - Full `TMPDIR=/tmp/opencode sh tools/verify-release.sh`: **backend 729**,
@@ -34,7 +44,8 @@
 - This proves the backend catalog contract. The independent frontend now consumes
   the exact collection in a read-only settings panel; no role
   write/assignment/admin UI, whole-backend coverage claim or release certification
-  follows. The frontend UI is verified by its contract and actual-Java suites.
+  follows. The frontend role panel is verified by its contract browser suite;
+  actual-Java acceptance verifies the tenant catalog API, not the panel itself.
 
 ## Effective access and subscription owner UI — 2026-10-29
 

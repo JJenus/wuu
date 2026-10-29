@@ -2,6 +2,25 @@
 
 ## Active continuation — refresh lifetime contract and frontend renewal
 
+- Publication/evidence update: backend lifetime contract is on `origin/main`
+  `255be2c`; independent frontend renewal/tests/docs are on `origin/frontend-app`
+  `5b7278c` (GREEN `7a85cbe`). Final frontend gate **133 units / 32 auth browser
+  tests PASS**; selected coverage92.79%line/85.56%branch/95.11%function.
+- Final actual-Java acceptance **PASS** with a disposable two-minute access TTL
+  that forces real BFF rotation; `/tmp/opencode/renewal-java-final2.log`, private
+  browser `/tmp/opencode/wuu-java-50ejEH/browser.log`. Same backend JAR hash below;
+  owned cleanup and empty fixture-container audit verified. Earlier default-TTL
+  refresh-route acceptance did not prove rotation and is superseded by this run.
+- Credential-alias coordination, SSR cookie forwarding, late replay rejection,
+  short-TTL recovery, in-flight logout and bounded outage recovery are tested.
+  A random process epoch forces sign-in after restart. Single-process operation
+  only: durable distributed coordination remains a release gate. All concrete
+  medium findings from the bounded read-only security review were fixed.
+- Continue with verified live workflows/device sanitation where contracts permit;
+  preserve pre-existing frontend detail/list edits and active sidie README/script.
+  Provider/recipient/payment/production/hardware approvals remain external gates.
+  STATUS remains IN_PROGRESS, not RELEASE_READY.
+
 - Additive `refresh_expires_in` is implemented on branch
   `feat/session-refresh-expiry` for login, registration and refresh responses; it
   reports the existing session refresh lifetime without changing rotation or
@@ -20,8 +39,8 @@
   cookie, coalesces concurrent rotation in-process, recovers a lost refresh receipt
   for 30 seconds, auto-refreshes before access expiry and keeps refresh tokens out
   of browser-readable state. Actual-Java browser **1/1 PASS**; full frontend auth
-  browser suite **26 PASS**, selected unit **123 PASS**. Publication of the scoped
-  frontend and backend commits remains the immediate next action.
+  browser suite **26 PASS**, selected unit **123 PASS** at that intermediate
+  checkpoint. The publication/evidence update above supersedes those counts.
 - The cache is deliberately process-local and bounded; distributed multi-instance
   refresh coordination is not claimed. Paid provider/recipient policy, physical
   device acceptance and production deployment remain blocked. STATUS stays
