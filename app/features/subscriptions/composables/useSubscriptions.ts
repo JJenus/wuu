@@ -48,11 +48,21 @@ export function useSubscriptions() {
       await cache.invalidateQueries({ queryKey: [...root, 'owned'] })
     },
   })
-  async function perform(action: () => Promise<unknown>) {
+  async function perform(action: () => Promise<unknown>): Promise<boolean> {
     message.value = ''
     failure.value = ''
     try {
       await action()
+      return true
+    } catch (error) {
+      failure.value = errorMessage(error)
+      return false
+    }
+  }
+  async function refresh() {
+    failure.value = ''
+    try {
+      await Promise.all([catalog.refetch(), owned.refetch()])
     } catch (error) {
       failure.value = errorMessage(error)
     }
@@ -63,9 +73,11 @@ export function useSubscriptions() {
     owned,
     message,
     failure,
+    refreshing: computed(() => catalog.isFetching.value || owned.isFetching.value),
     busy: computed(() => enroll.isPending.value || cancel.isPending.value),
     enroll: (planId: string, version: number) =>
       perform(() => enroll.mutateAsync({ planId, version })),
     cancel: (id: string) => perform(() => cancel.mutateAsync(id)),
+    refresh,
   }
 }

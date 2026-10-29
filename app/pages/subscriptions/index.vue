@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { useSubscriptions } from '~/features/subscriptions/composables/useSubscriptions'
-const { live, catalog, owned, message, failure, busy, enroll, cancel } = useSubscriptions()
+const { live, catalog, owned, message, failure, busy, refreshing, enroll, cancel, refresh } =
+  useSubscriptions()
 const selectedCancellation = ref<string | null>(null)
+const lastChecked = computed(() =>
+  owned.dataUpdatedAt.value ? new Date(owned.dataUpdatedAt.value).toLocaleString() : 'not yet',
+)
 useHead({ title: 'Subscriptions — Wuu' })
 </script>
 
@@ -69,7 +73,21 @@ useHead({ title: 'Subscriptions — Wuu' })
           description="An authorized administrator must configure the catalog before enrollment is possible."
         />
       </UiAsyncState>
-      <h2 class="text-xl font-semibold text-highlighted mb-4">Your enrollments</h2>
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <h2 class="text-xl font-semibold text-highlighted">Your enrollments</h2>
+        <UButton
+          variant="outline"
+          color="neutral"
+          icon="i-lucide-refresh-cw"
+          :loading="refreshing"
+          @click="refresh"
+          >Refresh subscriptions</UButton
+        >
+      </div>
+      <p class="text-muted text-sm mb-4">
+        Last-checked snapshot: {{ lastChecked }}. Values can change when an administrator grants
+        units or a grant expires; access is always rechecked by the server.
+      </p>
       <UiAsyncState
         :pending="owned.isPending.value"
         :error="owned.error.value"
@@ -95,7 +113,11 @@ useHead({ title: 'Subscriptions — Wuu' })
                   class="mt-2"
                   color="error"
                   :disabled="busy"
-                  @click="cancel(item.id).then(() => (selectedCancellation = null))"
+                  @click="
+                    cancel(item.id).then((ok) => {
+                      if (ok) selectedCancellation = null
+                    })
+                  "
                   >Confirm cancellation</UButton
                 >
                 <UButton
