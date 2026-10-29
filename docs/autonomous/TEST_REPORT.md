@@ -1,5 +1,31 @@
 # Verification report
 
+Final rebuilt-artifact actual-Java browser run **PASS**:
+`/tmp/opencode/tracker-reviewed-browser-gate.log`, private logs
+`/tmp/opencode/wuu-java-uWqSb5/`, JAR SHA256
+`a452439bf220fa78a7cbcaaf975348531fb9ded8fbdbad2c6c9da3b2049e6ecb`.
+Production Nuxt build, dependency health and deployed acceptance passed after the
+final cleanup fix; no fixture containers or Java/Nitro/Playwright processes remained.
+This supersedes pending-browser statements below, not product/release limitations.
+
+## Latest full gate after review fixes — 2026-10-29
+
+`TMPDIR=/tmp/opencode sh tools/verify-release.sh` **PASSED backend701/device91**,
+zero failures/errors/skips, both executable JARs built. Receipt:
+`/tmp/opencode/tracker-reviewed-vendor-gate.log`. This includes the final two
+subscription storage-bound validation regressions (HTTP suite now nine cases).
+Four frontend process-lifecycle tests also passed with 100% helper coverage;
+browser acceptance of the rebuilt artifact is pending separately. These counts
+supersede older pending full-gate statements below; no fresh whole-backend
+coverage measurement or independent release certification is implied.
+
+## 2026-10-29 subscription enrollment / device wiretap / frontend lifecycle
+
+- Authenticated subscription catalog + enrollment: `SubscriptionControllerIntegrationTest` **7 tests, zero failures/errors/skips** via real random-port Spring HTTP, JWT filter, Flyway H2 PostgreSQL mode and Hibernate validation. Covers admin-only catalog, token/monthly/yearly models, exact 18-decimal price, duplicates, precision loss, auth, tenant/user scoping, receipt replay, key-conflict precedence and six concurrent same-key inserts. Full default backend suite: **612 tests, zero failures/errors/skips**, `/tmp/opencode/tracker-subscription-backend-test.log`. `FlywayMigrationIT` **1/1** applies five migrations on both histories and validates all entities; disposable PostgreSQL V2→V5 targeted case **1/1**, `/tmp/opencode/tracker-postgres-v5-upgrade.log`. Details: [subscription-enrollment-slice.md](subscription-enrollment-slice.md). Pending enrollment grants no access; grants/consumption/payment/renewal remain absent.
+- Device: `./mvnw -B -f device-comm/pom.xml test` **91 tests, zero failures/errors/skips**, `/tmp/opencode/tracker-device-wiretap-test.log`. Raw frame wiretap is now opt-in and disabled by default; deterministic post-success/malformed/publication-failure tracking coverage is included. See [autoseeker-sanitation-cycle.md](autoseeker-sanitation-cycle.md). This is a standalone unit/socket gate, not physical hardware or command/ACK acceptance.
+- Frontend: actual-Java disposable fixture rerun after lifecycle hardening **PASS**, `/tmp/opencode/tracker-deployed-lifecycle-v3.log`; production build, real PostgreSQL/Redis/Artemis health, two-tenant browser/API acceptance, revocation, forged-cookie denial, genuine `system.admin` 403/trips 200, label-checked cleanup and no remaining Java/Nitro/Playwright descendants. Frontend docs: `../app/docs/deployed-java-acceptance.md`.
+- No fresh whole-bundle coverage claim. The last measured backend was 68.85% line / 53.84% branch and device/shared 37.11% / 19.34%, below target. Latest focused runs do not replace those measurements. Full serialized vendor gate, independent review and commit/push are pending. STATUS remains `IN_PROGRESS`, not `RELEASE_READY`.
+
 ## Latest completed core telemetry retry acceptance
 **Clean backend653/device37 PASSED**, zero failures/errors/skips, both JARs built: `/tmp/opencode/tracker-core-retry-final-v2-full-gate.log`. Current executable socket pipeline passed: `/tmp/opencode/tracker-core-retry-final-v2-socket.log`. Publication/service IllegalArgumentException/IllegalStateException no longer masquerade as skipped packets; same-source/same-assignment retries preserve update identity/time. Actual independent ambiguous send plus input redelivery completes both downstream evaluations with one location/alert/outbox. RED/fixture-failure/review details: [core-telemetry-retry-cycle.md](core-telemetry-retry-cycle.md).
 

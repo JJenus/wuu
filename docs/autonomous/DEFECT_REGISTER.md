@@ -1,9 +1,12 @@
 # Defect register
 
-## Latest superseding disposition (2026-10-28)
+## Latest superseding disposition (2026-10-29)
+- SUB-ENROLL: authenticated V5 catalog/enrollment is durable and HTTP-verified (7 cases), with owner/key uniqueness in the database and exact-price storage guards. It creates only `PENDING` rows with zero units; grants/consumption, entitlement checks, payment, renewal and dunning remain OPEN. Do not describe enrollment as a subscription sale or access grant. See subscription-enrollment-slice.md.
+- API-03: unsupported HTTP methods previously fell through servlet error dispatch and became 401. `GlobalExceptionHandler` now returns explicit 405 without permitting `/error`; exercised by the subscription catalog immutability test.
+- FLOW-02 follow-up: device raw-frame wiretap is opt-in/default-off and the latest standalone device suite is 91/91; physical hardware/commands remain OPEN.
 - FLOW-03 safety portion: fabricated administrator/contact routing removed; unsupported external destination mappings fail before persistence. Notification listener rethrows runtime failures. Actual Artemis redelivery and terminal DLQ retention tested. Authorized recipients/tenant worker validation/initial dispatch remain OPEN/policy-blocked; no delivered-notification claim.
 - FLOW-07 follow-up: database rule lookup errors propagate rather than become empty rule sets; actual broker retry reaches real PostgreSQL and creates one alert/intent. Upstream publication failure releases only its attempt-owned cooldown lease and propagates; derived identity/time stable across redelivery. See TEST_REPORT.md and upstream-alert-retry-cycle.md.
-- Latest clean gate backend644/device37 passed plus current executable socket pipeline; coverage below target. Historical pending states below are retained as investigation history, not current failing-gate claims.
+- Latest focused gates: backend612/device91, zero failures/errors/skips; PostgreSQL V2→V5 upgrade passed; frontend actual-Java lifecycle rerun passed. Coverage below target; full vendor gate and combined review pending. Historical pending states below are retained as investigation history, not current failing-gate claims.
 
 | ID | Severity | Evidence | Remediation / verification | State |
 |---|---|---|---|---|
@@ -18,7 +21,7 @@ Security and architecture findings are recorded below and in ARCHITECTURE_AUDIT.
 |---|---|---|---|---|
 | SEC-01 | High | VehicleController POST → VehicleService.saveVehicle → assigned-ID JPA merge can replace another tenant's vehicle | Insert-only create; real DB duplicate-ID tests preserving original owner/state; create-isolation agent | IN_PROGRESS |
 | SEC-02 | High | TrackerController POST → TrackerService.saveTracker merges an existing tracker onto caller's vehicle | Insert-only create; duplicate tracker/association tests in H2 and PostgreSQL | IN_PROGRESS |
-| SEC-03 | High, untrusted TCP deployment | ReactiveTcpServer binds extracted numeric device ID before parse/authentication; connection tracker accepts replacement claims | Device credential/provisioning and replay policy required; malformed/duplicate/identity-switch/race tests | OPEN |
+| SEC-03 | High, untrusted TCP deployment | ReactiveTcpServer binds extracted numeric device ID before successful parsing; connection tracker accepts replacement claims | Sanitize frames before connection binding; malformed/duplicate/identity-switch/race tests. Owner explicitly does not require a new Autoseeker device credential scheme; API authentication remains mandatory. | OPEN |
 | FLOW-01 | High | JMS telemetry has no HTTP TenantContext; tracking lookup/evaluation depends on it | Authoritative persisted ownership resolution and scoped cleanup; telemetry agent | IN_PROGRESS |
 | FLOW-02 | High | Two alert consumers evaluate same update; AlertRaisedEvent uses rule key instead of persisted alert ID | One evaluation path with persisted identity and replay-safe semantics | IN_PROGRESS |
 | FLOW-03 | High | NotificationOrchestrator hardcodes admin, fabricated email/phone; queued tenant not applied; pending deliveries not dispatched | Define approved recipient policy; enforce tenant/member identity; persist and dispatch after commit; real broker tests | OPEN |

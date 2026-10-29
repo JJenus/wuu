@@ -2,6 +2,18 @@
 
 Delegation budget: at most **two active subagents**, direct work by default; see D007. Last fixture/outbox agents hit usage limits; coordinator resumes directly, without automatic respawn.
 
+## Superseding scope/work — 2026-10-29
+
+- Final checkpoint: vendor **backend701/device91 PASS** and rebuilt-artifact actual-Java browser **PASS** with no fixture container/process leftovers. Review regressions resolved. Next independent engineering work: durable authenticated grant/usage integration and subscription frontend; notification/payment/provider decisions and production/command acceptance remain open. See final-slice-review.md. Historical pending statuses below are superseded only within this bounded scope.
+
+- Latest post-review gate: **backend701/device91 PASS**, both packaged, no failures/errors/skips (`tracker-reviewed-vendor-gate.log`). Subscription storage-bound validation and process-group escalation review findings are resolved with regressions; final rebuilt-artifact browser acceptance is in progress. Publication pending, `STATUS=IN_PROGRESS`.
+
+- Owner decision: only ride-hailing is deferred. Implement configurable token-usage and monthly/yearly subscriptions; API authentication is required, no new Autoseeker credential scheme. Resolve reversible product choices from existing source/directive without routine owner questions.
+- Frontend exists at workspace `app/` (independent Git repository); historical NOT_STARTED/no-frontend assessments below are incorrect. Preserve its uncommitted detail-read/list-completeness work. Fresh coverage/typecheck passed; independent actual-Java browser fixture/test lane active.
+- Device sanitation/socket slice: standalone **91-test** gate passed; default raw-frame wiretap removed (now opt-in, default false). Follow-up review and full/vendor gate pending. See autoseeker-sanitation-cycle.md. Keep connection replacement/backpressure/GT06/commands open.
+- Subscription **partial integration**: reviewed domain kernel plus V5 durable catalog and authenticated tenant/user-scoped `PENDING` enrollment/cancel. Seven real HTTP tests pass, including cross-instance operation-key uniqueness. Grants/consumption, payment, renewal and entitlement remain unimplemented; domain tests alone cannot complete billing. See subscription-enrollment-slice.md.
+- Latest published backend checkpoint a50fb33. Commit/push authorization remains; production deployment/release certification is not authorized.
+
 | Priority | ID | Task | Status |
 |---|---|---|---|
 | P0 | AUDIT | Reconcile all current source/modules/design docs and scope | Inventory and runtime audit recorded; design-only scope decisions remain unresolved |
@@ -10,12 +22,13 @@ Delegation budget: at most **two active subagents**, direct work by default; see
 | P0 | ARCH | Independent runtime/deployment/message-flow audit | Recorded in ARCHITECTURE_AUDIT.md; runtime gaps remain open |
 | P0 | INFRA | Establish disposable PostgreSQL/Redis/Artemis verification infrastructure | Docker restored locally; full gate starts owned disposable services |
 | P1 | FIX | Reproduce and fix highest confirmed release blockers | FLOW-05 focused42 passed including PostgreSQL replay/relay races and Artemis identity; scoped review complete. Clean full gate/coverage running; downstream idempotency/topology still open |
+| P1 | SUB | Durable plan catalog + authenticated enrollment/cancel | PARTIAL: V5 both histories, admin catalog and tenant/user-scoped pending enrollment, 7 real HTTP tests; no grant/consume/payment/renewal/UI |
 | P1 | E2E | Real-process cross-layer telemetry and command verification | Actual synthetic TCP→independent gateway/backend→PostgreSQL→rule→alert/outbox/publication plus HTTP tenant isolation PASSED. Hardware identity/provisioning, command transport/ACK and real recipient/provider delivery unresolved |
 | P2 | DOCS | Correct current build/deployment instructions | README/AGENTS updated; reconcile final evidence before acceptance |
 | P2 | FINAL | Fresh independent release audit | Pending implementation/integration |
 
 ## Active implementation lanes
-- Current superseding state: no active subagents. Notification recipient safety + actual broker retry/DLQ retention passed; remaining recipient policy is blocked. Source commit/push authorized, including consolidation; publication checks in progress. Earlier lanes below are historical and completed only to the scope recorded in TEST_REPORT.md.
+- Current superseding state: no active subagents. Subscription catalog/enrollment is now durable and HTTP-verified but remains pending-only; device sanitation/wiretap changes pass 91 standalone tests; frontend fixture lifecycle hardening passed the actual-Java browser run. Fresh serialized vendor/full gate and combined-diff review remain. Earlier lanes below are historical and completed only to the scope recorded in TEST_REPORT.md.
 - SEC-01/02: insert-only fleet creation; independent real PostgreSQL HTTP regression lane.
 - FLOW-01/02: telemetry tenant propagation and persisted alert event identity.
 - FLOW-04: unsupported SMS/push providers fail honestly.

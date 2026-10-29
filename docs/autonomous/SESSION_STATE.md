@@ -1,28 +1,33 @@
 # Recoverable execution state
 
-- Date: 2026-10-28
-- Phase: foundational security/runtime fixes and integration verification
-- Current task: core telemetry retry/identity verified; publish authorized follow-up; zero active subagents
-- Last completed task: full scope/security read-only audits and fresh unit/default integration baselines
-- Published source checkpoint: 4f0da1a (origin/main verified); core retry follow-up recorded in core-telemetry-retry-cycle.md
-- Git worktree: extensive pre-existing consolidated source/security migration; preserve all changes
-- Latest verification: Oct28 clean full gate PASSED root653/device37, zero failures/errors/skips, both JARs built. Actual independent ambiguous core send + input redelivery preserves derived identity/time; both downstream evaluations finish with one location/alert/outbox. Current executable TCP→alert/outbox/tenant-HTTP smoke passed again. Fresh coverage root68.85%line/53.84%branch; device37.11%line/19.34%branch, BELOW_TARGET. See TEST_REPORT.md.
-- Known failures: none in latest local gate. Coverage target and wider notification/command/device-identity/topology gates remain open; not RELEASE_READY.
-- Blockers: notification recipient/provider policy and trusted device identity/provisioning are unspecified; design-only ride-hailing/subscription scope unapproved
-- Next executable task: publish verified core retry follow-up, confirm remote HEAD; then investigate remaining core DB/JMS commit atomicity and meaningful device protocol coverage without inventing hardware credentials or notification policy. Latest gate /tmp/opencode/tracker-core-retry-final-v2-full-gate.log; executable receipt /tmp/opencode/tracker-core-retry-final-v2-socket.log. Five bounded review passes completed sequentially, none active. Commit/push authorized; no deployment/release authorization.
+- Date: 2026-10-29
+- Final superseding checkpoint: post-review vendor **backend701/device91 PASS**, rebuilt-artifact browser **PASS**, no fixture container/process leftovers. Browser receipt `tracker-reviewed-browser-gate.log`, artifact SHA256 `a452439bf220fa78a7cbcaaf975348531fb9ded8fbdbad2c6c9da3b2049e6ecb`. Remaining work is durable grant/usage/entitlement integration, subscription UI, payment/provider and notification recipient decisions, command/ACK and production acceptance. Preserve unrelated frontend edits and backend README/start-backend.sh. Current slices are being published; STATUS remains IN_PROGRESS. Entries below are historical recovery snapshots, not new rerun requests.
+- Latest superseding result: final post-review vendor gate **PASSED backend701/device91**, no failures/errors/skips, both JARs built (`tracker-reviewed-vendor-gate.log`). Backend local commits now include `01bd54f` device sanitation; final browser acceptance is running in background (`tracker-reviewed-browser-gate.log`). Await it without restarting Maven; then audit cleanup, update receipts and publish verified commits. All publication is still pending. Entries below preserve earlier recovery context.
+- Recovery superseding checkpoint: full vendor gate passed **backend699/device91**, both JARs built (`tracker-final-vendor-gate.log`). Two review regressions then reproduced oversized meter409 and extreme price exponent401; both fixed, subscription HTTP now **9/9** (`tracker-subscription-review-{red,green}.log`). Local backend commits `8805ba9`/`ebcac8c` are not pushed. Frontend process-group escalation fixed with **4 Node tests / 100% helper coverage**, local commits `31c0ebf`/`fb7af6d`, not pushed. Final vendor rerun currently in background (`tracker-reviewed-vendor-gate.log`); after it completes, rerun frontend fixture against the newly built JAR, update docs, commit remaining device/docs changes, push both repos normally. Do not rerun a gate already in progress. See final-slice-review.md.
+- Phase: verified integration slices and release-gate reconciliation
+- Current task: Final serialized backend/device/vendor gates and publication after authenticated subscription enrollment, device wiretap hardening, and frontend fixture lifecycle fixes
+- Last completed task: Authenticated V5 plan catalog + tenant/user-scoped pending enrollment (7 HTTP tests); device default-payload-wiretap disabled (91 tests); frontend actual-Java fixture lifecycle hardened and rerun PASS
+- Published source checkpoint: a50fb33 (origin/main synchronized at recovery); current slice not yet committed
+- Git worktree: device sanitation/source, subscription domain + V5 enrollment, autonomous evidence, and independent frontend fixture/docs remain uncommitted. `start-backend.sh` and its README section are pre-existing/unverified work; preserve them and do not infer acceptance.
+- Latest verification: full backend default suite **612 tests, zero failures/errors/skips** `/tmp/opencode/tracker-subscription-backend-test.log`; subscription HTTP **7/7**; `FlywayMigrationIT` **1/1** (five migrations); disposable-PostgreSQL V2→V5 upgrade **1/1** `/tmp/opencode/tracker-postgres-v5-upgrade.log`. Device `./mvnw -B -f device-comm/pom.xml test` **91/91** `/tmp/opencode/tracker-device-wiretap-test.log`. Frontend actual-Java fixture post-lifecycle **PASS** `/tmp/opencode/tracker-deployed-lifecycle-v3.log`, zero owned containers/descendants. Coverage unchanged and below target; no new whole-bundle coverage claim.
+- Latest device-only verification: 91 tests, zero failures/errors/skips, including configured-parser identity, socket framing/reconnect/post-success routing and deterministic success/malformed/publication-failure tracking. Raw frame wiretap is now opt-in (`tracking.tcp.server.wiretap-enabled`, default false). See autoseeker-sanitation-cycle.md.
+- Known failures: none in the latest backend/device/frontend focused runs. Full disposable vendor gate (`sh tools/verify-release.sh`) and independent review of the final combined slice remain pending. Coverage target, real notification delivery, payment/entitlement, command/ACK, secure physical-device provisioning, production frontend auth/TLS and deployment remain open. STATUS is IN_PROGRESS, not RELEASE_READY.
+- Scope correction: only ride-hailing deferred. Subscriptions approved: configurable token usage and monthly/yearly periodic billing. Catalog + pending enrollment are durable; grants/consumption/payment/renewal are not implemented. Existing frontend `../app/` must be assessed/delivered. APIs require auth; Autoseeker TCP requires sanitation, not a new credential scheme.
+- Next executable task: run the fresh serialized root `verify`, device `verify`/vendor release harness, review the combined diff, update evidence with exact receipts, then commit/push verified source. No production deployment/release authorization.
 - Decisions: see DECISION_LOG.md; preserve user migration, serialize root Maven, no invented recipients/providers/financial policy
-- Owner delegation constraint (2026-10-28): maximum TWO active subagents; direct work by default, bounded delegation only when independent value/time savings justify cost. Earlier fixture/design attempts hit limits; subsequent single bounded outbox review completed. Zero active agents now. No measured monetary balance/savings.
+- Owner delegation constraint: maximum TWO active subagents; direct work by default. No subagents are active. Previous frontend/subscription agents hit usage limits; their partial work was resumed and verified directly rather than auto-respawned.
 
 ## Resume
 From `/home/jjenus/workspace/apps/tracker/sidie`:
 1. Read AGENTS.md and docs/autonomous/{STATUS,TASK_QUEUE,FEATURE_MATRIX,DEFECT_REGISTER,TEST_REPORT}.
-2. `git status --short`; reconcile changes without restoring old modules.
-3. `./mvnw -B test`; device: `./mvnw -f device-comm/pom.xml -B test`.
-4. Docker-dependent suite: `./mvnw -B -Dtest=PostgresDeploymentIT test` (requires reachable Docker).
-5. Consult `/tmp/opencode/tracker-baseline-test.log` and `/tmp/opencode/tracker-device-baseline.log` if still available.
+2. `git status --short`; reconcile changes without restoring old modules or discarding pre-existing `start-backend.sh`.
+3. `./mvnw -B test`; device: `./mvnw -B -f device-comm/pom.xml test`.
+4. Subscription HTTP: `./mvnw -B -Dtest=SubscriptionControllerIntegrationTest test`.
+5. Docker-dependent suite: `TMPDIR=/tmp/opencode sh tools/verify-release.sh` (owns disposable services and selects `*IT`).
+6. Consult `/tmp/opencode/tracker-baseline-test.log` and `/tmp/opencode/tracker-device-baseline.log` if still available.
 
 ## Resource ownership
-- Docker daemon started locally (was inactive); do not stop it while other local work may use it.
-- Owned Redis container `tracker-autonomous-redis-ses-e8735256`, port 32768; remove only this container after tests.
-- Testcontainers owns its own integration containers and cleanup.
-- New release harness: `sh tools/verify-release.sh` owns its own random-port Redis and includes all *IT explicitly; run only once active implementation lanes finish compilation.
+- Docker daemon is running locally; do not stop it while other local work may use it.
+- Owned Redis container `tracker-autonomous-redis-ses-e8735256`, port 32768; remove only this container after tests if still present.
+- Testcontainers owns its own integration containers and cleanup; the frontend fixture removes only `wuu.fixture`-labelled containers.
+- `tools/verify-release.sh` owns its own random-port services and includes all *IT explicitly; run only when no other Maven lane is compiling.
