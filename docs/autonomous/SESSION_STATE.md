@@ -2,7 +2,9 @@
 
 ## Current state — durable grant/usage slice
 
-- Local RED/GREEN commits: `697d880` and `9293dc8`, not pushed yet.
+- RED/GREEN commits `697d880` and `9293dc8` plus evidence were pushed normally to
+  `origin/main`; remote verified at `1c740c08c1abb9f8e2e15659e9675c2379669141`.
+  This entry is a follow-up publication receipt, not another pending feature gate.
 - Authenticated tenant-scoped system-administrator non-paid grant/usage routes,
   V6 migrations, row-locked balance/receipt transaction and validated domain state
   reconstruction implemented. See subscription-ledger-slice.md for exact limits.
@@ -12,8 +14,8 @@
 - Full vendor gate **PASSED backend714/device91**, zero failures/errors/skips,
   both executable JARs built: `/tmp/opencode/tracker-subscription-ledger-full-gate.log`.
   Do not repeat completed gates without relevant source changes.
-- Current publication step: commit docs and push scoped backend commits.
-  Subscription UI and actual feature-meter enforcement remain next work;
+- Publication complete for this slice. Subscription UI and actual feature-meter
+  enforcement remain next work;
   payment/provider and recipient decisions remain unresolved. STATUS=IN_PROGRESS.
 - Preserve unrelated backend README/start-backend.sh and all existing frontend
   edits. No frontend source/device source change belongs to this new slice.
