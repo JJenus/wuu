@@ -411,6 +411,30 @@ class PostgresDeploymentIT {
     }
 
     @Test
+    void roleCatalog_authenticatedTenantAdmin_pagesOnlyCurrentTenantWithoutGlobalRoles() {
+        // given: independent ordinary administrators, neither has system.admin.
+        HttpHeaders owner = tenantHeaders();
+        HttpHeaders outsider = tenantHeaders();
+        var ownerRoles = content(owner, "/api/v1/roles");
+        var foreignRoles = content(outsider, "/api/v1/roles");
+        // when
+        var first = request(owner, HttpMethod.GET, "/api/v1/roles?page=0&size=1&orgId=999999", null);
+        var second = content(owner, "/api/v1/roles?page=1&size=1");
+        // then: actual PostgreSQL paging, lazy permission mapping and deterministic ordering.
+        assertThat(first.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(first.getHeaders().getCacheControl()).isEqualTo("private, no-store");
+        assertThat(first.getBody().get("totalElements")).isEqualTo(ownerRoles.size());
+        assertThat(ownerRoles).extracting(row -> row.get("name"))
+            .containsExactly("OPERATOR", "TENANT_ADMIN", "VIEWER");
+        assertThat(ownerRoles).extracting(row -> row.get("id"))
+            .doesNotContainAnyElementsOf(foreignRoles.stream().map(row -> row.get("id")).toList());
+        assertThat(second).extracting(row -> row.get("id")).containsExactly(ownerRoles.get(1).get("id"));
+        assertThat(ownerRoles.get(1).get("permissions")).asList().contains("roles.read");
+        assertThat(request(owner, HttpMethod.GET, "/api/v1/roles?size=101", null).getStatusCode())
+            .isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
     void telemetry_registeredDevices_persistOwningTrackerAndPublishTenantScopedUpdates() throws Exception {
         // given: distinct vehicle and tracker device IDs are allowed by the fleet API.
         HttpHeaders first = tenantHeaders();
