@@ -15,14 +15,12 @@ const plan = {
 }
 const enrollment = { id, plan_id: id, version: 1, status: 'PENDING', remaining_units: 0 }
 function fixture(body: unknown, status = 200) {
-  const fetchImpl = vi
-    .fn<typeof fetch>()
-    .mockResolvedValue(
-      new Response(JSON.stringify(body), {
-        status,
-        headers: { 'content-type': 'application/json' },
-      }),
-    )
+  const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { 'content-type': 'application/json' },
+    }),
+  )
   return { fetchImpl, service: createSubscriptionService(createGatewayClient({ fetchImpl })) }
 }
 describe('subscription contracts and owner workflows', () => {
@@ -78,7 +76,9 @@ describe('subscription contracts and owner workflows', () => {
       fixture([{ ...enrollment, remaining_units: 9007199254740992 }]).service.list(),
     ).rejects.toMatchObject({ kind: 'contract' })
     for (const status of ['PENDING', 'CANCELED']) {
-      await expect(fixture([{ ...enrollment, status, remaining_units: 1 }]).service.list()).rejects.toMatchObject({ kind: 'contract' })
+      await expect(
+        fixture([{ ...enrollment, status, remaining_units: 1 }]).service.list(),
+      ).rejects.toMatchObject({ kind: 'contract' })
     }
   })
 })

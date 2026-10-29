@@ -18,13 +18,18 @@ export const planSchema = z
     }),
   })
   .refine((plan) => (plan.model === 'PERIODIC') === (plan.cadence !== null), 'Inconsistent cadence')
-export const enrollmentSchema = z.object({
-  id: uuid,
-  planId: uuid,
-  version: positiveInteger,
-  status: z.enum(['PENDING', 'TRIALING', 'ADMIN_GRANTED', 'CANCELED']),
-  remainingUnits: balance,
-})
+export const enrollmentSchema = z
+  .object({
+    id: uuid,
+    planId: uuid,
+    version: positiveInteger,
+    status: z.enum(['PENDING', 'TRIALING', 'ADMIN_GRANTED', 'CANCELED']),
+    remainingUnits: balance,
+  })
+  .refine(
+    (item) => !['PENDING', 'CANCELED'].includes(item.status) || item.remainingUnits === 0,
+    'Inactive subscriptions cannot expose spendable units',
+  )
 export type SubscriptionPlan = z.infer<typeof planSchema>
 export type Enrollment = z.infer<typeof enrollmentSchema>
 export interface SubscriptionService {
