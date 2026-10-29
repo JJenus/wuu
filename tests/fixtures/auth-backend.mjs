@@ -2,6 +2,7 @@
 import { createServer } from 'node:http'
 import { randomUUID } from 'node:crypto'
 const sessions = new Map()
+const refreshTokens = new Map()
 const enrollments = new Map()
 const planId = '00000000-0000-4000-8000-000000000001'
 const accounts = new Map([
@@ -33,6 +34,11 @@ createServer(async (request, response) => {
     accounts.set(account.email, account.display_name)
     return send(201, { testOnly: true })
   }
+  if (path === '/__test/refresh-sessions' && request.method === 'POST') {
+    const input = JSON.parse(body)
+    refreshTokens.set(input.refresh_token, { email: input.email, used: false, accessSeconds: input.access_seconds })
+    return send(201, { testOnly: true })
+  }
   if (path === '/api/v1/auth/local-accounts')
     return send(200, {
       accounts: [...accounts].map(([email, display_name]) => ({ email, display_name })),
@@ -43,11 +49,37 @@ createServer(async (request, response) => {
     if (input.email === 'limited@example.com') return send(429, { code: 'RATE_LIMITED' })
     if (input.password !== 'test-only-password') return send(401, { code: 'INVALID_CREDENTIALS' })
     const token = `private-access-${randomUUID()}`
+    const refreshToken = `private-refresh-${randomUUID()}`
     sessions.set(token, input.email)
+    refreshTokens.set(refreshToken, { email: input.email, used: false })
     return send(200, {
       access_token: token,
-      refresh_token: 'private-refresh-never-forward',
-      expires_in: 900,
+      refresh_token: refreshToken,
+      expires_in: input.email === 'renew@example.com' ? 65 : 900,
+      refresh_expires_in: 604800,
+      token_type: 'Bearer',
+    })
+  }
+  if (path === '/api/v1/auth/refresh') {
+    const input = JSON.parse(body)
+    const issued = refreshTokens.get(input.refresh_token)
+    if (!issued) return send(401, { code: 'INVALID_TOKEN' })
+    if (issued.email === 'refresh-unavailable@example.com')
+      return send(503, { code: 'UNAVAILABLE' })
+    if (issued.used) {
+      for (const [token, email] of sessions) if (email === issued.email) sessions.delete(token)
+      return send(401, { code: 'REUSED_TOKEN' })
+    }
+    issued.used = true
+    const token = `private-access-${randomUUID()}`
+    const refreshToken = `private-refresh-${randomUUID()}`
+    sessions.set(token, issued.email)
+    refreshTokens.set(refreshToken, { email: issued.email, used: false, accessSeconds: issued.accessSeconds })
+    return send(200, {
+      access_token: token,
+      refresh_token: refreshToken,
+      expires_in: issued.accessSeconds ?? 900,
+      refresh_expires_in: 604700,
       token_type: 'Bearer',
     })
   }
@@ -98,6 +130,7 @@ createServer(async (request, response) => {
   if (path === '/api/v1/auth/logout') {
     if (email === 'logout-failure@example.com') return send(503, { code: 'UNAVAILABLE' })
     for (const [key, value] of sessions) if (value === email) sessions.delete(key)
+    for (const [key, value] of refreshTokens) if (value.email === email) refreshTokens.delete(key)
     return send(204)
   }
   if (path === '/api/v1/users/me' && email === 'unavailable@example.com')
