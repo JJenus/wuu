@@ -4,6 +4,12 @@ Delegation budget: at most **two active subagents**, direct work by default; see
 
 ## Superseding scope/work — 2026-10-29
 
+- Effective-access contract added in isolated worktree with current database
+  permissions/tenant/expiry, no tokens or new grants. Full backend718/device91
+  and actual-Java frontend subscription/access acceptance PASS. Subscription
+  owner catalog/enrollment/cancel UI now implemented; paid billing, automatic
+  product metering and admin catalog/grant UI remain open. See effective-access-slice.md.
+
 - Current slice: V6 durable explicit trial/complimentary grants and trusted-admin
   usage recording implemented with shared row locks, atomic receipt/balance and
   domain state restoration. Focused61 and PostgreSQL2 pass; final full gate

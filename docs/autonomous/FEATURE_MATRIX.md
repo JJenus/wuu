@@ -1,5 +1,17 @@
 # Feature matrix
 
+## Latest continuation — 2026-10-29
+
+Read-only effective-access endpoint and frontend settings inspection are now
+implemented and actual-Java verified without role-name elevation. Subscription
+owner UI covers configured catalog, pending enrollment and confirmed cancellation
+with reload-safe retry keys, tenant isolation and no paid-access claim. Full
+backend718/device91 and actual-Java browser gates pass. Historical rows below
+claiming no subscription UI/effective-access endpoint are superseded only for
+these exact use cases. Paid billing, automatic product metering/feature enforcement,
+admin catalog/grant UI, refresh and broad live writes remain open. See
+effective-access-slice.md and frontend docs/subscriptions.md.
+
 **Last updated:** 2026-10-28. Source and acceptance snapshot, not release certification. Latest receipts supersede historical pending statements below.
 
 ## Reading this inventory

@@ -1,5 +1,17 @@
 # Verification report
 
+## Effective access and subscription owner UI — 2026-10-29
+
+Isolated backend full gate **718 backend /91 device tests PASS**, zero failures/
+errors/skips, both executable JARs built (`tracker-effective-access-full.log`).
+Actual-Java production-Nitro browser acceptance **PASS** with new subscription
+catalog/pending enrollment/cancel and current-tenant effective-access panel, plus
+fleet isolation/revocation/credential secrecy (`effective-access-java-final.log`).
+Artifact SHA256 `3ad87f9a7bce65cbdfade542dd9b92666800a0ee5a91d6bb0d6c8d300849b8e6`.
+No new whole-backend coverage or independent release/security certification.
+See [effective-access-slice.md](effective-access-slice.md) and frontend
+`docs/subscriptions.md` for scope and remaining requirements.
+
 ## Durable non-paid grant/usage continuation — 2026-10-29
 
 Focused **61 tests passed**, including 18 actual HTTP cases; real PostgreSQL

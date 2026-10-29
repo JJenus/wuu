@@ -1,5 +1,27 @@
 # Recoverable execution state
 
+## Active continuation — subscription UI and effective access
+
+- Backend changes are isolated at `/tmp/opencode/tracker-effective-access`, branch
+  `feat/effective-access`: `e28fdea` RED and `8f8307b` GREEN. Original checkout's
+  README/start-backend.sh remain untouched. Do not drop that uncommitted work.
+- Read-only `/api/v1/users/me/access` exposes current database-derived permissions,
+  active tenant and access expiry, no tokens/session ID. No role elevation or new
+  permission policy. Full backend718/device91 gate PASS; see effective-access-slice.md.
+- Independent frontend repo has subscription catalog/enrollment/cancel UI with
+  sealed-session, exact-origin and bounded-payload gateway, retry-key recovery,
+  owner isolation and explicit non-payment copy. Effective-access settings panel
+  uses the new contract; platform concept routes remain blocked. Changes are not
+  published yet; preserve all pre-existing detail/list edits.
+- Actual-Java final fixture **PASS** against isolated built artifact SHA256
+  `3ad87f9a7bce65cbdfade542dd9b92666800a0ee5a91d6bb0d6c8d300849b8e6`:
+  `/tmp/opencode/effective-access-java-final.log`, private browser receipt
+  `/tmp/opencode/wuu-java-vfPHdZ/browser.log`. Owned cleanup completed.
+- Current next steps: final focused mobile/format checks, publish scoped
+  frontend/backend commits, then continue the next
+  actionable capability. Paid-provider/recipient policy remains blocked; do not
+  mark RELEASE_READY. Entries below are historical publication checkpoints.
+
 ## Current state — durable grant/usage slice
 
 - RED/GREEN commits `697d880` and `9293dc8` plus evidence were pushed normally to
