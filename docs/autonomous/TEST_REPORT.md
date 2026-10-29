@@ -1,5 +1,23 @@
 # Verification report
 
+## Tenant role catalog — 2026-10-29
+
+- Focused `RoleControllerIntegrationTest`: **10 tests, 0 failures/errors/skips**,
+  `BUILD SUCCESS` (`/tmp/opencode/role-catalog-green-v2.log`). Covers paged
+  current-tenant reads, ignored tenant override, forged claim, anonymous,
+  tenantless, four invalid-pagination cases and direct use-case denial.
+- `PostgresDeploymentIT#roleCatalog_authenticatedTenantAdmin_pagesOnlyCurrentTenantWithoutGlobalRoles`:
+  **PASS**, `BUILD SUCCESS` (`/tmp/opencode/role-catalog-postgres-v4.log`).
+- Full `TMPDIR=/tmp/opencode sh tools/verify-release.sh`: **backend 729**,
+  **device 91**, zero failures/errors/skips, both executable JARs built
+  (`/tmp/opencode/tracker-role-catalog-full-gate.log`). Backend JAR SHA256
+  `0866662ffa28b86072a262fa3c6236af12759048b94d264c6180cf9f80d4d99e`;
+  device JAR SHA256
+  `fb8302d55f8ed4d43c952a9f5ba27d189c4b4642f56637bda5c18e7c7ff96cb2`.
+- This proves the backend catalog contract, not a frontend role UI. No role
+  write/assignment/admin UI, whole-backend coverage claim or release certification
+  follows. Same JAR is used for the pending final frontend actual-Java rerun.
+
 ## Effective access and subscription owner UI — 2026-10-29
 
 Isolated backend full gate **718 backend /91 device tests PASS**, zero failures/

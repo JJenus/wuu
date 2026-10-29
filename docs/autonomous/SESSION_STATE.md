@@ -1,6 +1,27 @@
 # Recoverable execution state
 
-## Active continuation — subscription UI and effective access
+## Active continuation — role catalog and publication
+
+- Tenant-scoped read-only `GET /api/v1/roles` is implemented on branch
+  `feat/tenant-role-catalog`: RED `46e25e2`, GREEN `a2db590`. It requires the
+  database-derived `roles.read`, ignores client tenant overrides, pages only
+  current-tenant roles and never assigns authority. See role-catalog-slice.md.
+- Fresh full vendor gate **PASS**: backend **729**, device **91**, zero
+  failures/errors/skips; both executable JARs built. Receipt
+  `/tmp/opencode/tracker-role-catalog-full-gate.log`. Backend JAR SHA256
+  `0866662ffa28b86072a262fa3c6236af12759048b94d264c6180cf9f80d4d99e`.
+- Focused role HTTP **10/10** and real PostgreSQL role-catalog regression **1/1**
+  pass. The PostgreSQL case builds two tenants, proves paging/order/isolation and
+  ignores `orgId=999999`.
+- Independent frontend remains at `5e3892a` plus dependency patch `ed285d1`;
+  documentation commits and actual-Java same-tenant rerun remain. Preserve all
+  pre-existing detail/list edits.
+- Next: push backend role slice/docs, run final actual-Java acceptance against the
+  new JAR, finish frontend docs/test commits, then continue refresh/write
+  workflows and feature metering. Paid provider, recipient policy and production
+  deployment remain blocked. STATUS stays IN_PROGRESS.
+
+## Historical continuation — subscription UI and effective access
 
 - Backend changes are isolated at `/tmp/opencode/tracker-effective-access`, branch
   `feat/effective-access`: `e28fdea` RED and `8f8307b` GREEN. Original checkout's

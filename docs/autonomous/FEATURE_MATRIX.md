@@ -2,7 +2,14 @@
 
 ## Latest continuation — 2026-10-29
 
-Read-only effective-access endpoint and frontend settings inspection are now
+Tenant-scoped read-only role catalog `GET /api/v1/roles` now requires the
+database-derived `roles.read`, ignores client tenant overrides, pages only the
+current tenant and exposes sorted permission keys. Focused HTTP **10/10**, real
+PostgreSQL **1/1**, and full backend **729**/device **91** pass. It grants no role
+assignment or write capability and has no frontend consumer yet. See
+role-catalog-slice.md and TEST_REPORT.md.
+
+Read-only effective-access endpoint and frontend settings inspection are
 implemented and actual-Java verified without role-name elevation. Subscription
 owner UI covers configured catalog, pending enrollment and confirmed cancellation
 with reload-safe retry keys, tenant isolation and no paid-access claim. Full
@@ -11,6 +18,7 @@ claiming no subscription UI/effective-access endpoint are superseded only for
 these exact use cases. Paid billing, automatic product metering/feature enforcement,
 admin catalog/grant UI, refresh and broad live writes remain open. See
 effective-access-slice.md and frontend docs/subscriptions.md.
+
 
 **Last updated:** 2026-10-28. Source and acceptance snapshot, not release certification. Latest receipts supersede historical pending statements below.
 
@@ -55,6 +63,7 @@ Backend paths below are relative to the main Java root unless `device/` or `shar
 | AUTH-07 Role assignment and permissions | IMPLEMENTED_UNVERIFIED | PUT `/api/v1/users/{id}/roles`; `PermissionService`; roles/permissions junctions | `users.assign_roles`; reject system/foreign roles and final tenant admin removal; permissions loaded from DB | `AuthHardeningTest`, `SecurityBoundaryIntegrationTest`, `RoleTest`; V2 seeds; fresh escalation/revocation and membership-change tests |
 | AUTH-08 Organization administration | IMPLEMENTED_UNVERIFIED | `OrganizationController`, `OrganizationService`; GET/POST `/api/v1/organizations`, GET/PUT/DELETE `/{id}` | System-only administration except permission-checked own-org reads/updates; slug/name constraints | `OrganizationTest`, security integration suites; DB/FKs; full route/membership/deletion lifecycle |
 | AUTH-09 HTTP boundary/CORS/serialization | IMPLEMENTED_UNVERIFIED | `SecurityConfig`, filters, `GlobalExceptionHandler`; all HTTP routes | Deny-by-default, explicit origins, no H2 console, admin docs/actuator, no polymorphic HTTP type IDs; 401/403 | `ApplicationSecurityIntegrationTest`, `SecurityBoundaryIntegrationTest`, `AuthHardeningTest`; ingress/secret management; exact malformed payload/error consistency and deployed origins |
+| AUTH-10 Tenant role catalog (read-only) | VERIFIED | `RoleController`, `AuthService.listRoles`, `RoleRepository`; GET `/api/v1/roles`, roles/permissions | `roles.read` from database; server-selected tenant, client `orgId` ignored; `0..` page and `1..100` size; deterministic `name,id` order; no global roles | `RoleControllerIntegrationTest` **10/10**, `PostgresDeploymentIT` role case **1/1**, full backend **729**/device **91**; no frontend consumer, no role writes/assignment |
 | TRACK-01 Vehicle CRUD/query | FAILED | `VehicleController`, `VehicleService`, `VehicleQueryService`; vehicles; GET/POST `/api/v1/vehicles`, GET/PUT/DELETE `/{vehicleId}` | `vehicles.read/write`; ownership and client IDs must be checked before save/merge | `VehicleControllerTest`, `VehicleQueryServiceTest`; DB; confirmed POST supplied-ID merge/takeover being repaired, require adversarial HTTP + unchanged foreign row evidence |
 | TRACK-02 Tracker provisioning/assignment/filtering | FAILED | `TrackerController`, `TrackerService`; trackers, tracker_assignments; `/api/v1/trackers` CRUD; status/online/battery/stale filters | `devices.read`, `vehicles.assign_device`; assigned vehicle/current organization and submitted tracker identity | `TrackerControllerTest`; DB; supplied-ID merge/takeover repair pending; duplicate device, foreign vehicle and all query filters |
 | TRACK-03 Device telemetry → tenant location persistence | FAILED | `core/application/VehicleEventHandler`, `VehicleService`; tracker_location_data, vehicles, trackers; JMS `tracking.events.locationdataevent` | No HTTP ThreadLocal on JMS worker; explicit trusted ownership resolution required; unknown/unassigned/malformed events must not cross tenants | Domain/controller tests do not prove pipeline; Artemis/Redis/DB/device publisher; tenant propagation repair pending, real TCP→JMS→DB acceptance required |

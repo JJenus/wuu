@@ -4,6 +4,10 @@ Delegation budget: at most **two active subagents**, direct work by default; see
 
 ## Superseding scope/work — 2026-10-29
 
+- Tenant-scoped read-only role catalog `GET /api/v1/roles` is implemented with
+  `roles.read`, ignored client tenant overrides and SQL paging. Focused HTTP
+  **10/10**, PostgreSQL **1/1**, full backend **729**/device **91** pass. No role
+  writes/assignment or frontend consumer; see role-catalog-slice.md.
 - Effective-access contract added in isolated worktree with current database
   permissions/tenant/expiry, no tokens or new grants. Full backend718/device91
   and actual-Java frontend subscription/access acceptance PASS. Subscription
