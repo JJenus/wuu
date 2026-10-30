@@ -36,6 +36,7 @@ export default defineConfig({
         'app/features/maps/api/preview-search.ts',
         'app/features/maps/composables/useMapSearch.ts',
         'server/utils/wuu-gateway.ts',
+        'server/utils/alert-transition.ts',
         'server/utils/wuu-auth.ts',
         'server/utils/wuu-session.ts',
         'server/utils/wuu-local-accounts.ts',

@@ -94,6 +94,19 @@ createServer(async (request, response) => {
   const token = request.headers.authorization?.replace('Bearer ', '')
   const email = sessions.get(token)
   if (!email) return send(401, { code: 'UNAUTHENTICATED' })
+  if (/^\/alerts\/[0-9]+\/(acknowledge|resolve)$/.test(path) && request.method === 'POST') {
+    if (email === 'alert-denied@example.com') return send(403, { code: 'FORBIDDEN' })
+    if (!path.startsWith('/alerts/1/')) return send(404, { code: 'NOT_FOUND' })
+    const input = JSON.parse(body)
+    return send(200, {
+      alertId: 1,
+      acknowledged: true,
+      acknowledgedBy: '7',
+      resolved: path.endsWith('/resolve'),
+      resolvedBy: path.endsWith('/resolve') ? '7' : null,
+      resolutionNotes: input.resolutionNotes ?? null,
+    })
+  }
   if (path.startsWith('/api/v1/subscriptions')) {
     if (email === 'subscription-denied@example.com') return send(403, { code: 'FORBIDDEN' })
     if (path === '/api/v1/subscriptions/catalog' && request.method === 'GET')

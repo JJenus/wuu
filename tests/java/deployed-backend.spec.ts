@@ -20,6 +20,8 @@ test('actual Java: tenant fleet, sealed sessions and account-wide revocation', a
     license_plate: `${tenant.toUpperCase()}-${run}`,
     token: '',
     organization: 0,
+    user: 0,
+    alert: 0,
   }))
   for (const owner of owners) {
     const registration = await request.post(`${backend}/api/v1/auth/register`, { data: owner })
@@ -35,6 +37,7 @@ test('actual Java: tenant fleet, sealed sessions and account-wide revocation', a
     const user = await identity.json()
     expect(user.roles).toContain('TENANT_ADMIN')
     owner.organization = user.organization_id
+    owner.user = user.id
     const vehicle = await request.post(`${backend}/api/v1/vehicles`, {
       headers,
       data: {
@@ -44,6 +47,18 @@ test('actual Java: tenant fleet, sealed sessions and account-wide revocation', a
       },
     })
     expect(vehicle.status(), 'API creates real persisted vehicle').toBe(201)
+    const alert = await request.post(`${backend}/alerts`, {
+      headers,
+      data: {
+        vehicleId: owner.vehicle_id,
+        trackerId: `acceptance-${run}`,
+        alertType: 'OVERSPEED',
+        severity: 'WARNING',
+        message: 'Disposable acceptance alert',
+      },
+    })
+    expect(alert.status(), 'API creates tenant-scoped acceptance alert').toBe(201)
+    owner.alert = (await alert.json()).alertId
   }
   expect(owners[0]!.organization).not.toBe(owners[1]!.organization)
   const catalogFor = (owner: (typeof owners)[number], override?: number) =>
@@ -149,6 +164,57 @@ test('actual Java: tenant fleet, sealed sessions and account-wide revocation', a
     await signIn(beta!, owners[1]!)
     await signIn(secondAlpha!, owners[0]!)
     console.log('PASS three browser logins, two owners, cookie and bearer secrecy')
+    const alertPath = `/api/_wuu/alerts/${owners[0]!.alert}`
+    expect(
+      (
+        await beta!.request.post(`${alertPath}/acknowledge`, {
+          headers: { origin: frontend },
+          data: {},
+        })
+      ).status(),
+    ).toBe(404)
+    expect(
+      (
+        await alpha!.request.post(`${alertPath}/acknowledge`, {
+          headers: { origin: 'https://evil.test' },
+          data: {},
+        })
+      ).status(),
+    ).toBe(403)
+    expect(
+      (
+        await alpha!.request.post(`${alertPath}/acknowledge`, {
+          headers: { origin: frontend },
+          data: { acknowledgedBy: 'forged' },
+        })
+      ).status(),
+    ).toBe(400)
+    const acknowledged = await alpha!.request.post(`${alertPath}/acknowledge`, {
+      headers: { origin: frontend },
+      data: {},
+    })
+    expect(acknowledged.status()).toBe(200)
+    expect(await acknowledged.json()).toMatchObject({
+      acknowledged: true,
+      acknowledgedBy: String(owners[0]!.user),
+    })
+    const resolved = await alpha!.request.post(`${alertPath}/resolve`, {
+      headers: { origin: frontend },
+      data: { resolutionNotes: 'Reviewed during disposable acceptance' },
+    })
+    expect(resolved.status()).toBe(200)
+    expect(await resolved.json()).toMatchObject({
+      resolved: true,
+      resolvedBy: String(owners[0]!.user),
+      resolutionNotes: 'Reviewed during disposable acceptance',
+    })
+    expect(await (await alpha!.request.get(alertPath)).json()).toMatchObject({
+      acknowledged: true,
+      resolved: true,
+    })
+    console.log(
+      'PASS real alert acknowledge/resolve, authenticated actor persistence, cross-tenant and Origin denial',
+    )
     for (const [page, own, foreign] of [
       [alpha!, owners[0]!, owners[1]!],
       [beta!, owners[1]!, owners[0]!],

@@ -18,11 +18,18 @@ describe('alert mutation boundary', () => {
     expect(alertTransitionBody('/alerts/1/acknowledge', {})).toEqual({})
     for (const body of [{ acknowledgedBy: 'forged' }, { orgId: 1 }, [], null])
       expect(() => alertTransitionBody('/alerts/1/acknowledge', body)).toThrow()
-    expect(() => alertTransitionBody('/alerts/1/resolve', { resolvedBy: 'forged', resolutionNotes: 'Reviewed and confirmed' })).toThrow()
+    expect(() =>
+      alertTransitionBody('/alerts/1/resolve', {
+        resolvedBy: 'forged',
+        resolutionNotes: 'Reviewed and confirmed',
+      }),
+    ).toThrow()
   })
 
   it('trims notes and enforces the backend 10–1000 character contract', () => {
-    expect(alertTransitionBody('/alerts/1/resolve', { resolutionNotes: '  Reviewed and confirmed  ' })).toEqual({ resolutionNotes: 'Reviewed and confirmed' })
+    expect(
+      alertTransitionBody('/alerts/1/resolve', { resolutionNotes: '  Reviewed and confirmed  ' }),
+    ).toEqual({ resolutionNotes: 'Reviewed and confirmed' })
     for (const value of ['', 'short', ' '.repeat(15), 'x'.repeat(1001), 7, null])
       expect(() => alertTransitionBody('/alerts/1/resolve', { resolutionNotes: value })).toThrow()
     expect(() => alertTransitionBody('/alerts/bulk/resolve', {})).toThrow()

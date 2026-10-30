@@ -3,6 +3,7 @@ import type { H3Event } from 'h3'
 import { originIsSafe, upstreamPath, subscriptionRequestAllowed } from '../../utils/wuu-gateway'
 import { assertSameOrigin, currentSession, ensureFreshSession } from '../../utils/wuu-session'
 import { z } from 'zod'
+import { alertTransitionAllowed, alertTransitionBody } from '../../utils/alert-transition'
 
 const methods = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])
 
@@ -35,9 +36,12 @@ export default defineEventHandler(async (event) => {
   const method = (event.method || 'GET').toUpperCase()
   const target = upstreamPath(getRouterParam(event, 'path'))
   const subscription = target?.startsWith('/api/v1/subscriptions') ?? false
+  const alertTransition = !!target && alertTransitionAllowed(method, target)
   if (
     !methods.has(method) ||
-    (subscription ? !subscriptionRequestAllowed(method, target!) : method !== 'GET')
+    (subscription
+      ? !subscriptionRequestAllowed(method, target!)
+      : method !== 'GET' && !alertTransition)
   )
     return jsonError(event, 405, 'This request method is not allowed.', requestId)
 
@@ -45,6 +49,8 @@ export default defineEventHandler(async (event) => {
   if (method !== 'GET') assertSameOrigin(event)
 
   const query = getQuery(event)
+  if (alertTransition && Object.keys(query).length)
+    return jsonError(event, 400, 'Alert transitions do not accept query parameters.', requestId)
   const params = new URLSearchParams()
   for (const [key, value] of Object.entries(query)) {
     if (Array.isArray(value)) {
@@ -98,9 +104,17 @@ export default defineEventHandler(async (event) => {
               })
               .strict()
           : z.object({}).strict()
-      body = JSON.stringify(schema.parse(JSON.parse(body || '{}')))
+      const parsed = JSON.parse(body || '{}')
+      body = JSON.stringify(
+        alertTransition ? alertTransitionBody(target, parsed) : schema.parse(parsed),
+      )
     } catch {
-      return jsonError(event, 400, 'Invalid subscription request.', requestId)
+      return jsonError(
+        event,
+        400,
+        alertTransition ? 'Invalid alert transition request.' : 'Invalid subscription request.',
+        requestId,
+      )
     }
   }
 
