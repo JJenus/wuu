@@ -306,6 +306,14 @@ test('actual Java: tenant fleet, sealed sessions and account-wide revocation', a
       },
     })
     expect(colleague.status(), 'same-tenant colleague creation').toBe(201)
+    const colleagueId = (await colleague.json()).id
+    const viewer = alphaRoles.find((role) => role.name === 'VIEWER')
+    expect(viewer).toBeDefined()
+    const assignedViewer = await request.put(`${backend}/api/v1/users/${colleagueId}/roles`, {
+      headers: { authorization: `Bearer ${owners[0]!.token}` },
+      data: { role_ids: [viewer!.id] },
+    })
+    expect(assignedViewer.status()).toBe(200)
     const colleagueLogin = await request.post(`${backend}/api/v1/auth/login`, {
       data: { email: colleagueEmail, password: colleaguePassword },
     })
