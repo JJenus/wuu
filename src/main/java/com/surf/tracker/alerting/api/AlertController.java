@@ -12,10 +12,12 @@ import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.security.Principal;
 import java.util.List;
 import java.util.Map;
 
@@ -115,7 +117,9 @@ public class AlertController {
     @Operation(summary = "Acknowledge an alert")
     public ResponseEntity<AlertResponse> acknowledgeAlert(
             @PathVariable Long alertId,
-            @Valid @RequestBody AcknowledgeAlertRequest request) {
+            @Valid @RequestBody AcknowledgeAlertRequest request,
+            Principal principal) {
+        request.setAcknowledgedBy(authenticatedActor(principal));
         AlertResponse response = alertService.acknowledgeAlert(alertId, request);
         return ResponseEntity.ok(response);
     }
@@ -140,7 +144,9 @@ public class AlertController {
     @Operation(summary = "Resolve an alert")
     public ResponseEntity<AlertResponse> resolveAlert(
             @PathVariable Long alertId,
-            @Valid @RequestBody ResolveAlertRequest request) {
+            @Valid @RequestBody ResolveAlertRequest request,
+            Principal principal) {
+        request.setResolvedBy(authenticatedActor(principal));
         AlertResponse response = alertService.resolveAlert(alertId, request);
         return ResponseEntity.ok(response);
     }
@@ -149,8 +155,8 @@ public class AlertController {
     @Operation(summary = "Bulk acknowledge alerts")
     public ResponseEntity<Void> bulkAcknowledgeAlerts(
             @RequestBody List<Long> alertIds,
-            @RequestParam String acknowledgedBy) {
-        alertService.bulkAcknowledgeAlerts(alertIds, acknowledgedBy);
+            Principal principal) {
+        alertService.bulkAcknowledgeAlerts(alertIds, authenticatedActor(principal));
         return ResponseEntity.ok().build();
     }
 
@@ -158,10 +164,19 @@ public class AlertController {
     @Operation(summary = "Bulk resolve alerts")
     public ResponseEntity<Void> bulkResolveAlerts(
             @RequestBody List<Long> alertIds,
-            @RequestParam String resolvedBy,
-            @RequestParam String resolutionNotes) {
-        alertService.bulkResolveAlerts(alertIds, resolvedBy, resolutionNotes);
+            @RequestParam String resolutionNotes,
+            Principal principal) {
+        alertService.bulkResolveAlerts(alertIds, authenticatedActor(principal), resolutionNotes);
         return ResponseEntity.ok().build();
+    }
+
+    private String authenticatedActor(Principal principal) {
+        if (principal == null || principal.getName() == null || principal.getName().isBlank()) {
+            throw new AccessDeniedException("An authenticated alert actor is required");
+        }
+        // JwtAuthFilter installs AuthPrincipal: its name is the database user ID,
+        // not a client-supplied display name, role claim or tenant override.
+        return principal.getName();
     }
 
     // ========== STATUS ENDPOINTS ==========

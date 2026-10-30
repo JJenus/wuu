@@ -5,7 +5,7 @@ import jakarta.validation.constraints.Size;
 
 public class ResolveAlertRequest {
 
-    @NotEmpty(message = "Resolved by is required")
+    // Legacy input retained for compatibility; HTTP derives this from identity.
     private String resolvedBy;
 
     @NotEmpty(message = "Resolution notes are required")

@@ -1,10 +1,9 @@
 package com.surf.tracker.alerting.api.dto;
 
-import jakarta.validation.constraints.NotEmpty;
-
 public class AcknowledgeAlertRequest {
 
-    @NotEmpty(message = "Acknowledged by is required")
+    // Legacy input retained for compatibility; HTTP always replaces it with the
+    // authenticated principal's database user ID before invoking the service.
     private String acknowledgedBy;
 
     public String getAcknowledgedBy() { return acknowledgedBy; }
