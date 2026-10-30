@@ -8,7 +8,7 @@ they do not override this queue. Authority: workspace AUTONOMOUS_DIRECTIVE.md.
 
 | Order | Batch | Status | User-visible acceptance / next work |
 |---|---|---|---|
-| NOW | B0 Full startup/recovery | TESTING | Docker restored; run pending real-Java alerts; implement/prove cold start/restart complete stack including independent device and frontend |
+| NOW | B0 Full startup/recovery | TESTING | Docker restored; real-Java alert gateway PASS after JSON correction; implement/prove unified cold start/restart including independent device and frontend |
 | NEXT | B1 Usable alerts | PARTIAL | Protected backend/BFF exist; wire permission-aware UI/notes/cache updates and prove real persistence |
 | 2 | B2 Vehicle/tracker setup | PARTIAL | Enable safe create/provision/assignment and verify duplicate/tenant protection end-to-end |
 | 3 | B3 Geofences/rules | PARTIAL | Repair lossless geometry/assignment contract, wire editors/rules, verify actual evaluation |

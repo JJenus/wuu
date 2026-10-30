@@ -7,12 +7,15 @@
   against one final revision tuple. Existing Java/Nitro harness omits the device
   process. Owner requires this after every feature update; B0 owns implementation
   and actual acceptance. See PRODUCTION_DELIVERY_PLAN.md FULL_START.
-- **ALERT-JSON (MEDIUM, TESTING):** after restoring Docker, actual-Java acceptance
+- **ALERT-JSON (MEDIUM, RESOLVED at gateway):** after restoring Docker, actual-Java acceptance
   reached healthy backend/PostgreSQL/Redis/Artemis then alert fixture POST returned
   400: production Jackson uses SNAKE_CASE, unlike the contract fixture. Production
   mapping and fixture correction under fresh unit/Java verification; do not accept
   UI or whole alert workflow from earlier mocked success. Receipts
   `/tmp/opencode/plan-b0-java.log`, private `/tmp/opencode/wuu-java-KrmppI/browser.log`.
+  RED `2ff125e`, correction `cbdd54e`; corrected actual-Java1/1 PASS
+  (`/tmp/opencode/plan-b0-java2.log`), unit136/auth33/types pass. Legacy UI adapter
+  mapping remains B1 work; unified FULL_START still open under OPS-FULL-START.
 - **OPS-DOCKER-RESTART (RESOLVED locally):** Docker socket absence after restart
   repaired by starting local docker.service; daemon/socket/containerd active.
   This establishes runtime availability, not complete application acceptance.

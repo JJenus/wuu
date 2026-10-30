@@ -1,5 +1,29 @@
 # Recoverable execution state
 
+## Latest B0 checkpoint — 2026-10-30
+
+- Pinned roadmap published backend `f8d0aeb` (initial plan `9c892d4`), frontend
+  pointer `b618681`; workspace DELIVERY_PLAN.md and AGENTS.md route future work
+  to canonical PRODUCTION_DELIVERY_PLAN.md. Independent plan review accepted
+  all six corrections. Current batch B0, next B1; do not repeat completed planning.
+- Restored Docker and ran actual-Java alerts. First run found production
+  SNAKE_CASE mismatch; frontend RED `2ff125e`, correction `cbdd54e`. Corrected
+  actual-Java **1/1 PASS**, production build/Java dependency health pass, real
+  acknowledge/resolve actor/notes persisted, tenant/Origin/forged-body denials pass.
+  Receipt `/tmp/opencode/plan-b0-java2.log`, private
+  `/tmp/opencode/wuu-java-AORcij/browser.log`. Owned cleanup completed.
+- Follow-up frontend **136 units /33 auth browsers PASS**, selected
+  coverage94.62%line/85.71%branch/95.15%function; types/boundaries pass. Scoped
+  independent naming-correction review approves; no whole-product certification.
+- Backend artifact SHA256
+  `e207fcc526d7585bf3985729f70cb591d87bff9ebf6c2b1416e7d89bc180d9af`.
+  Existing Java/Nitro harness omits device startup/restart: FULL_START remains
+  NOT_VERIFIED. Next executable B0 task: unified owned final-revision startup/
+  restart gate including independent device, fail-closed durable summary and
+  reproducible dev launch. Then integrate B1 UI and production JSON adapter.
+- UI actions still disabled; pre-existing detail/list edits preserved. Docker
+  missing-socket statements below are historical. STATUS=IN_PROGRESS.
+
 ## PINNED CURRENT EXECUTION PLAN — 2026-10-30
 
 - Owner requested clear production-readiness plan, existing detail pointers and
