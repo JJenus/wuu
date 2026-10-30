@@ -1,5 +1,18 @@
 # Progress and next slice
 
+## Alert gateway boundary — 2026-10-30
+
+Backend `77518dd` fixes authenticated alert audit actors. Frontend `ebe1e80`
+allows only individual POST acknowledge/resolve with strict bounded bodies,
+no query/actor/tenant selection, same-origin checks and existing sealed sessions.
+UI remains disabled and the legacy adapter remains unchanged. **136 units /33
+auth browser tests PASS**, selected coverage94.61%line/85.71%branch/95.15%function;
+typecheck/build/boundaries/scoped formatting pass. Bounded security review found
+no concrete medium/high defect. Actual-Java alert acceptance is **BLOCKED**:
+Docker socket missing after restart. Added acceptance assertions have not run
+against Java. See `alert-transitions.md` for RED/GREEN, receipts and resume command.
+Preserve pre-existing detail/list edits. STATUS=IN_PROGRESS, not RELEASE_READY.
+
 Post-publication preview regression: **31 browser tests PASS**, receipt
 `/tmp/opencode/renewal-preview-final.log`. The next live alert-transition slice
 first needs backend-authoritative audit actor binding; it must not trust actor

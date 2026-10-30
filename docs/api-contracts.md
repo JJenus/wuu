@@ -1,5 +1,16 @@
 # Backend and live adapter contracts
 
+## Individual alert transition boundary — 2026-10-30
+
+Backend `77518dd` binds audit actors to the authenticated database user ID.
+The BFF now permits only exact individual POST acknowledge (`{}`) and resolve
+(`{resolutionNotes}`, trimmed10–1000 chars), positive signed-Long IDs and no
+query/actor/tenant fields. Existing same-origin/sealed-session boundaries apply;
+Java enforces `alerts.write` and tenant access. UI stays disabled. Actual-Java
+verification is blocked by Docker availability; see `alert-transitions.md`.
+This supersedes the historical GET-only gateway statements for these two paths,
+not for bulk/other writes, and does not establish deployed mutation acceptance.
+
 ## Session renewal contract — 2026-10-29
 
 Java login/refresh now include `refresh_expires_in`, the remaining absolute

@@ -1,5 +1,14 @@
 # Access matrix and role register
 
+## Alert transition gateway exception — 2026-10-30
+
+Individual acknowledge/resolve POSTs are narrowly exposed through the BFF;
+same-origin, bounded strict JSON and sealed authentication are required. Only
+Java's current `alerts.write` grants authority, never a role-name template or a
+client-supplied actor. Bulk and other writes remain denied. UI actions stay
+disabled until the workflow and actual-Java acceptance are complete; Docker is
+currently unavailable. See `alert-transitions.md`.
+
 ## Subscription owner exception — 2026-10-29
 
 Authenticated subscription reads, pending enrollment and confirmed cancellation

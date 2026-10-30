@@ -1,5 +1,16 @@
 # Verification — Wuu preview and live read-only integration
 
+## Alert transition BFF — 2026-10-30
+
+RED `1e7227f`, GREEN `ebe1e80`. **136 units /33 auth browser tests PASS**;
+selected coverage **94.61% lines /85.71% branches /95.15% functions**, not whole
+UI. Typecheck/build/boundaries/scoped formatting PASS. Narrow security review
+found no introduced medium/high defect. No actual-Java alert mutation PASS:
+runner stopped before service startup because `/var/run/docker.sock` is absent.
+Receipt `/tmp/opencode/alert-bff-java.log`; added Java assertions are pending.
+See `alert-transitions.md` for contracts, evidence and next action. UI remains
+disabled; pre-existing detail/list work is untouched. STATUS=IN_PROGRESS.
+
 ## Single-process session renewal — 2026-10-29
 
 - Post-publication preview browser suite **31 PASS** against the production
