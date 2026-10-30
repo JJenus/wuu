@@ -1,5 +1,26 @@
 # Verification — Wuu preview and live read-only integration
 
+## B0 real-Java follow-up — 2026-10-30
+
+- Docker restored; first real run exposed a camelCase vs production SNAKE_CASE
+  alert fixture/body mismatch. RED `2ff125e`; correction `cbdd54e` maps validated
+  public notes to `resolution_notes` and aligns actual acceptance responses.
+- Corrected actual-Java **1/1 PASS**: real alert creation/acknowledge/resolve,
+  persisted actor/notes, cross-tenant404, cross-origin403 and forged-body400.
+  Receipt `/tmp/opencode/plan-b0-java2.log`, private
+  `/tmp/opencode/wuu-java-AORcij/browser.log`. Backend JAR
+  `e207fcc526d7585bf3985729f70cb591d87bff9ebf6c2b1416e7d89bc180d9af`.
+  Production frontend build and database/cache/broker/backend health passed;
+  owned cleanup completed.
+- Follow-up **136 units /33 auth browsers PASS**, selected coverage94.62%line/
+  85.71%branch/95.15%function; types/boundaries pass. Receipts
+  `/tmp/opencode/plan-b0-coverage.log`, `plan-b0-auth.log`, `plan-b0-types.log`,
+  `plan-b0-boundaries.log`. Narrow independent review approved; tests run by
+  coordinator, not reviewer.
+- **FULL_START NOT_VERIFIED**: this harness does not include independent device
+  startup/restart. Unified B0 acceptance and B1 UI remain open. Pinned plan:
+  `delivery-plan.md`. No production-readiness/deployment claim.
+
 ## Alert transition BFF — 2026-10-30
 
 RED `1e7227f`, GREEN `ebe1e80`. **136 units /33 auth browser tests PASS**;

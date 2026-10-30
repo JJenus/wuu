@@ -2,12 +2,17 @@
 
 ## Individual alert transition boundary — 2026-10-30
 
+Actual-Java follow-up passed after Docker restoration and production naming
+correction: browser `resolutionNotes` is validated then mapped to Java's
+`resolution_notes`. Raw alert responses use snake_case. Legacy adapter/UI mapping
+remains a B1 task; see `alert-transitions.md` for exact evidence and limits.
+
 Backend `77518dd` binds audit actors to the authenticated database user ID.
 The BFF now permits only exact individual POST acknowledge (`{}`) and resolve
 (`{resolutionNotes}`, trimmed10–1000 chars), positive signed-Long IDs and no
 query/actor/tenant fields. Existing same-origin/sealed-session boundaries apply;
 Java enforces `alerts.write` and tenant access. UI stays disabled. Actual-Java
-verification is blocked by Docker availability; see `alert-transitions.md`.
+gateway verification passed after Docker restoration; see `alert-transitions.md`.
 This supersedes the historical GET-only gateway statements for these two paths,
 not for bulk/other writes, and does not establish deployed mutation acceptance.
 

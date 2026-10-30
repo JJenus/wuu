@@ -2,6 +2,28 @@
 
 STATUS=IN_PROGRESS — gateway contract verified; UI remains disabled.
 
+## Current continuation — 2026-10-30
+
+Docker was restored. Actual-Java acceptance exposed the production Jackson
+SNAKE_CASE contract: the BFF must translate public `resolutionNotes` to upstream
+`resolution_notes`; raw alert responses use `alert_id`, `acknowledged_by` and
+`resolved_by`. RED `2ff125e`, correction `cbdd54e`. Legacy live adapter mapping
+is still a B1 integration task; UI stays disabled.
+
+Corrected actual-Java browser acceptance **1/1 PASS**, including real tenant alert
+creation, acknowledge/resolve, persisted authenticated actor/notes and cross-tenant/
+Origin/forged-actor denial. Receipt `/tmp/opencode/plan-b0-java2.log`, private
+browser `/tmp/opencode/wuu-java-AORcij/browser.log`; backend artifact SHA256
+`e207fcc526d7585bf3985729f70cb591d87bff9ebf6c2b1416e7d89bc180d9af`.
+Production frontend build and Java/PostgreSQL/Redis/Artemis health passed; owned
+cleanup completed. Follow-up **136 units /33 auth browser tests PASS**, selected
+coverage94.62%line/85.71%branch/95.15%function, typecheck/boundaries PASS. Scoped
+independent review approved the naming correction; it did not run the gates.
+
+The earlier Docker-blocked attempt below is historical. This is not yet the
+new full-stack FULL_START acceptance: independent device-process startup and
+restart checks must join the unified B0 harness. Follow `delivery-plan.md`.
+
 ## Verified contracts
 
 Backend `77518dd` derives single/bulk transition actors from the authenticated
@@ -44,6 +66,8 @@ at the BFF and Java must still deny unauthorized access.
   defect; it did not run tests or independently verify backend code.
 
 ## Actual-Java blocker
+
+Historical attempt; superseded by the successful continuation above.
 
 `tests/java/deployed-backend.spec.ts` now provisions owned alerts and asserts
 cross-tenant denial, forged actor rejection, Origin denial, authenticated actor

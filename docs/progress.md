@@ -1,5 +1,17 @@
 # Progress and next slice
 
+### Latest B0 execution evidence — 2026-10-30
+
+Docker restored; actual-Java alert acceptance **1/1 PASS** after production
+snake_case mapping correction (`cbdd54e`, RED `2ff125e`). Receipt
+`/tmp/opencode/plan-b0-java2.log`, private `/tmp/opencode/wuu-java-AORcij/browser.log`.
+Real acknowledge/resolve actor/notes persistence and tenant/Origin denials passed.
+Follow-up136 units/33 auth browsers/typecheck/boundaries pass; selected
+coverage94.62%line/85.71%branch/95.15%function. UI remains disabled pending B1.
+Unified full-start/restart including independent device is still B0 work, not
+established by the existing Java/Nitro harness. Earlier Docker-blocked statements
+below are historical. Follow the pinned roadmap rather than rebuilding old slices.
+
 ## PINNED ROADMAP — 2026-10-30
 
 Follow [delivery-plan.md](delivery-plan.md), which points to the canonical current
