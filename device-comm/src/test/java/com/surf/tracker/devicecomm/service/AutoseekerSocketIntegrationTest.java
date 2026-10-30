@@ -50,12 +50,15 @@ class AutoseekerSocketIntegrationTest {
             context.registerBean(DeviceDataProcessor.class);
             context.registerBean(ReactiveTcpServer.class);
             context.getEnvironment().getPropertySources().addFirst(new org.springframework.core.env.MapPropertySource(
-                "socket-test", java.util.Map.of("tracking.tcp.server.port", "0")));
+                "socket-test", java.util.Map.of("tracking.tcp.server.port", "0",
+                    "tracking.tcp.server.host", "127.0.0.1")));
             context.refresh();
             var gateway = context.getBean(ReactiveTcpServer.class);
             gateway.start();
             try {
-                int port = ((DisposableServer) ReflectionTestUtils.getField(gateway, "server")).port();
+                var bound = (DisposableServer) ReflectionTestUtils.getField(gateway, "server");
+                assertThat(bound.address().getAddress().isLoopbackAddress()).isTrue();
+                int port = bound.port();
                 try (var socket = new Socket("127.0.0.1", port)) {
                     // when: split one packet, then invalid + valid packets in a single write.
                     var output = socket.getOutputStream();
