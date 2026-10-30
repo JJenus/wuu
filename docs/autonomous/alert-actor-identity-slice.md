@@ -18,6 +18,12 @@ The restart erased the isolated checkout, artifacts and `/tmp/opencode` receipts
 The uncommitted three-file fix was reconstructed from the preserved conversation
 diff atop `b6be4ef` in `fix/alert-actor-recovery`. Historical results above are
 conversation evidence only, not retained logs or a fresh reconstructed-tree gate.
-Do not repeat the completed product slices. Next: verify the reconstructed fix,
-publish it, then implement narrowly allowlisted live alert transitions with
+Reconstructed GREEN `9c98b31` passed a fresh focused gate on 2026-10-30:
+32 tests, zero failures/errors/skips; BUILD SUCCESS in 46.897 seconds.
+Command: `./mvnw -B -Dtest=SecurityBoundaryIntegrationTest,AlertControllerTest,AlertServiceTest test`.
+Receipt `/tmp/opencode/alert-actor-recovery-focused.log`. The completed full
+backend/device gate was not repeated. No fresh coverage claim.
+
+Do not repeat the completed product slices. Next: publish the reconstructed fix,
+then implement narrowly allowlisted live alert transitions with
 actual-Java mutation acceptance. Payment/provider/hardware/release gates remain.

@@ -1,5 +1,24 @@
 # Recoverable execution state
 
+## Active continuation — alert actor fix recovered after restart (2026-10-30)
+
+- Original isolated checkout and temporary logs were erased by environment
+  restart. Committed RED `b6be4ef` survived. Reconstructed identical three-file
+  fix is GREEN `9c98b31` on `fix/alert-actor-recovery`, isolated checkout
+  `/tmp/opencode/tracker-alert-actor`; keep original active `sidie` unchanged.
+- Single/bulk alert acknowledge/resolve bind the actor to the authenticated
+  database user ID. Client-supplied actor fields cannot forge audit identity.
+  Existing tenant/permission/note-validation boundaries remain unchanged.
+- Historical pre-restart full gate **735 backend / 91 device PASS**, independent
+  Java review approves. Logs/artifacts from that run were erased; do not claim
+  they remain available. Fresh reconstructed-tree focused gate **32 PASS** on
+  2026-10-30, `/tmp/opencode/alert-actor-recovery-focused.log`. Full gate was not
+  repeated. See `alert-actor-identity-slice.md`.
+- Frontend renewal and preview documentation published at `6f1aac1`; preview
+  browser suite31 passed pre-restart. Preserve unrelated detail/list edits.
+- Next: publish scoped backend fix, then live alert transition workflow and
+  actual-Java mutation acceptance. STATUS=IN_PROGRESS; no deployment authority.
+
 ## Active continuation — refresh lifetime contract and frontend renewal
 
 - Publication/evidence update: backend lifetime contract is on `origin/main`
