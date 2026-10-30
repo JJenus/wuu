@@ -29,7 +29,7 @@ describe('alert mutation boundary', () => {
   it('trims notes and enforces the backend 10–1000 character contract', () => {
     expect(
       alertTransitionBody('/alerts/1/resolve', { resolutionNotes: '  Reviewed and confirmed  ' }),
-    ).toEqual({ resolutionNotes: 'Reviewed and confirmed' })
+    ).toEqual({ resolution_notes: 'Reviewed and confirmed' })
     for (const value of ['', 'short', ' '.repeat(15), 'x'.repeat(1001), 7, null])
       expect(() => alertTransitionBody('/alerts/1/resolve', { resolutionNotes: value })).toThrow()
     expect(() => alertTransitionBody('/alerts/bulk/resolve', {})).toThrow()
