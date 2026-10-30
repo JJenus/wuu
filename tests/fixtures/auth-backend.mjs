@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto'
 const sessions = new Map()
 const refreshTokens = new Map()
 const enrollments = new Map()
+const alertStates = new Map()
 const planId = '00000000-0000-4000-8000-000000000001'
 const accounts = new Map([
   ['operator@example.com', 'Fleet Operator'],
@@ -94,18 +95,26 @@ createServer(async (request, response) => {
   const token = request.headers.authorization?.replace('Bearer ', '')
   const email = sessions.get(token)
   if (!email) return send(401, { code: 'UNAUTHENTICATED' })
+  if (email.startsWith('alert-ui-') && !alertStates.has(email))
+    alertStates.set(email, { alert_id: 1, alert_type: 'OVERSPEED', message: 'Review depot speed event', severity: 'WARNING', acknowledged: false, resolved: false })
+  if (email.startsWith('alert-ui-') && request.method === 'GET') {
+    if (path === '/alerts') return send(200, page([alertStates.get(email)]))
+    if (path === '/alerts/1') return send(200, alertStates.get(email))
+  }
   if (/^\/alerts\/[0-9]+\/(acknowledge|resolve)$/.test(path) && request.method === 'POST') {
-    if (email === 'alert-denied@example.com') return send(403, { code: 'FORBIDDEN' })
+    if (email === 'alert-denied@example.com' || email.startsWith('alert-ui-denied-')) return send(403, { code: 'FORBIDDEN' })
     if (!path.startsWith('/alerts/1/')) return send(404, { code: 'NOT_FOUND' })
     const input = JSON.parse(body)
-    return send(200, {
+    const result = {
       alert_id: 1,
       acknowledged: true,
       acknowledged_by: '7',
       resolved: path.endsWith('/resolve'),
       resolved_by: path.endsWith('/resolve') ? '7' : null,
       resolution_notes: input.resolution_notes ?? null,
-    })
+    }
+    if (email.startsWith('alert-ui-')) Object.assign(alertStates.get(email), result)
+    return send(200, result)
   }
   if (path.startsWith('/api/v1/subscriptions')) {
     if (email === 'subscription-denied@example.com') return send(403, { code: 'FORBIDDEN' })
@@ -161,7 +170,7 @@ createServer(async (request, response) => {
       user_id: email === 'forbidden@example.com' ? 8 : 7,
       organization_id: 12,
       permissions:
-        email === 'roles@example.com' ? ['vehicles.read', 'roles.read'] : ['vehicles.read'],
+        email.startsWith('alert-ui-write-') ? ['vehicles.read', 'alerts.read', 'alerts.write'] : email === 'roles@example.com' ? ['vehicles.read', 'roles.read'] : ['vehicles.read'],
       access_expires_at: '2099-01-01T00:00:00Z',
     })
   if (path === '/api/v1/roles') {
