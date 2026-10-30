@@ -1,5 +1,21 @@
 # Recoverable execution state
 
+## Current batch — B1 usable alerts after unified startup PASS
+
+- FULL_START implementation published frontend8e211f9/device bind dfa883f.
+  First cold+restart complete stack PASS, including independent device real
+  Artemis publication, actual Java/browser workflows, DB persistence and owned
+  cleanup. `/tmp/opencode/full-start-first.log`, private wuu-java-XdYYyz. First
+  receipt captured tested precommit source fingerprints; frontend docs/full-start.md
+  records hashes/limits. Device91 and frontend141 units/types/boundaries pass.
+- Two startup review findings fixed before gate: guard against creating resources
+  after signal; reject surviving old process groups before restart acceptance.
+- B1 underway: new adapter regression RED e4a61db (session-derived identity,
+  canonical positive Long IDs, notes10–1000). Implement shared permission-aware
+  list/detail response component and preserve pre-existing detail/list changes.
+  Actual next feature must rerun FULL_START; current UI remains disabled until
+  implementation/acceptance. STATUS=IN_PROGRESS.
+
 ## Latest B0 checkpoint — 2026-10-30
 
 - Pinned roadmap published backend `f8d0aeb` (initial plan `9c892d4`), frontend
