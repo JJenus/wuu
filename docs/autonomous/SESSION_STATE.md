@@ -1,5 +1,27 @@
 # Recoverable execution state
 
+## Active continuation — alert gateway accepted locally, Java blocked
+
+- Backend actor fix published on main `77518dd`; frontend narrow gateway and
+  evidence published on frontend-app `5aee8bc` (GREEN `ebe1e80`, RED `1e7227f`).
+- Only exact individual alert acknowledge/resolve POSTs are admitted with strict
+  bounded bodies, no query/actor/tenant selection and existing Origin/sealed auth.
+  UI and legacy adapter remain disabled/unchanged; pre-existing detail/list work
+  is preserved. Contract gates **136 units /33 auth browser tests PASS**, selected
+  coverage94.61%line/85.71%branch/95.15%function, types/build/boundaries/scoped
+  formatting pass. Read-only security review found no introduced medium/high.
+- Actual-Java runner blocked before services start: `/var/run/docker.sock` absent
+  after restart; `/tmp/opencode/alert-bff-java.log`. New acceptance checks provision
+  tenant alerts, assert real actor attribution/persistence and cross-tenant/Origin
+  denial but have not run against Java. No actual mutation acceptance claim.
+- Rebuilt backend JAR SHA256
+  `e207fcc526d7585bf3985729f70cb591d87bff9ebf6c2b1416e7d89bc180d9af`.
+  Once Docker is restored, from independent app run
+  `WUU_JAVA_JAR=/tmp/opencode/tracker-alert-actor/target/tracking-engine-1.0.0-SNAPSHOT.jar TMPDIR=/tmp/opencode node tools/verify-java-integration.mjs`.
+  See frontend `docs/alert-transitions.md`. Then UI workflow remains next.
+  STATUS=IN_PROGRESS; external infrastructure/provider/payment/hardware and
+  production release gates remain open. No routine restart of completed slices.
+
 ## Active continuation — alert actor fix recovered after restart (2026-10-30)
 
 - Original isolated checkout and temporary logs were erased by environment
