@@ -4,6 +4,11 @@ import type { GeofenceDraft, Geometry } from '../../geofences/domain/geofence'
 export type AlertState = 'active' | 'acknowledged' | 'resolved'
 
 export interface FleetAlert {
+  acknowledgedBy?: string | null
+  acknowledgedAt?: string | null
+  resolvedBy?: string | null
+  resolvedAt?: string | null
+  resolutionNotes?: string | null
   id: string
   title: string
   description: string

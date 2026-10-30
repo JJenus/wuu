@@ -52,6 +52,11 @@ export function toFleetAlert(dto: AlertDto, now: number = Date.now()): FleetAler
     triggeredAt: dto.triggeredAt ?? null,
     icon: iconFor(dto.alertType),
     status: status(dto),
+    acknowledgedBy: dto.acknowledgedBy ?? null,
+    acknowledgedAt: dto.acknowledgedAt ?? null,
+    resolvedBy: dto.resolvedBy ?? null,
+    resolvedAt: dto.resolvedAt ?? null,
+    resolutionNotes: dto.resolutionNotes ?? null,
   }
 }
 
@@ -84,20 +89,19 @@ export function createLiveAlertService(client: GatewayClient): AlertService {
     async transition(id: string, next: AlertState, context?: AlertTransitionContext) {
       if (next === 'active')
         throw capabilityUnavailable('Alerts cannot be reopened with the current backend contract.')
-      if (!context?.actor)
-        throw capabilityUnavailable('A signed-in operator is required to change an alert.')
-      if (!/^\d+$/.test(id))
+      if (!/^[1-9][0-9]{0,18}$/.test(id) || BigInt(id) > 9223372036854775807n)
         throw capabilityUnavailable('This preview alert cannot be changed through the live API.')
       if (next === 'acknowledged') {
         await client.request('POST', `/alerts/${id}/acknowledge`, alertDtoSchema, {
-          body: { acknowledgedBy: context.actor },
+          body: {},
         })
         return
       }
-      if (!context.resolutionNotes || context.resolutionNotes.trim().length < 10)
-        throw capabilityUnavailable('Resolution notes of at least 10 characters are required.')
+      const notes = context?.resolutionNotes?.trim() ?? ''
+      if (notes.length < 10 || notes.length > 1000)
+        throw capabilityUnavailable('Resolution notes must contain 10 to 1000 characters.')
       await client.request('POST', `/alerts/${id}/resolve`, alertDtoSchema, {
-        body: { resolvedBy: context.actor, resolutionNotes: context.resolutionNotes.trim() },
+        body: { resolutionNotes: notes },
       })
     },
   }

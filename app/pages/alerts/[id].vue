@@ -1,35 +1,13 @@
 <script setup lang="ts">
-import { errorMessage } from '~/features/core/domain/errors'
+import AlertResponseActions from '~/features/alerts/components/AlertResponseActions.vue'
 import { useDataSource } from '~/features/core/composables/useDataSource'
 import { formatDateTime } from '~/features/core/domain/time'
 import { useWorkspace } from '~/features/workspace/composables/useWorkspace'
-import type { AlertState } from '~/features/workspace/domain/types'
 const route = useRoute()
 const source = useDataSource()
-const { alerts, vehicles, updateAlert, isPending, isError, error, refetch } = useWorkspace('alerts')
+const { alerts, vehicles, isPending, isError, error, refetch } = useWorkspace('alerts')
 const alert = computed(() => alerts.value.find((a) => a.id === route.params.id))
 const vehicle = computed(() => vehicles.value.find((v) => v.id === alert.value?.vehicleId))
-const busy = ref(false)
-const updateError = ref('')
-const toast = useToast()
-async function change(status: AlertState) {
-  if (!alert.value || busy.value || !source.isPreview) return
-  const id = alert.value.id
-  busy.value = true
-  updateError.value = ''
-  try {
-    await updateAlert(id, status)
-    toast.add({
-      title: `Alert ${status} in preview`,
-      description: 'This change resets on reload. No notification was sent.',
-      color: 'success',
-    })
-  } catch (changeError) {
-    updateError.value = errorMessage(changeError, 'Unable to update this alert. Please try again.')
-  } finally {
-    busy.value = false
-  }
-}
 useHead(() => ({ title: `${alert.value?.title || 'Alert not found'} — Wuu` }))
 </script>
 
@@ -46,6 +24,12 @@ useHead(() => ({ title: `${alert.value?.title || 'Alert not found'} — Wuu` }))
       @retry="refetch"
     >
       <template v-if="alert">
+        <div v-if="isError" role="alert" class="info-banner">
+          <p>Alert refresh failed. Displayed state may be out of date.</p>
+          <UButton color="neutral" variant="outline" @click="refetch()"
+            >Retry alert refresh</UButton
+          >
+        </div>
         <UiPageHeading
           :title="alert.title"
           :description="`${alert.id} · ${alert.vehicle ?? 'Vehicle not recorded'} · ${source.isPreview ? 'Sample event' : 'Fleet event'}`"
@@ -62,8 +46,8 @@ useHead(() => ({ title: `${alert.value?.title || 'Alert not found'} — Wuu` }))
             message or device command is sent.
           </p>
           <p v-else>
-            This alert is read-only in the workspace. The live response workflow is not enabled;
-            resolution will require review notes and server-authorized operator attribution.
+            Live responses require current server permission. Resolution records review notes and
+            your authenticated identity; it does not send a notification or device command.
           </p>
         </div>
         <div class="detail-layout">
@@ -188,28 +172,35 @@ useHead(() => ({ title: `${alert.value?.title || 'Alert not found'} — Wuu` }))
                 <p v-else-if="source.isPreview" class="muted">
                   Update this alert across your preview workspace.
                 </p>
-                <p v-else class="muted">
-                  Status changes remain unavailable until the authorized response and resolution
-                  notes workflow is integrated.
-                </p>
-                <p v-if="updateError" role="alert" class="form-error">{{ updateError }}</p>
-                <template v-if="source.isPreview">
-                  <UButton
-                    v-if="alert.status === 'active'"
-                    color="neutral"
-                    variant="outline"
-                    :loading="busy"
-                    @click="change('acknowledged')"
-                    >Acknowledge in preview</UButton
-                  >
-                  <UButton
-                    v-if="alert.status !== 'resolved'"
-                    icon="i-lucide-check"
-                    :loading="busy"
-                    @click="change('resolved')"
-                    >Resolve in preview</UButton
-                  >
-                </template>
+                <dl
+                  v-if="!source.isPreview"
+                  class="space-y-2 text-sm"
+                  aria-label="Recorded alert attribution"
+                >
+                  <div>
+                    <dt>Acknowledged by user ID</dt>
+                    <dd>{{ alert.acknowledgedBy || 'Not recorded' }}</dd>
+                  </div>
+                  <div>
+                    <dt>Acknowledged at (UTC)</dt>
+                    <dd>{{ alert.acknowledgedAt || 'Not recorded' }}</dd>
+                  </div>
+                  <div>
+                    <dt>Resolved by user ID</dt>
+                    <dd>{{ alert.resolvedBy || 'Not recorded' }}</dd>
+                  </div>
+                  <div>
+                    <dt>Resolved at (UTC)</dt>
+                    <dd>{{ alert.resolvedAt || 'Not recorded' }}</dd>
+                  </div>
+                  <div>
+                    <dt>Resolution notes</dt>
+                    <dd class="whitespace-pre-wrap">
+                      {{ alert.resolutionNotes || 'Not recorded' }}
+                    </dd>
+                  </div>
+                </dl>
+                <AlertResponseActions :id="alert.id" :status="alert.status" detail />
               </div>
             </section>
           </div>

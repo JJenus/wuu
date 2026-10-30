@@ -189,19 +189,32 @@ test('actual Java: tenant fleet, sealed sessions and account-wide revocation', a
         })
       ).status(),
     ).toBe(400)
-    const acknowledged = await alpha!.request.post(`${alertPath}/acknowledge`, {
-      headers: { origin: frontend },
-      data: {},
-    })
+    await alpha!.goto('/alerts')
+    const acknowledgementResponse = alpha!.waitForResponse(
+      (response) =>
+        response.url().endsWith(`${alertPath}/acknowledge`) &&
+        response.request().method() === 'POST',
+    )
+    await alpha!.getByRole('button', { name: 'Acknowledge', exact: true }).click()
+    const acknowledged = await acknowledgementResponse
     expect(acknowledged.status()).toBe(200)
     expect(await acknowledged.json()).toMatchObject({
       acknowledged: true,
       acknowledged_by: String(owners[0]!.user),
     })
-    const resolved = await alpha!.request.post(`${alertPath}/resolve`, {
-      headers: { origin: frontend },
-      data: { resolutionNotes: 'Reviewed during disposable acceptance' },
-    })
+    await alpha!.getByRole('button', { name: /^Acknowledged/ }).click()
+    await alpha!.getByRole('link', { name: `View alert ${owners[0]!.alert}` }).click()
+    await expect(alpha!.getByTestId('alert-state')).toContainText('acknowledged')
+    await alpha!.getByRole('button', { name: 'Resolve', exact: true }).click()
+    await alpha!
+      .getByLabel('Resolution notes', { exact: true })
+      .fill('Reviewed during disposable acceptance')
+    const resolutionResponse = alpha!.waitForResponse(
+      (response) =>
+        response.url().endsWith(`${alertPath}/resolve`) && response.request().method() === 'POST',
+    )
+    await alpha!.getByRole('button', { name: 'Confirm resolution' }).click()
+    const resolved = await resolutionResponse
     expect(resolved.status()).toBe(200)
     expect(await resolved.json()).toMatchObject({
       resolved: true,
@@ -211,7 +224,20 @@ test('actual Java: tenant fleet, sealed sessions and account-wide revocation', a
     expect(await (await alpha!.request.get(alertPath)).json()).toMatchObject({
       acknowledged: true,
       resolved: true,
+      acknowledged_by: String(owners[0]!.user),
+      resolved_by: String(owners[0]!.user),
+      resolution_notes: 'Reviewed during disposable acceptance',
     })
+    await alpha!.reload()
+    await expect(alpha!.getByTestId('alert-state')).toContainText('resolved')
+    const attribution = alpha!
+      .getByRole('definition')
+      .filter({ hasText: new RegExp(`^${owners[0]!.user}$`) })
+    await expect(attribution).toHaveCount(2)
+    await expect(
+      alpha!.getByText('Reviewed during disposable acceptance', { exact: true }),
+    ).toBeVisible()
+    await alpha!.goto('/vehicles')
     console.log(
       'PASS real alert acknowledge/resolve, authenticated actor persistence, cross-tenant and Origin denial',
     )
@@ -287,6 +313,30 @@ test('actual Java: tenant fleet, sealed sessions and account-wide revocation', a
     const colleagueHeaders = {
       authorization: `Bearer ${(await colleagueLogin.json()).access_token as string}`,
     }
+    const colleagueAccess = await request.get(`${backend}/api/v1/users/me/access`, {
+      headers: colleagueHeaders,
+    })
+    expect(colleagueAccess.status()).toBe(200)
+    expect((await colleagueAccess.json()).permissions).not.toContain('alerts.write')
+    for (const action of ['acknowledge', 'resolve']) {
+      expect(
+        (
+          await request.post(`${backend}/alerts/${owners[0]!.alert}/${action}`, {
+            headers: colleagueHeaders,
+            data:
+              action === 'resolve'
+                ? { resolution_notes: 'A denied operator must not overwrite attribution' }
+                : {},
+          })
+        ).status(),
+      ).toBe(403)
+    }
+    const retainedAttribution = await alpha!.request.get(alertPath)
+    expect(await retainedAttribution.json()).toMatchObject({
+      acknowledged_by: String(owners[0]!.user),
+      resolved_by: String(owners[0]!.user),
+      resolution_notes: 'Reviewed during disposable acceptance',
+    })
     expect(
       (await request.get(`${backend}/api/v1/roles`, { headers: colleagueHeaders })).status(),
       'same-tenant OPERATOR lacks roles.read',

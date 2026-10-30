@@ -133,30 +133,24 @@ describe('live alert mapping and guarded transitions', () => {
     })
   })
 
-  it('fails closed without an actor or review notes', async () => {
+  it('uses the authenticated actor and fails closed without valid review notes', async () => {
     const request = vi.fn()
     const service = createLiveAlertService({ request } as unknown as GatewayClient)
     await expect(service.transition('12', 'active')).rejects.toMatchObject({ kind: 'unavailable' })
-    await expect(service.transition('12', 'acknowledged')).rejects.toMatchObject({
+    await expect(service.transition('12', 'resolved', {})).rejects.toMatchObject({
       kind: 'unavailable',
     })
-    await expect(service.transition('12', 'resolved', { actor: 'operator' })).rejects.toMatchObject(
-      {
-        kind: 'unavailable',
-      },
-    )
     await expect(
-      service.transition('12', 'resolved', { actor: 'operator', resolutionNotes: 'short' }),
+      service.transition('12', 'resolved', { resolutionNotes: 'short' }),
     ).rejects.toMatchObject({ kind: 'unavailable' })
-    await service.transition('12', 'acknowledged', { actor: 'operator' })
+    await service.transition('12', 'acknowledged')
     expect(request).toHaveBeenCalledWith(
       'POST',
       '/alerts/12/acknowledge',
       expect.anything(),
-      expect.objectContaining({ body: { acknowledgedBy: 'operator' } }),
+      expect.objectContaining({ body: {} }),
     )
     await service.transition('12', 'resolved', {
-      actor: 'operator',
       resolutionNotes: '  Reviewed the depot exit.  ',
     })
     expect(request).toHaveBeenLastCalledWith(
@@ -164,7 +158,7 @@ describe('live alert mapping and guarded transitions', () => {
       '/alerts/12/resolve',
       expect.anything(),
       expect.objectContaining({
-        body: { resolvedBy: 'operator', resolutionNotes: 'Reviewed the depot exit.' },
+        body: { resolutionNotes: 'Reviewed the depot exit.' },
       }),
     )
   })

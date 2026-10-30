@@ -2,7 +2,6 @@ import type { AlertState, FleetAlert } from '../../workspace/domain/types'
 import type { ServiceRequestOptions } from '../../fleet/services/fleet-service'
 
 export interface AlertTransitionContext {
-  actor?: string
   resolutionNotes?: string
 }
 

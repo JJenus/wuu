@@ -2106,7 +2106,7 @@ h3 {
 .alert-card-content {
   flex: 1;
 }
-.alert-card-content h3 {
+.alert-card-content h2 {
   margin-bottom: 9px;
   display: flex;
   align-items: center;
@@ -2682,7 +2682,7 @@ h3 {
   .alert-card-content {
     min-width: 200px;
   }
-  .alert-card-content h3 {
+  .alert-card-content h2 {
     flex-wrap: wrap;
     font-size: 12px;
   }

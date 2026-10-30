@@ -1,36 +1,13 @@
 <script setup lang="ts">
-import { errorMessage } from '~/features/core/domain/errors'
+import AlertResponseActions from '~/features/alerts/components/AlertResponseActions.vue'
 import { useDataSource } from '~/features/core/composables/useDataSource'
 import { useWorkspace } from '~/features/workspace/composables/useWorkspace'
-import type { AlertState } from '~/features/workspace/domain/types'
 const source = useDataSource()
-const { alerts, updateAlert, isPending, isError, error, refetch } = useWorkspace('alerts')
+const { alerts, isPending, isError, error, refetch } = useWorkspace('alerts')
 const filter = ref('active')
-const busy = ref<string | null>(null)
-const toast = useToast()
 const visible = computed(() =>
   alerts.value.filter((a) => filter.value === 'all' || a.status === filter.value),
 )
-async function change(id: string, status: AlertState) {
-  if (!source.isPreview) return
-  busy.value = id
-  try {
-    await updateAlert(id, status)
-    toast.add({
-      title: status === 'resolved' ? 'Alert resolved in preview' : 'Alert acknowledged in preview',
-      color: 'success',
-      icon: 'i-lucide-circle-check',
-    })
-  } catch (updateError) {
-    toast.add({
-      title: 'Unable to update alert',
-      description: errorMessage(updateError),
-      color: 'error',
-    })
-  } finally {
-    busy.value = null
-  }
-}
 useHead({ title: 'Alerts — Wuu' })
 </script>
 
@@ -44,6 +21,10 @@ useHead({ title: 'Alerts — Wuu' })
         source.isPreview ? 'Preview actions · Session only' : 'Live alert feed'
       }}</span></UiPageHeading
     >
+    <div v-if="isError && alerts.length" role="alert" class="info-banner">
+      <p>Alert refresh failed. Displayed records may be out of date.</p>
+      <UButton color="neutral" variant="outline" @click="refetch">Retry alert refresh</UButton>
+    </div>
     <UiAsyncState
       :pending="isPending && !alerts.length"
       :error="isError && !alerts.length ? error : null"
@@ -69,7 +50,7 @@ useHead({ title: 'Alerts — Wuu' })
         <article v-for="alert in visible" :key="alert.id" class="panel alert-card">
           <span class="alert-icon" :class="alert.severity"><UIcon :name="alert.icon" /></span>
           <div class="alert-card-content">
-            <h3>{{ alert.title }}<UiStatusBadge :status="alert.severity" /></h3>
+            <h2>{{ alert.title }}<UiStatusBadge :status="alert.severity" /></h2>
             <p>{{ alert.description }}</p>
             <div class="alert-meta">
               <NuxtLink
@@ -92,31 +73,9 @@ useHead({ title: 'Alerts — Wuu' })
               variant="ghost"
               size="sm"
               icon="i-lucide-arrow-up-right"
-              >Details</UButton
+              >View alert</UButton
             >
-            <template v-if="source.isPreview">
-              <UButton
-                v-if="alert.status === 'active'"
-                color="neutral"
-                variant="outline"
-                size="sm"
-                :loading="busy === alert.id"
-                @click="change(alert.id, 'acknowledged')"
-                >Acknowledge</UButton
-              ><UButton
-                v-if="alert.status !== 'resolved'"
-                color="primary"
-                variant="soft"
-                size="sm"
-                icon="i-lucide-check"
-                :loading="busy === alert.id"
-                @click="change(alert.id, 'resolved')"
-                >Resolve</UButton
-              >
-            </template>
-            <span v-else class="muted text-xs"
-              >Live status changes are not enabled in this workspace.</span
-            >
+            <AlertResponseActions :id="alert.id" :status="alert.status" />
           </div>
         </article>
         <UiEmptyState
