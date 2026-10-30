@@ -57,7 +57,7 @@ class AutoseekerSocketIntegrationTest {
             gateway.start();
             try {
                 var bound = (DisposableServer) ReflectionTestUtils.getField(gateway, "server");
-                assertThat(bound.address().getAddress().isLoopbackAddress()).isTrue();
+                assertThat(((java.net.InetSocketAddress) bound.address()).getAddress().isLoopbackAddress()).isTrue();
                 int port = bound.port();
                 try (var socket = new Socket("127.0.0.1", port)) {
                     // when: split one packet, then invalid + valid packets in a single write.
