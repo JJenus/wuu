@@ -1,5 +1,25 @@
 # Feature matrix
 
+## Current planning/acceptance overlay — 2026-10-30
+
+Pinned execution order and full-start acceptance:
+[PRODUCTION_DELIVERY_PLAN.md](PRODUCTION_DELIVERY_PLAN.md). Exhaustive requirements
+below and in requirements-inventory.md remain in scope; historical rows are not
+fresh status claims. This overlay supersedes outdated no-frontend/no-role-consumer/
+no-refresh statements, without marking entire feature families verified.
+
+- Independent frontend exists; fleet/detail reads, effective permissions, role
+  inspection and pending subscription enrollment/cancel were actual-Java tested.
+- Single-process renewal was actual-Java tested; distributed/restart-transparent
+  renewal is unfinished. Restart currently requires sign-in, deliberately.
+- Backend authenticated alert actor binding published; strict BFF is contract
+  tested. UI is disabled; actual-Java alert mutation acceptance is pending Docker.
+- Vehicle/tracker setup, geofence editing/rules, team, live tracking/commands,
+  full paid subscription/entitlement and notification delivery retain their open
+  requirements. No scope reduction is implied by the usable read-only subset.
+- No batch may become VERIFIED until its detailed exit criteria and **FULL_START**
+  pass after the feature change. Current overall STATUS=IN_PROGRESS.
+
 ## Latest continuation — 2026-10-29
 
 Tenant-scoped read-only role catalog `GET /api/v1/roles` now requires the

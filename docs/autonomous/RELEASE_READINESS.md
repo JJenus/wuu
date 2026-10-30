@@ -1,22 +1,31 @@
 # Release readiness
 
-**NOT RELEASE_READY — IN_PROGRESS**
+Updated2026-10-30. **STATUS=IN_PROGRESS — NOT RELEASE_READY.**
+Authority: workspace AUTONOMOUS_DIRECTIVE.md§17. Pinned detailed plan:
+[PRODUCTION_DELIVERY_PLAN.md](PRODUCTION_DELIVERY_PLAN.md). No deployment authority.
 
-Latest: 2026-10-28. Receipts and RED/GREEN history: TEST_REPORT.md. No final readiness inferred from local tests.
-
-| Gate | Current evidence |
+| Required gate | Current state / closing evidence required |
 |---|---|
-| Feature inventory accepted | Source/design inventory recorded; owner scope decisions unresolved |
-| Business/device build | Clean backend653/device37 verify PASSED; both executable JARs built; current executable socket pipeline smoke passed |
-| Unit/regression tests | Full653/device37 passed, zero failures/errors/skips; real notification retry/DLQ and ambiguous core send/redelivery tested; recipient functionality remains blocked |
-| PostgreSQL migrations/integration | Real health, migrations, authenticated tenant CRUD/conflicts/races, trips/CSV passed focused tests; query/filter/ordering/404 follow-up8 passed |
-| Real telemetry/command/notification workflows | Synthetic TCP packet through independent executable gateway/backend→Artemis→tracker-linked PostgreSQL location→rule→alert→scheduled outbox publication/HTTP tenant isolation PASSED. Actual notification delivery and remote command/ACK NOT_VERIFIED; nondurable topic/downstream idempotency gaps OPEN |
-| Frontend/browser essential workflows | No product frontend present; approved UX/scope remains unresolved |
-| Independent security/architecture review | Audits plus bounded outbox and rule-cache/fetch reviews completed; reviewer-requested concurrent relay/multi-vehicle tests passed. Later earlier-query/error mapping changes only directly reviewed; no final whole-release audit |
-| External provider callbacks/delivery | NOT_VERIFIED; SECURITY.md documents denied callbacks |
-| Deployment instructions/package smoke | Device executable lifecycle passed; actual backend PostgreSQL-profile startup/V1–V4 migration/dependency health/security-denial/SIGTERM smoke passed. Production deployment NOT_VERIFIED |
-| Fresh independent final audit | Not started |
+| Complete application starts after each feature update | NOT_VERIFIED for current complete stack; local Docker now running. FULL_START requires PostgreSQL, Redis, Artemis, backend, independent device gateway and production frontend plus browser/restart checks |
+| Required feature inventory | Retained in FEATURE_MATRIX/requirements-inventory; only ride-hailing deferred. Broad live CRUD/admin/tracking/payment/notification requirements are unfinished, not excluded |
+| Core usable workflows | Read-only fleet/details/auth/access/roles and pending subscriptions were Java-tested; alert gateway contract-tested, UI disabled; write workflows remain PARTIAL |
+| Build and regression | Historical backend735/device91 full gate passed; reconstructed backend actor fix32 focused passed. Current frontend136 units/33 auth browsers/types/build passed. Logs lost at restart are labeled in session/slice records; no aggregate count establishes release acceptance |
+| Database clean/upgrade migrations and restore | Historical vendor integration passed; final-release clean/upgrade/backup-restore evidence required; both histories preserved |
+| Security/tenant boundaries | Scoped audits and database-authoritative permissions exist; final whole-product audit, Host/TLS/rate-limit/CSP/secret configuration and unresolved findings still require closure |
+| Sessions and production topology | One BFF process only; restart requires sign-in. Durable multi-worker coordination/recovery is not implemented |
+| Device/telemetry/commands | Independent packaging and synthetic chain historically verified; framing/connection/backpressure/command ACK and physical hardware acceptance remain open |
+| Notifications/providers | Approved recipients/opt-in/provider credentials and real initial dispatch/durable delivery/callback evidence BLOCKED or unfinished; no invented recipients or successful sends |
+| Configurable subscriptions | Catalog/pending/cancel/non-paid grant/usage ledger implemented; automatic approved metering/entitlement and paid lifecycle/provider evidence incomplete; no simulated paid success |
+| CI, operations and reliability | Hosted release gates, approved map service, observability/load/restart/restore/rollback and validated deployment configuration pending |
+| Every essential page/control | Actual browser inventory and workflows must pass; disabled/decorative required actions cannot count as complete |
+| Independent final audit | NOT_STARTED; must reconstruct original requirements and find no confirmed unresolved release blocker |
 
-Production credentials, live device security, provider verification and deployments must not be fabricated or inferred from local mocks.
+Local acceptance and production verification are separate. Missing credentials,
+provider decisions or hardware acceptance remain blockers, not implicit scope
+exclusions. Prepare deployable artifacts/configuration autonomously, but deploy,
+send real external messages or move real money only with explicit authorization.
 
-Measured raw whole-bundle coverage: backend68.85%line/53.84%branch; device/shared37.11%line/19.34%branch. BELOW_TARGET. Missing notification recipient policy fails explicitly, with original event retained after actual broker retries; this is safety, not delivered notification capability. Core retry identity is verified, not full DB/JMS commit atomicity. A passing local test gate alone cannot close notification policy, device security, durable messaging, command transport, or product scope gates. Delegation: maximum two active subagents, direct work by default (D007). User authorized accumulated source commit/push, not deployment.
+Release decision requires final recorded artifacts, actual-process FULL_START and
+critical end-to-end evidence, passing relevant tests/migrations, no critical/high
+confirmed security findings or release defects, accurate docs and an independent
+adversarial sign-off. Only then set RELEASE_READY; actual deployment is separate.

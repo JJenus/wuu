@@ -1,5 +1,29 @@
 # Persistent task queue
 
+## PINNED EXECUTION QUEUE — 2026-10-30
+
+Follow [PRODUCTION_DELIVERY_PLAN.md](PRODUCTION_DELIVERY_PLAN.md), the current
+detailed version of MASTER_PLAN.md. Older dated lanes below are historical;
+they do not override this queue. Authority: workspace AUTONOMOUS_DIRECTIVE.md.
+
+| Order | Batch | Status | User-visible acceptance / next work |
+|---|---|---|---|
+| NOW | B0 Full startup/recovery | TESTING | Docker restored; run pending real-Java alerts; implement/prove cold start/restart complete stack including independent device and frontend |
+| NEXT | B1 Usable alerts | PARTIAL | Protected backend/BFF exist; wire permission-aware UI/notes/cache updates and prove real persistence |
+| 2 | B2 Vehicle/tracker setup | PARTIAL | Enable safe create/provision/assignment and verify duplicate/tenant protection end-to-end |
+| 3 | B3 Geofences/rules | PARTIAL | Repair lossless geometry/assignment contract, wire editors/rules, verify actual evaluation |
+| 4 | B4 Team/tenant administration | PARTIAL | Current APIs to usable member/role workflows, no fabricated invitations |
+| 5 | B5 Tracking/trips/device commands | PARTIAL | Independent-process telemetry/history/reconnect and safe command transport/ACK |
+| 6 | B6 Complete subscriptions | PARTIAL | Preserve catalog/pending/ledger; deliver approved usage/entitlement and genuine paid lifecycle; external payment policy/credentials BLOCKED |
+| 7 | B7 Notifications/durability | PARTIAL | Inbox/preferences, approved recipients/providers, initial dispatch/replay/restart; external policy/credentials BLOCKED |
+| 8 | B8 Production operations | PARTIAL | Durable shared sessions, CI/config/TLS, migration/restore/observability/load/security |
+| FINAL | B9 Independent readiness acceptance | NOT_STARTED | Every required inventory feature verified or explicitly excluded by owner, no release blockers, final full start and fresh audit |
+
+Every feature update must pass **FULL_START**, not just component tests. Exit
+criteria/dependencies/rollback are in the detailed plan. Do not repeatedly rebuild
+completed product slices; reverify when code/config changes or evidence is stale.
+Do not let external provider/payment/hardware blockers stall safe core workflows.
+
 Delegation budget: at most **two active subagents**, direct work by default; see D007. Last fixture/outbox agents hit usage limits; coordinator resumes directly, without automatic respawn.
 
 ## Superseding scope/work — 2026-10-29

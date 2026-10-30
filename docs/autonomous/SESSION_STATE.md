@@ -1,5 +1,31 @@
 # Recoverable execution state
 
+## PINNED CURRENT EXECUTION PLAN — 2026-10-30
+
+- Owner requested clear production-readiness plan, existing detail pointers and
+  complete startup after every feature addition/update. Authority remains workspace
+  AUTONOMOUS_DIRECTIVE.md. Entry point workspace DELIVERY_PLAN.md; canonical
+  detailed version `PRODUCTION_DELIVERY_PLAN.md`; short MASTER_PLAN/active
+  TASK_QUEUE/FEATURE_MATRIX overlay and RELEASE_READINESS now point to it.
+- B0 full startup/recovery is current; B1 alerts UI is next. Batches B2..B9 cover
+  vehicle/tracker, geofences/rules, team, live tracking/device, subscriptions,
+  notifications, production operations/shared sessions and final independent audit.
+- Independent plan review identified six gaps and confirmed all addressed:
+  inventory crosswalk/policy edges, full subscription obligations, final revision
+  FULL_START reruns after review fixes, device threat model, common screen UX and
+  authorization scope. This is plan acceptance, not runtime acceptance.
+- `sudo -n systemctl start docker` initially exceeded60s client timeout, but
+  subsequent bounded systemctl status confirms docker/socket/containerd RUNNING;
+  daemon initialization finished2026-10-30 12:34:56 local time. Do not keep
+  classifying missing socket as an active blocker. No shared containers removed.
+- Pending actual-Java alert runner resumed; receipt `/tmp/opencode/plan-b0-java.log`.
+  Do not mark PASS until completion. Existing Java harness omits independent device
+  startup, so alone cannot satisfy the new FULL_START gate. Next B0 implementation
+  joins existing owned harnesses with durable final-revision PASS/FAIL summary,
+  full process readiness, browser workflow and changed-service restart.
+- Preserve all unrelated frontend detail/list edits and active sidie checkout.
+  STATUS=IN_PROGRESS; production deployment remains unauthorized.
+
 ## Active continuation — alert gateway accepted locally, Java blocked
 
 - Backend actor fix published on main `77518dd`; frontend narrow gateway and

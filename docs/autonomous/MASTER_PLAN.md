@@ -1,5 +1,27 @@
 # Autonomous delivery plan
 
+## PINNED CURRENT ROADMAP — 2026-10-30
+
+Authority: workspace `AUTONOMOUS_DIRECTIVE.md`; target production readiness,
+not merely passing test suites. **Current detailed version:**
+[PRODUCTION_DELIVERY_PLAN.md](PRODUCTION_DELIVERY_PLAN.md). Workspace entry point:
+`DELIVERY_PLAN.md`. The older plan below is historical context, not the queue.
+
+Execution order: B0 complete startup/recovery → B1 usable alerts → B2 vehicle/
+tracker setup → B3 geofences/rules → B4 team → B5 tracking/device workflows →
+B6 subscriptions → B7 notifications → B8 production operations/shared sessions →
+B9 independent readiness acceptance. See detailed dependency edges for safe
+parallel work; maximum two agents. No intended inventory feature is excluded by
+this grouping, and only ride-hailing is deferred.
+
+After every feature addition/update, the detailed plan's **FULL_START** gate is
+mandatory: real database/cache/broker/backend/independent-device/frontend startup,
+changed browser workflow, persistence/denial checks and service restart. A gate
+failure blocks acceptance, not unrelated safe work. Never call local/mock evidence
+production verification. Current task: B0 Docker diagnosis and startup proof.
+
+## Historical planning context
+
 ## Authority and baseline
 - Mission: deliver evidence-backed readiness, not assume existing claims are true.
 - Started 2026-10-26; base commit `551db79`. Extensive pre-existing uncommitted migration is preserved. Do not stage/commit it as autonomous work.

@@ -1,5 +1,23 @@
 # Decision log
 
+## D008 — Outcome batches and mandatory full startup after updates (2026-10-30)
+
+Owner explicitly requested a pinned clear plan targeting production readiness,
+following AUTONOMOUS_DIRECTIVE.md, and complete startup after feature changes.
+Adopt PRODUCTION_DELIVERY_PLAN.md as canonical detailed plan, MASTER_PLAN as short
+map, TASK_QUEUE as active selector and workspace DELIVERY_PLAN.md/frontend
+docs/delivery-plan.md as pointers. Preserve exhaustive inventory and old evidence;
+do not restart implementation or silently reduce scope to delivered read-only UI.
+
+Accept each coherent feature batch only after FULL_START against its final
+backend/device/frontend/config revision tuple. Include independent device startup,
+actual browser mutation/persistence/denials, restart and owned cleanup. Review
+corrections invalidate affected evidence. B0 must supply one fail-closed gate and
+durable sanitized receipt; until then component gates are partial evidence only.
+Only ride-hailing is deferred. Unspecified financial/provider/privacy/device rules
+stay explicit blocking edges; continue independent work without fabricated success.
+Source push authorization does not authorize deployment or remote infrastructure.
+
 ## 2026-10-28 source publication authorization
 Owner explicitly requested commit/push, then confirmed **Commit all source work** after being told the verified fixes depend on the pre-existing consolidation. Include that coherent consolidation plus accumulated implementation, tests and documentation; exclude generated artifacts and secrets; push normally to origin/main. This supersedes earlier no-commit/no-push constraints only. It does not authorize deployment, release certification, live provider sends, device provisioning assumptions or financial activity. Preserve all existing source work; do not rewrite remote history. Publication checks include full gate backend644/device37, executable socket smoke, staged-file/credential-pattern review and whitespace checks. Full release status remains IN_PROGRESS.
 
