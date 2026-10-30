@@ -47,6 +47,9 @@ public class ReactiveTcpServer {
     @Value("${tracking.tcp.server.port:8888}")
     private int tcpPort;
 
+    @Value("${tracking.tcp.server.host:0.0.0.0}")
+    private String tcpHost = "0.0.0.0";
+
     @Value("${tracking.tcp.server.message-delimiter:#}")
     private String messageDelimiter;
 
@@ -79,6 +82,7 @@ public class ReactiveTcpServer {
 
         try {
             TcpServer tcp = TcpServer.create()
+                    .host(tcpHost)
                     .port(tcpPort)
                     .option(ChannelOption.SO_BACKLOG, 100)
                     .option(ChannelOption.SO_REUSEADDR, true)
