@@ -1,5 +1,10 @@
 # Wuu
 
+**Pinned delivery roadmap:** [docs/delivery-plan.md](docs/delivery-plan.md), with
+the canonical detailed production plan linked there. Every feature update must
+pass full-stack startup and its real workflow before acceptance; local test
+success alone is not production readiness.
+
 **Your fleet, in focus.** A responsive, map-led fleet workspace built with Nuxt 4, Vue 3, TypeScript, and Nuxt UI v4.
 
 Wuu runs in two explicit data modes:

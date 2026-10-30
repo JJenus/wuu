@@ -1,5 +1,16 @@
 # Progress and next slice
 
+## PINNED ROADMAP — 2026-10-30
+
+Follow [delivery-plan.md](delivery-plan.md), which points to the canonical current
+detailed production plan and existing backend inventory/queue. Every feature
+addition/update must pass complete-stack FULL_START and its actual workflow,
+not just tests/build. Immediate batch B0: local Docker is now restored; pending
+Java alert acceptance and complete app cold-start/restart. Next B1: usable alerts,
+then vehicle/tracker, geofences/rules, team, tracking/device, subscription and
+notification completion, production operations and final independent audit.
+Historical slice updates below are evidence, not a replacement execution order.
+
 ## Alert gateway boundary — 2026-10-30
 
 Backend `77518dd` fixes authenticated alert audit actors. Frontend `ebe1e80`
