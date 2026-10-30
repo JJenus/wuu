@@ -100,8 +100,11 @@ Existing commands (run in their owning repositories):
 - Real Java BFF browser harness: `WUU_JAVA_JAR=<absolute-current-jar> TMPDIR=/tmp/opencode node tools/verify-java-integration.mjs`.
   This harness alone currently does **not** satisfy independent device startup;
   extend existing owned lifecycle tooling rather than invent parallel launchers.
-- Device/telemetry process scripts under backend `tools/`: inspect their exact
-  ownership/setup requirements before execution. Do not invent command flags.
+- Device lifecycle/socket tests under `device-comm/src/test` and historical
+  process receipts: locate retained runnable tooling before reusing it. Backend
+  `tools/` currently contains `verify-release.sh`, not a retained unified
+  device/telemetry launcher. B0 must add the missing orchestration; do not cite
+  erased temporary smoke scripts as executable commands.
 
 ## Ordered delivery batches
 

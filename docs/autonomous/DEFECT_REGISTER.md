@@ -1,5 +1,22 @@
 # Defect register
 
+## Current startup acceptance findings — 2026-10-30
+
+- **OPS-FULL-START (HIGH, OPEN):** no retained single invocation currently proves
+  database/cache/broker/backend/independent-device/frontend startup and restart
+  against one final revision tuple. Existing Java/Nitro harness omits the device
+  process. Owner requires this after every feature update; B0 owns implementation
+  and actual acceptance. See PRODUCTION_DELIVERY_PLAN.md FULL_START.
+- **ALERT-JSON (MEDIUM, TESTING):** after restoring Docker, actual-Java acceptance
+  reached healthy backend/PostgreSQL/Redis/Artemis then alert fixture POST returned
+  400: production Jackson uses SNAKE_CASE, unlike the contract fixture. Production
+  mapping and fixture correction under fresh unit/Java verification; do not accept
+  UI or whole alert workflow from earlier mocked success. Receipts
+  `/tmp/opencode/plan-b0-java.log`, private `/tmp/opencode/wuu-java-KrmppI/browser.log`.
+- **OPS-DOCKER-RESTART (RESOLVED locally):** Docker socket absence after restart
+  repaired by starting local docker.service; daemon/socket/containerd active.
+  This establishes runtime availability, not complete application acceptance.
+
 ## Latest superseding disposition (2026-10-29)
 - SUB-LEDGER: V6 durable explicit non-paid grants and administrator usage recording now pass focused61/PostgreSQL2 and full backend714/device91. Receipt/balance commit atomically under a shared enrollment row lock; reconstruction/future/expiry and rollback-after-flush tested. This supersedes no-durable-grant/usage statements below only; paid activation, real business metering and subscription UI remain OPEN.
 - SUB-ENROLL: authenticated V5 catalog/enrollment is durable and HTTP-verified (7 cases), with owner/key uniqueness in the database and exact-price storage guards. It creates only `PENDING` rows with zero units; grants/consumption, entitlement checks, payment, renewal and dunning remain OPEN. Do not describe enrollment as a subscription sale or access grant. See subscription-enrollment-slice.md.
