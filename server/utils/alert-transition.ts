@@ -9,10 +9,11 @@ export function alertTransitionAllowed(method: string, target: string): boolean 
 
 export function alertTransitionBody(target: string, body: unknown): Record<string, unknown> {
   if (!alertTransitionAllowed('POST', target)) throw new Error('Unknown alert transition')
-  return target.endsWith('/acknowledge')
-    ? z.object({}).strict().parse(body)
-    : z
-        .object({ resolutionNotes: z.string().trim().min(10).max(1000) })
-        .strict()
-        .parse(body)
+  if (target.endsWith('/acknowledge')) return z.object({}).strict().parse(body)
+  const input = z
+    .object({ resolutionNotes: z.string().trim().min(10).max(1000) })
+    .strict()
+    .parse(body)
+  // Production Java uses Jackson SNAKE_CASE; keep the browser contract local.
+  return { resolution_notes: input.resolutionNotes }
 }

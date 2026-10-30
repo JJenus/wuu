@@ -22,7 +22,7 @@ test('alert gateway admits exact transitions without caller-selected actor', asy
     data: {},
   })
   expect(acknowledge.status()).toBe(200)
-  expect(await acknowledge.json()).toMatchObject({ acknowledged: true, acknowledgedBy: '7' })
+  expect(await acknowledge.json()).toMatchObject({ acknowledged: true, acknowledged_by: '7' })
   const resolved = await request.post('/api/_wuu/alerts/1/resolve', {
     headers: { origin },
     data: { resolutionNotes: '  Reviewed and confirmed safe  ' },
@@ -30,8 +30,8 @@ test('alert gateway admits exact transitions without caller-selected actor', asy
   expect(resolved.status()).toBe(200)
   expect(await resolved.json()).toMatchObject({
     resolved: true,
-    resolvedBy: '7',
-    resolutionNotes: 'Reviewed and confirmed safe',
+    resolved_by: '7',
+    resolution_notes: 'Reviewed and confirmed safe',
   })
   for (const action of ['acknowledge', 'resolve']) {
     const path = `/api/_wuu/alerts/1/${action}`

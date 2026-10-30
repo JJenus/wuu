@@ -99,12 +99,12 @@ createServer(async (request, response) => {
     if (!path.startsWith('/alerts/1/')) return send(404, { code: 'NOT_FOUND' })
     const input = JSON.parse(body)
     return send(200, {
-      alertId: 1,
+      alert_id: 1,
       acknowledged: true,
-      acknowledgedBy: '7',
+      acknowledged_by: '7',
       resolved: path.endsWith('/resolve'),
-      resolvedBy: path.endsWith('/resolve') ? '7' : null,
-      resolutionNotes: input.resolutionNotes ?? null,
+      resolved_by: path.endsWith('/resolve') ? '7' : null,
+      resolution_notes: input.resolution_notes ?? null,
     })
   }
   if (path.startsWith('/api/v1/subscriptions')) {

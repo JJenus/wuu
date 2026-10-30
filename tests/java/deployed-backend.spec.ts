@@ -50,15 +50,15 @@ test('actual Java: tenant fleet, sealed sessions and account-wide revocation', a
     const alert = await request.post(`${backend}/alerts`, {
       headers,
       data: {
-        vehicleId: owner.vehicle_id,
-        trackerId: `acceptance-${run}`,
-        alertType: 'OVERSPEED',
+        vehicle_id: owner.vehicle_id,
+        tracker_id: `acceptance-${run}`,
+        alert_type: 'OVERSPEED',
         severity: 'WARNING',
         message: 'Disposable acceptance alert',
       },
     })
     expect(alert.status(), 'API creates tenant-scoped acceptance alert').toBe(201)
-    owner.alert = (await alert.json()).alertId
+    owner.alert = (await alert.json()).alert_id
   }
   expect(owners[0]!.organization).not.toBe(owners[1]!.organization)
   const catalogFor = (owner: (typeof owners)[number], override?: number) =>
@@ -196,7 +196,7 @@ test('actual Java: tenant fleet, sealed sessions and account-wide revocation', a
     expect(acknowledged.status()).toBe(200)
     expect(await acknowledged.json()).toMatchObject({
       acknowledged: true,
-      acknowledgedBy: String(owners[0]!.user),
+      acknowledged_by: String(owners[0]!.user),
     })
     const resolved = await alpha!.request.post(`${alertPath}/resolve`, {
       headers: { origin: frontend },
@@ -205,8 +205,8 @@ test('actual Java: tenant fleet, sealed sessions and account-wide revocation', a
     expect(resolved.status()).toBe(200)
     expect(await resolved.json()).toMatchObject({
       resolved: true,
-      resolvedBy: String(owners[0]!.user),
-      resolutionNotes: 'Reviewed during disposable acceptance',
+      resolved_by: String(owners[0]!.user),
+      resolution_notes: 'Reviewed during disposable acceptance',
     })
     expect(await (await alpha!.request.get(alertPath)).json()).toMatchObject({
       acknowledged: true,
