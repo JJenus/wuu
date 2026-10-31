@@ -1,6 +1,7 @@
 package com.surf.tracker.alerting.application.service;
 
 import com.surf.tracker.alerting.domain.entity.Geofence;
+import com.surf.tracker.alerting.exception.AlertException;
 import com.surf.tracker.alerting.infrastructure.cache.GeofenceCacheService;
 import com.surf.tracker.alerting.infrastructure.repository.GeofenceRepository;
 import com.surf.tracker.shared.security.TenantContext;
@@ -74,8 +75,25 @@ class GeofenceServiceTest {
         when(geofenceRepository.findByIdAndOrganizationId(1L, ORG_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.getGeofenceById(1L))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOfSatisfying(AlertException.class,
+                        error -> assertThat(error.getErrorCode()).isEqualTo("ALERT_GEOFENCE_NOT_FOUND"))
                 .hasMessageContaining("not found");
+    }
+
+    @Test
+    void getGeofenceById_foreignCachedRecord_hasSameNotFoundContract() {
+        // given: a foreign cached candidate must not bypass the tenant-scoped database lookup.
+        Geofence foreign = new Geofence();
+        foreign.setGeofenceId(1L);
+        foreign.setOrganizationId(OTHER_ORG_ID);
+        when(geofenceCacheService.getGeofenceById(1L)).thenReturn(Optional.of(foreign));
+        when(geofenceRepository.findByIdAndOrganizationId(1L, ORG_ID)).thenReturn(Optional.empty());
+
+        // when / then: missing and foreign IDs share the domain error mapped to HTTP404.
+        assertThatThrownBy(() -> service.getGeofenceById(1L))
+                .isInstanceOfSatisfying(AlertException.class,
+                        error -> assertThat(error.getErrorCode()).isEqualTo("ALERT_GEOFENCE_NOT_FOUND"));
+        verify(geofenceRepository).findByIdAndOrganizationId(1L, ORG_ID);
     }
 
     @Test
