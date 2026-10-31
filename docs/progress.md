@@ -1,5 +1,17 @@
 # Progress and next slice
 
+## INT-00 acceptance — 2026-10-31
+
+Accepted clean runtime tuple frontend3c8eee9/backend-device451a083. FULL_START
+all8 stages PASS2026-10-31T16:36:43.324Z; real Java cold/restart browser workflows,
+alert actors/notes, persistence and isolation pass. Missing/foreign geofence GET
+now returns404 after genuine runtime RED; correction independently reviewed.
+Preview31/auth40/units144/backend646/device91/types/build/boundaries PASS.
+Detailed provenance in backend docs/autonomous/handoffs/INT-00.md and frontend
+docs/verification.md. Pending checkpoints below are historical. No demo remains
+running after owned cleanup. Session work is eligible; feature UI tasks still
+require their domain-contract acceptance. Production NOT_READY.
+
 ## INT-00 baseline reconciliation — 2026-10-31
 
 Owner/startup coordination now follows workspace DELIVERY_PLAN.md and backend

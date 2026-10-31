@@ -442,6 +442,17 @@ Accuracy 4/5: real tile loading and interaction tests pass; non-Chromium/device 
 - Read-only backend DTO recheck and provider limitations: `maps-integration.md`. No backend edits, new dependencies, external map traffic or live API connections. Illustrated positions are not GPS. Geographic rendering, global geocoding, secure transport and subscription handling remain unimplemented.
 # INT-00 — current baseline verification (2026-10-31)
 
+**Final runtime acceptance PASS** at2026-10-31T16:36:43.324Z against clean stable
+frontend3c8eee9/backend-device451a083. This supersedes pending entries in the
+checkpoint below. All eight FULL_START stages passed, including actual Java
+cold/restart browsers, persistence and owned cleanup. Preview31/boundaries PASS;
+backend646/device91 PASS. Raw private logs copied into workspace
+`.coordination/evidence/INT-00/full-start2-private/`; sanitized receipt in
+`startup-receipt/last-startup.json`. Backend handoffs/INT-00.md contains full hashes.
+Real Java also exposed missing/foreign geofence GET400: backend RED7270707 and
+fix451a083 now prove foreign API/page404 with no tenant-cache bypass. Independent
+scoped source review approved. No whole-product or deployment acceptance.
+
 Isolated integration checkout; source changes are not edits to the original
 dirty frontend. Initial transfer patch SHA256
 `34b8dd5742d6c77b60a54a477dbf21dc6a9f6097b722aff8879544b49c289118`.
