@@ -1,5 +1,17 @@
 # Progress and next slice
 
+## GEO-01 integration — 2026-10-31 (not accepted yet)
+
+Complete-association read adapter now preserves backend `vehicle_ids` instead of
+only its legacy first value, including explicit unlink-all and unresolved detail
+states. Regression REDd106018 -> correction8e182b7;145 units/typecheck PASS,
+selected coverage94.74%line/86.08%branch/95.15%function. Auth tests and actual-Java
+fixture extend complete membership/persisted geometry/invalid/foreign rollback
+coverage; they await runtime acceptance. Independent frozen source review approved
+backend02671c1/frontend8e182b7 with no substantive medium/high findings, source-only.
+No new editor, geofence BFF mutation or live creation control is enabled. GEO-02
+remains dependent on accepted GEO-01 contract, not this intermediate checkpoint.
+
 ## INT-00 acceptance — 2026-10-31
 
 Accepted clean runtime tuple frontend3c8eee9/backend-device451a083. FULL_START

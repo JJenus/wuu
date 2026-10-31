@@ -1,5 +1,16 @@
 # Backend and live adapter contracts
 
+## GEO-01 complete association reads — 2026-10-31 (acceptance pending)
+
+Backend geofence responses now retain complete sorted `vehicle_ids`; the legacy
+singular `vehicle_id` remains for compatibility. The frontend DTO normalizes this
+to `vehicleIds` and uses the array authoritatively, including an explicit empty
+array. Only an absent array falls back to the singular field. Backend geometry/
+association update tests and actor attribution have scoped RED/GREEN evidence;
+see backend `docs/autonomous/handoffs/GEO-01.md`. Frontend145 units/types pass;
+combined final browser/FULL_START remains pending. Geofence editor/BFF writes
+remain disabled; accepting a backend contract does not enable a UI workflow.
+
 ## Individual alert transition boundary — 2026-10-30
 
 Actual-Java follow-up passed after Docker restoration and production naming
