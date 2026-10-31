@@ -4,6 +4,7 @@ import { originIsSafe, upstreamPath, subscriptionRequestAllowed } from '../../ut
 import { assertSameOrigin, currentSession, ensureFreshSession } from '../../utils/wuu-session'
 import { z } from 'zod'
 import { alertTransitionAllowed, alertTransitionBody } from '../../utils/alert-transition'
+import { geofenceWriteAllowed, geofenceWriteBody } from '../../utils/geofence-write'
 
 const methods = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])
 
@@ -37,11 +38,12 @@ export default defineEventHandler(async (event) => {
   const target = upstreamPath(getRouterParam(event, 'path'))
   const subscription = target?.startsWith('/api/v1/subscriptions') ?? false
   const alertTransition = !!target && alertTransitionAllowed(method, target)
+  const geofenceWrite = !!target && geofenceWriteAllowed(method, target)
   if (
     !methods.has(method) ||
     (subscription
       ? !subscriptionRequestAllowed(method, target!)
-      : method !== 'GET' && !alertTransition)
+      : method !== 'GET' && !alertTransition && !geofenceWrite)
   )
     return jsonError(event, 405, 'This request method is not allowed.', requestId)
 
@@ -49,8 +51,8 @@ export default defineEventHandler(async (event) => {
   if (method !== 'GET') assertSameOrigin(event)
 
   const query = getQuery(event)
-  if (alertTransition && Object.keys(query).length)
-    return jsonError(event, 400, 'Alert transitions do not accept query parameters.', requestId)
+  if ((alertTransition || geofenceWrite) && Object.keys(query).length)
+    return jsonError(event, 400, 'This mutation does not accept query parameters.', requestId)
   const params = new URLSearchParams()
   for (const [key, value] of Object.entries(query)) {
     if (Array.isArray(value)) {
@@ -82,7 +84,7 @@ export default defineEventHandler(async (event) => {
     for await (const chunk of event.node.req.iterator({ destroyOnReturn: false })) {
       const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
       size += bytes.length
-      if (size > 4096) {
+      if (size > (geofenceWrite ? 16384 : 4096)) {
         event.node.req.resume()
         return jsonError(event, 413, 'Request body is too large.', requestId)
       }
@@ -106,13 +108,21 @@ export default defineEventHandler(async (event) => {
           : z.object({}).strict()
       const parsed = JSON.parse(body || '{}')
       body = JSON.stringify(
-        alertTransition ? alertTransitionBody(target, parsed) : schema.parse(parsed),
+        alertTransition
+          ? alertTransitionBody(target, parsed)
+          : geofenceWrite
+            ? geofenceWriteBody(target, parsed)
+            : schema.parse(parsed),
       )
     } catch {
       return jsonError(
         event,
         400,
-        alertTransition ? 'Invalid alert transition request.' : 'Invalid subscription request.',
+        alertTransition
+          ? 'Invalid alert transition request.'
+          : geofenceWrite
+            ? 'Invalid geofence edit request.'
+            : 'Invalid subscription request.',
         requestId,
       )
     }
