@@ -4,6 +4,22 @@ import { geofenceWriteAllowed, geofenceWriteBody } from '../../server/utils/geof
 const base = '/alerts/geofences'
 
 describe('strict geofence write gateway', () => {
+  it('admits only collection POST with complete geometry and explicit associations', () => {
+    expect(geofenceWriteAllowed('POST', base)).toBe(true)
+    expect(geofenceWriteAllowed('PUT', base)).toBe(false)
+    const body = { name: 'Depot', description: 'Complete creation', active: true, vehicleIds: [],
+      shapeType: 'CIRCLE', centerLatitude: 51, centerLongitude: 0, radiusMeters: 100 }
+    expect(geofenceWriteBody(base, body)).toEqual({
+      name: 'Depot', description: 'Complete creation', active: true, vehicle_ids: [],
+      shape_type: 'CIRCLE', center_latitude: 51, center_longitude: 0, radius_meters: 100,
+    })
+    for (const missing of ['name', 'active', 'vehicleIds', 'shapeType', 'centerLatitude', 'radiusMeters']) {
+      const incomplete = { ...body } as Record<string, unknown>
+      delete incomplete[missing]
+      expect(() => geofenceWriteBody(base, incomplete)).toThrow()
+    }
+    expect(() => geofenceWriteBody(base, { ...body, shapeType: 'POLYGON', points: [] })).toThrow()
+  })
   it('only permits individual positive Java-long PUT targets', () => {
     expect(geofenceWriteAllowed('PUT', `${base}/9`)).toBe(true)
     expect(geofenceWriteAllowed('PUT', `${base}/9223372036854775807`)).toBe(true)
