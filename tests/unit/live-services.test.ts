@@ -17,6 +17,7 @@ import { createLivePreferencesService } from '../../app/features/settings/api/li
 import { createLiveTripService } from '../../app/features/trips/api/live-trip-service'
 import { createServices } from '../../app/features/core/services/create-services'
 import type { Geometry, GeofenceDraft } from '../../app/features/geofences/domain/geofence'
+import { geofenceDtoSchema } from '../../app/features/geofences/api/contracts'
 
 function page(content: unknown[], overrides: Record<string, unknown> = {}) {
   return {
@@ -236,6 +237,14 @@ describe('live alert mapping and guarded transitions', () => {
 })
 
 describe('live trip and geofence mapping', () => {
+  it('keeps every authoritative geofence assignment, including an explicitly empty list', () => {
+    const fixture = { geofenceId: 9, name: 'Depot', shapeType: 'CIRCLE', active: true, vehicleId: 'OWN-1' }
+    const multiple = geofenceDtoSchema.parse({ ...fixture, vehicleIds: ['OWN-1', 'OWN-2'] })
+    expect(toGeofence(multiple).vehicleIds).toEqual(['OWN-1', 'OWN-2'])
+    const cleared = geofenceDtoSchema.parse({ ...fixture, vehicleIds: [] })
+    expect(toGeofence(cleared).vehicleIds).toEqual([])
+    expect(toGeofence(geofenceDtoSchema.parse(fixture)).vehicleIds).toEqual(['OWN-1'])
+  })
   it('does not invent endpoints or drivers for a trip', () => {
     const trip = toTrip(
       {
