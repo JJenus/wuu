@@ -1,5 +1,6 @@
 package com.surf.tracker.alerting.domain.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.surf.tracker.shared.util.TimeProvider;
 import jakarta.persistence.*;
 import java.time.Instant;
@@ -15,6 +16,7 @@ public class GeofencePoint {
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "geofence_id", nullable = false)
+    @JsonBackReference
     private Geofence geofence;
     
     @Column(name = "point_order", nullable = false)

@@ -1,5 +1,6 @@
 package com.surf.tracker.alerting.domain.entity;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.surf.tracker.alerting.domain.enums.GeofenceShapeType;
 import com.surf.tracker.shared.util.TimeProvider;
 import jakarta.persistence.*;
@@ -49,6 +50,7 @@ public class Geofence {
 
     @OneToMany(mappedBy = "geofence", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("pointOrder ASC")
+    @JsonManagedReference
     private List<GeofencePoint> points = new ArrayList<>();
 
     @Column(name = "created_by", length = 100)
