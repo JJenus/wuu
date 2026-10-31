@@ -79,6 +79,28 @@ class GeofenceLifecycleIT {
     @Autowired RoleRepository roles;
     @Autowired PermissionRepository permissions;
     @Autowired PlatformTransactionManager transactions;
+    @Autowired org.springframework.data.redis.core.RedisTemplate<String, Object> redis;
+    @Autowired com.surf.tracker.alerting.infrastructure.cache.RedisKeyGenerator cacheKeys;
+
+    @Test
+    void getGeofence_polygon_warmsRealRedisAndReturnsSameOrderedPoints() {
+        // given
+        HttpHeaders owner = tenantHeaders();
+        String path = createPolygon(owner, createVehicle(owner));
+        long organization = ((Number) read(owner, "/api/v1/users/me").get("organization_id")).longValue();
+        long id = Long.parseLong(path.substring(path.lastIndexOf('/') + 1));
+
+        // when
+        read(owner, path);
+        Object cached = redis.opsForValue().get(cacheKeys.getGeofenceDetailKey(id, organization));
+
+        // then: fail if serialization is silently swallowed and every read falls back to the DB.
+        assertThat(cached).isInstanceOfSatisfying(com.surf.tracker.alerting.domain.entity.Geofence.class, polygon -> {
+            assertThat(polygon.getPoints()).hasSize(3);
+            assertThat(polygon.isPointInside(10.25, 10.25)).isTrue();
+        });
+        assertThat(read(owner, path)).containsEntry("points", triangle(10));
+    }
 
     @Test
     void updateGeofence_nameOnly_preservesPolygonAssociationsAndDisabledState() {
