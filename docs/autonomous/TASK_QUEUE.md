@@ -1,5 +1,27 @@
 # Persistent task queue
 
+## CURRENT DISPATCH — 2026-10-31
+
+Use [PARALLEL_EXECUTION.md](PARALLEL_EXECUTION.md) before choosing work. Its task
+board replaces sequential-only dispatch below. Separate owner-started sessions
+atomically claim one eligible task plus its resources in the shared workspace
+`.coordination/`; claims show owner, current step, completed work, next action and
+blockers. No subagents. Only the claimed integration coordinator accepts/pushes
+delivery branches. Shared-file edits, browser fixtures and final acceptance are
+serialized; isolated domain implementation is parallel.
+
+Initial READY choices: **INT-00, FLEET-01, GEO-01, TEAM-01, DEVICE-01, OPS-01,
+SUB-01, NOTIFY-01**. Read each task's exact write scope, blockers and acceptance.
+They are initially unclaimed; always inspect live claims rather than assuming
+this list represents current availability. Dependent UI/session/tracking tasks
+open only after their stated dependencies are accepted. The B0–B9 table below
+retains batch scope/history, not current task ownership.
+
+INT-00 reconciles retained B0/B1 startup PASS and local frontend commits through
+b00c92c with reserved dirty detail/list work. Raw temporary logs and the old
+backend worktree were lost; a local all-stage PASS receipt survives. See the
+parallel contract's baseline note; never invent an approved missing review.
+
 ## PINNED EXECUTION QUEUE — 2026-10-30
 
 Follow [PRODUCTION_DELIVERY_PLAN.md](PRODUCTION_DELIVERY_PLAN.md), the current
@@ -24,7 +46,8 @@ criteria/dependencies/rollback are in the detailed plan. Do not repeatedly rebui
 completed product slices; reverify when code/config changes or evidence is stale.
 Do not let external provider/payment/hardware blockers stall safe core workflows.
 
-Delegation budget: at most **two active subagents**, direct work by default; see D007. Last fixture/outbox agents hit usage limits; coordinator resumes directly, without automatic respawn.
+Historical delegation budget is superseded by owner-started independent sessions
+and the claim/resource protocol above. No spawning or automatic agent respawn.
 
 ## Superseding scope/work — 2026-10-29
 

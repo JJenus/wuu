@@ -1,5 +1,28 @@
 # Decision log
 
+## D009 — Independent owner-started agents and atomic claims (2026-10-31)
+
+Owner requests multiple separately started agents, not subagents, selecting
+different tasks and visibly recording their current work/progress. Adopt
+PARALLEL_EXECUTION.md for dispatch, atomic shared-host task/resource claims,
+isolated per-task worktrees and explicit stale-owner recovery. Root .coordination/
+is the live board; versioned task definitions and per-task handoff/acceptance
+reports preserve intent and history. A Git edit/chat announcement alone is not
+an ownership lock, and local mkdir locks make no multi-host coordination claim.
+
+This supersedes D007's subagent scheduling and the old two-independent-lane cap.
+Independent sessions may code disjoint tasks concurrently; at most two heavyweight
+build/test processes run on the host, using separate targets and build-slot locks.
+Only one claimed integration coordinator updates shared contracts/delivery
+branches and runs final FULL_START acceptance. Independent review uses a different
+owner-started session on frozen SHAs. Review fixes invalidate affected receipts.
+
+No application task is assigned automatically and no agent is spawned for this
+plan update. Production deployment, external-provider/payment/hardware policies
+and exhaustive inventory requirements remain unchanged. Documentation bootstrap
+PLAN-BOOTSTRAP temporarily owns integration/shared-contracts only to publish these
+instructions; release those locks before owner-started implementation sessions.
+
 ## D008 — Outcome batches and mandatory full startup after updates (2026-10-30)
 
 Owner explicitly requested a pinned clear plan targeting production readiness,

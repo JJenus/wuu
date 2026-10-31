@@ -1,5 +1,24 @@
 # Recoverable execution state
 
+## Owner update — independent agents, 2026-10-31
+
+- Implementation paused to prepare parallel independent-session dispatch, not
+  subagents. Read PARALLEL_EXECUTION.md before selecting work; TASK_QUEUE routes
+  to its task board. Live atomic claims/progress are in workspace .coordination/.
+- Separate worktrees/domain ownership, shared-file locks, two heavyweight local
+  build slots, independent-session reviews and one integration coordinator prevent
+  duplicate work and acceptance races. No implementation tasks preclaimed during
+  this documentation bootstrap. Owner starts the sessions.
+- Old /tmp/opencode backend checkout/raw logs lost. Published backend main was
+  recovered into durable tracker-worktrees/coordination-plan, without modifying
+  active sidie or frontend work. Frontend local commits through b00c92c survive.
+- Retained frontend .verification/last-startup.json is PASS, timestamp
+  2026-10-30T13:38:43Z, frontend b00c92c + dirty hash18baeef0…a7f,
+  backend/device e0193dd with clean hash; all8 stages including restart/persistence/
+  cleanup. Extra final test-fixture reviewer hit usage limit, not approval.
+  INT-00 owns baseline/evidence and reserved dirty-source reconciliation before
+  declaring B1 fully accepted. Production readiness remains IN_PROGRESS.
+
 ## Current batch — B1 usable alerts after unified startup PASS
 
 - FULL_START implementation published frontend8e211f9/device bind dfa883f.

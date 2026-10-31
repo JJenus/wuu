@@ -1,6 +1,6 @@
 # Production delivery plan — pinned execution order
 
-Updated: 2026-10-30. STATUS=IN_PROGRESS. Authority:
+Updated: 2026-10-31. STATUS=IN_PROGRESS. Authority:
 workspace `AUTONOMOUS_DIRECTIVE.md`, especially §§7,13–19, plus owner scope
 clarification: only ride-hailing is deferred; configurable token/monthly/yearly
 subscriptions are required. Production deployment and real financial operations
@@ -14,16 +14,21 @@ This is the **current detailed execution plan**, not a reset of completed work.
 `FEATURE_MATRIX.md` and `requirements-inventory.md` retain the exhaustive feature
 inventory, including requirements not individually named in the batches below.
 `TEST_REPORT.md`, frontend `docs/verification.md` and slice reports hold evidence.
+**Scheduling:** [PARALLEL_EXECUTION.md](PARALLEL_EXECUTION.md) is the authoritative
+independent-agent task/claim/resource protocol. The owner starts separate sessions;
+they launch no subagents. Read live shared claims before selecting work. Batch
+ordering below expresses dependencies, not one sequential worker's itinerary.
 Old dated statements such as “no frontend” or “no subscription UI” are historical,
 not reasons to rebuild delivered capabilities or exclude unfinished ones.
 
 Backend: independent Java business JAR and device JAR. Frontend: independent
 Nuxt repository at workspace `app/`. Preserve existing detail/list changes and
 the active backend checkout's README/start script. Backend code changes use the
-isolated worktree. Maximum two active agents; direct work by default. Default
-model for bounded implementation, strongest available reasoning for ambiguous
-security/data decisions and independent review; do not claim model independence
-without evidence. Never run concurrent Maven builds against one target directory.
+isolated task worktrees. Independent sessions may implement disjoint READY tasks
+concurrently, subject to claims and shared-file/resource locks. Heavyweight local
+build/test concurrency is limited to two; integration/FULL_START is serialized.
+Independent review is a different owner-started session, not a spawned subagent.
+Never run concurrent Maven builds against one target directory.
 
 ## Current baseline, not product acceptance
 
@@ -97,13 +102,13 @@ Existing commands (run in their owning repositories):
 - Frontend `pnpm typecheck`, `pnpm test:coverage`, `pnpm check:boundaries`,
   scoped formatting plus full-format debt reporting, `pnpm build`, auth/preview
   Playwright suites using their repository configurations.
-- Real Java BFF browser harness: `WUU_JAVA_JAR=<absolute-current-jar> TMPDIR=/tmp/opencode node tools/verify-java-integration.mjs`.
-  This harness alone currently does **not** satisfy independent device startup;
-  extend existing owned lifecycle tooling rather than invent parallel launchers.
+- Unified gate: `WUU_JAVA_JAR=<absolute-current-jar> WUU_DEVICE_JAR=<absolute-device-jar> pnpm verify:full-start`.
+  The frontend implementation starts independent device and records all-stage
+  revision-keyed receipts. The non-full Java command remains PARTIAL, not FULL_START.
 - Device lifecycle/socket tests under `device-comm/src/test` and historical
   process receipts: locate retained runnable tooling before reusing it. Backend
-  `tools/` currently contains `verify-release.sh`, not a retained unified
-  device/telemetry launcher. B0 must add the missing orchestration; do not cite
+  `tools/` contains `verify-release.sh`; the retained unified gate is in frontend
+  `tools/verify-java-integration.mjs`. Recover/package inputs before running; do not cite
   erased temporary smoke scripts as executable commands.
 
 ## Ordered delivery batches
@@ -155,7 +160,7 @@ scoped commits/config in a controlled branch; never discard user changes, rewrit
 applied migrations or remove shared data. Database rollback uses compatible
 forward fixes/validated backup procedures, not editing Flyway history.
 
-### B0 — Reproducible full startup and recovery (NOW)
+### B0 — Reproducible full startup and recovery (baseline reconciliation INT-00)
 
 Context: runtime was healthy historically but Docker disappeared after restart;
 separate component receipts are not a current full-stack launch guarantee.
@@ -184,7 +189,7 @@ separate component receipts are not a current full-stack launch guarantee.
   reload, correct actor is persisted; errors and tenant/permission denials pass;
   FULL_START passes. Rollback: hide UI actions; retain protected backend contract.
 
-### B2 — Vehicle and tracker setup (depends B0; serialize UI ownership with B1)
+### B2 — Vehicle and tracker setup (depends B0 for acceptance; FLEET tasks)
 
 - Verify insert-only vehicle/tracker creation and assignment contracts, duplicate
   identity rules and current permissions. Deliver forms and safe assignment/
@@ -194,7 +199,7 @@ separate component receipts are not a current full-stack launch guarantee.
   data unchanged; FULL_START passes. No claim of physical telemetry from a form.
   Rollback: disable new controls; preserve migrated/persisted tenant records.
 
-### B3 — Geofences and alert-rule management (depends B2/B0)
+### B3 — Geofences and alert-rule management (GEO backend can proceed; B2/B0 integration contracts)
 
 - Repair backend geometry/assignment update-loss contract before enabling UI.
   Preserve circle/polygon shape and vehicle bindings; add compatible migrations
@@ -296,8 +301,11 @@ separate component receipts are not a current full-stack launch guarantee.
 
 ## Execution and progress policy
 
-Critical path: B0→B1/B2→B3/B5→B9; B4/B6/B7 and B8 enter where dependencies allow.
-At most two independent lanes; never overlap file ownership or Maven targets.
+Acceptance critical path: B0→B1/B2→B3/B5→B9; B4/B6/B7 and B8 enter where
+dependencies allow. Implementation scheduling follows PARALLEL_EXECUTION.md:
+multiple owner-started agents claim disjoint READY tasks, shared edits and
+integration remain exclusive, and at most two heavyweight build/test runs execute
+on this host. The old two-lane cap is superseded; file/target isolation is not.
 Do not let blocked charging/recipient/hardware decisions stall basic usable CRUD.
 Do not bypass final readiness gates by treating those blocked features as optional.
 
