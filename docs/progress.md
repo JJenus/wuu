@@ -1,5 +1,29 @@
 # Progress and next slice
 
+## INT-00 baseline reconciliation — 2026-10-31
+
+Owner/startup coordination now follows workspace DELIVERY_PLAN.md and backend
+PARALLEL_EXECUTION.md: independent top-level task claims, at most two bounded
+helpers within one task, isolated worktrees and serialized final integration.
+INT-00 uses int00-tracker-frontend/backend worktrees, preserving original dirty
+app/ and sidie/ checkouts.
+
+Reserved direct-detail and fail-closed list changes reconciled as8a89cd3, on the
+existing b00c92c alert UI. Independent review found false-empty linked geofence
+vehicles after incomplete/403/503 fleet reads. Browser RED3/3 reproduced
+(47c350a); fix34d3740 preserves assignments from the geofence and independent
+loading/error/retry state. Current **144 units /40 auth browsers/typecheck/build
+PASS**; selected coverage94.74%line/86.05%branch/95.15%function. Review correction
+has no remaining scoped medium/high finding. Full-stack and preview verification
+for this combined clean baseline remain pending; do not infer production readiness.
+Durable current logs: workspace .coordination/evidence/INT-00/.
+
+Live alerts now acknowledge/resolve using the authenticated backend actor, with
+notes and persisted attribution displayed in detail. Historical disabled-UI and
+missing-independent-device-harness statements below are superseded by the
+implementation, not by whole-product readiness. INT-00 still must accept the
+combined source/artifact tuple before opening dependent UI tasks.
+
 ### Latest B0 execution evidence — 2026-10-30
 
 Docker restored; actual-Java alert acceptance **1/1 PASS** after production

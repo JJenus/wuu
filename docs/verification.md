@@ -440,3 +440,29 @@ Accuracy 4/5: real tile loading and interaction tests pass; non-Chromium/device 
 - `PLAYWRIGHT_BASE_URL=http://localhost:3000 pnpm test:e2e`: all 27 Chromium tests passed in 2.1 minutes, including four map tests, touch-event pinch/pan, keyboard/wheel/drag/search/layers, follow release, geofence search isolation, mobile layout and automated light/dark accessibility checks.
 - Inspected `test-results/maps-mobile.png`. Chromium touch emulation is not real-device verification; manual screen-reader, non-Chromium and actual touch-device checks remain unverified.
 - Read-only backend DTO recheck and provider limitations: `maps-integration.md`. No backend edits, new dependencies, external map traffic or live API connections. Illustrated positions are not GPS. Geographic rendering, global geocoding, secure transport and subscription handling remain unimplemented.
+# INT-00 — current baseline verification (2026-10-31)
+
+Isolated integration checkout; source changes are not edits to the original
+dirty frontend. Initial transfer patch SHA256
+`34b8dd5742d6c77b60a54a477dbf21dc6a9f6097b722aff8879544b49c289118`.
+Backend sources match the historical e0193dd artifact source; current policy
+commit is1bbfa80. Reconciled frontend source8a89cd3, runtime RED47c350a,
+correction34d3740. Task status is in workspace .coordination/claims/INT-00/.
+
+- `pnpm typecheck`: PASS, baseline and correction.
+- `pnpm test:coverage`: 144 PASS; selected pure policies/adapters94.74%lines,
+  86.05%branches,95.15%functions. This is not whole-UI coverage.
+- `pnpm build`: PASS before RED and after fix.
+- Membership browser RED:3 failures with actual rendered0/no-linked-vehicles
+  despite a known assignment (incomplete bounded list,403,503).
+- `pnpm exec playwright test --config playwright.auth.config.ts`:40 PASS after
+  correction, including independent detail reads and membership retry recovery.
+- Bounded independent review: original false-empty issue confirmed, correction
+  accepted by inspection; no remaining medium/high finding in reviewed scope.
+- Rebuilt backend/device, preview regression and current complete-stack startup/
+  restart acceptance: pending; no production or final release claim.
+
+Raw current receipts retained privately under workspace
+`.coordination/evidence/INT-00/`, not ephemeral /tmp logs. The earlier local
+2026-10-30T13:38:43Z FULL_START PASS survives as a sanitized receipt only; this
+update needs its own final-revision evidence.
