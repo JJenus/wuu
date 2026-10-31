@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createLiveGeofenceService } from '../../app/features/geofences/api/live-geofence-service'
+import { createLiveGeofenceService, toGeofence } from '../../app/features/geofences/api/live-geofence-service'
+import { validateGeofence } from '../../app/features/geofences/domain/geofence'
 import { createGatewayClient } from '../../app/features/core/api/gateway-client'
 import type { GeofenceDraft } from '../../app/features/geofences/domain/geofence'
 
@@ -38,6 +39,18 @@ function fixture() {
 }
 
 describe('live geofence lossless updates', () => {
+  it('retains an absent or blank description as empty editable data, never a display placeholder', () => {
+    for (const description of [undefined, '', '  ']) {
+      expect(toGeofence({ geofenceId: 9, name: 'Depot', shapeType: 'CIRCLE', active: true,
+        description }).description).toBe(description ?? '')
+    }
+  })
+
+  it('validates live drafts without imposing preview assignments, events or radius limits', () => {
+    expect(validateGeofence({ ...draft, vehicleIds: [],
+      geometry: { type: 'circle', center: { lat: 51.5, lng: -0.1 }, radiusMeters: 10 } },
+      [], [], '9', 'live')).toEqual({})
+  })
   it('saves description, ordered polygon and every assignment in one request', async () => {
     const { service, fetchImpl } = fixture()
     await service.update('9', draft)
