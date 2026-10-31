@@ -1,6 +1,7 @@
 package com.surf.tracker.alerting.application.service;
 
 import com.surf.tracker.alerting.domain.entity.Geofence;
+import com.surf.tracker.alerting.domain.enums.GeofenceShapeType;
 import com.surf.tracker.alerting.exception.AlertException;
 import com.surf.tracker.alerting.infrastructure.cache.GeofenceCacheService;
 import com.surf.tracker.alerting.infrastructure.repository.GeofenceRepository;
@@ -21,6 +22,8 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class GeofenceServiceTest {
@@ -110,6 +113,74 @@ class GeofenceServiceTest {
 
         assertThat(result.getName()).isEqualTo("Updated");
         verify(geofenceRepository).findByIdAndOrganizationId(1L, ORG_ID);
+    }
+
+    @Test
+    void updateGeofence_polygonReplacement_preservesOrderedNewPoints() {
+        // given
+        Geofence existing = new Geofence();
+        existing.setGeofenceId(1L);
+        existing.setOrganizationId(ORG_ID);
+        existing.setShapeType(GeofenceShapeType.POLYGON);
+        existing.addPoint(0.0, 0.0, 1);
+        existing.addPoint(0.0, 1.0, 2);
+        existing.addPoint(1.0, 0.0, 3);
+        Geofence updates = new Geofence();
+        updates.setVehicleIds(null);
+        updates.setIsActive(null);
+        updates.addPoint(10.0, 10.0, 1);
+        updates.addPoint(10.0, 12.0, 2);
+        updates.addPoint(12.0, 10.0, 3);
+        when(geofenceRepository.findByIdAndOrganizationId(1L, ORG_ID)).thenReturn(Optional.of(existing));
+        when(geofenceRepository.save(any(Geofence.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // when
+        Geofence result = service.updateGeofence(1L, updates);
+
+        // then
+        assertThat(result.getPoints()).extracting(point -> point.getLatitude())
+                .containsExactly(10.0, 10.0, 12.0);
+        assertThat(result.getPoints()).allSatisfy(point -> assertThat(point.getGeofence()).isSameAs(result));
+        assertThat(result.isPointInside(10.25, 10.25)).isTrue();
+        assertThat(result.isPointInside(0.25, 0.25)).isFalse();
+    }
+
+    @Test
+    void updateGeofence_invalidCircle_rejectsBeforeMutatingOrCaching() {
+        // given
+        Geofence existing = new Geofence();
+        existing.setGeofenceId(1L);
+        existing.setOrganizationId(ORG_ID);
+        existing.setName("Original");
+        existing.setShapeType(GeofenceShapeType.CIRCLE);
+        existing.setCenterLatitude(51.5);
+        existing.setCenterLongitude(-0.12);
+        existing.setRadiusMeters(100);
+        Geofence updates = new Geofence();
+        updates.setName("Invalid replacement");
+        updates.setVehicleIds(null);
+        updates.setRadiusMeters(-1);
+        when(geofenceRepository.findByIdAndOrganizationId(1L, ORG_ID)).thenReturn(Optional.of(existing));
+
+        // when / then
+        assertThatThrownBy(() -> service.updateGeofence(1L, updates)).isInstanceOf(IllegalArgumentException.class);
+        assertThat(existing.getName()).isEqualTo("Original");
+        assertThat(existing.getRadiusMeters()).isEqualTo(100);
+        verify(geofenceRepository, never()).save(any());
+        verifyNoInteractions(geofenceCacheService);
+    }
+
+    @Test
+    void updateGeofence_foreignOrMissing_hasNotFoundContractWithoutWrites() {
+        // given
+        when(geofenceRepository.findByIdAndOrganizationId(1L, ORG_ID)).thenReturn(Optional.empty());
+
+        // when / then
+        assertThatThrownBy(() -> service.updateGeofence(1L, new Geofence()))
+                .isInstanceOfSatisfying(AlertException.class,
+                        error -> assertThat(error.getErrorCode()).isEqualTo("ALERT_GEOFENCE_NOT_FOUND"));
+        verify(geofenceRepository, never()).save(any());
+        verifyNoInteractions(geofenceCacheService);
     }
 
     @Test
