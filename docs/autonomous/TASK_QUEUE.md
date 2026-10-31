@@ -6,7 +6,8 @@ Use [PARALLEL_EXECUTION.md](PARALLEL_EXECUTION.md) before choosing work. Its tas
 board replaces sequential-only dispatch below. Separate owner-started sessions
 atomically claim one eligible task plus its resources in the shared workspace
 `.coordination/`; claims show owner, current step, completed work, next action and
-blockers. No subagents. Only the claimed integration coordinator accepts/pushes
+blockers. Maximum two active bounded subagents per task owner for subtasks or
+independent verification, never other whole tasks. Only the coordinator accepts/pushes
 delivery branches. Shared-file edits, browser fixtures and final acceptance are
 serialized; isolated domain implementation is parallel.
 

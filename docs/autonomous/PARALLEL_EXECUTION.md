@@ -1,7 +1,7 @@
 # Independent-agent execution contract
 
-Updated: 2026-10-31. Owner requested separate, manually launched agents, not
-subagents. This document supersedes sequential-only scheduling and the old
+Updated: 2026-10-31. Owner requested separate, manually launched task-owning agents,
+with at most two bounded subagents per task owner. This supersedes sequential-only scheduling and the old
 two-lane limit. Production requirements and FULL_START acceptance are unchanged.
 
 ## Start here
@@ -15,9 +15,19 @@ two-lane limit. Production requirements and FULL_START acceptance are unchanged.
 4. Keep the claim current; deliver commits, tests and a handoff for another
    independent agent to review. READY_FOR_REVIEW is not DONE.
 
-Agents are independent sessions started by the owner. They do not launch other
-agents. One session may claim integration/review work instead of implementation.
-Choose one task at a time; finish or explicitly block/handoff before taking another.
+Top-level task agents are independent sessions started by the owner. A task owner
+may use **at most two active subagents**, including background agents, for bounded
+subtasks or independent verification **inside its currently claimed task**. A
+subagent never claims or implements an entire different top-level task, spawns
+more agents, changes the task's scope, or pushes delivery branches. The task owner
+records delegated scope/results in its live claim and remains responsible for
+integration and acceptance; a failed verifier is not approval.
+
+One independent session may claim integration/review instead of implementation.
+Choose one top-level task at a time; finish or explicitly block/handoff before
+taking another. Follow AUTONOMOUS_DIRECTIVE.md continuously: after acceptance or
+an explicit frozen handoff, inspect live claims and choose the next eligible task
+without routine approval. A passing intermediate gate is not a reason to stop.
 
 ## Shared live board: same workspace host
 
@@ -183,8 +193,11 @@ every shared-file lock. Other agents can read its claim to find the coordinator.
    completed vs blocked scope, RED/GREEN and coverage, test commands, rollback,
    current evidence retention and suggested actual browser acceptance. Update its
    shared claim to READY_FOR_REVIEW and keep resources reserved.
-2. A **different owner-started session** claims a unique `REVIEW-<TASK-ID>-<SHA>`
-   task with atomic mkdir and records reviewed revision. Worker freezes its source;
+2. A different owner-started session, or a bounded independent verifier subagent
+   within the owner's two-active-subagent limit, reviews a unique
+   `REVIEW-<TASK-ID>-<SHA>` revision. The task owner atomically records the review
+   claim for a delegated verifier; it is a verification subtask, not another
+   implementation task. Worker freezes its source;
    reviewer inspects that exact SHA in a separate worktree and uses build/browser
    locks if executing tests. Review is read-only; findings/fixes go back to the
    worker. Reviewer reports actual scope,
@@ -219,7 +232,10 @@ INT-00 verifies/reconciles this before accepting a clean combined baseline.
 > shared .coordination claims and atomically claim one eligible task and all its
 > resources before editing. Record your owner/session, worktrees, current step,
 > progress and blockers in its STATUS.md. Use isolated task branches, preserve
-> active checkouts, launch no other agents and do not push delivery branches.
+> active checkouts and do not push delivery branches. At most two active subagents
+> may handle bounded subtasks/independent verification inside your task; they must
+> not own whole other tasks or spawn agents. Continue to the next eligible task
+> after acceptance or an explicit blocked/frozen handoff.
 > Implement/test only the claimed scope; hand off exact commits for a separate
 > reviewer and serialized FULL_START integration. If a task is occupied or blocked,
 > select another READY task rather than duplicating it.

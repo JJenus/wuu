@@ -1,5 +1,16 @@
 # Decision log
 
+## D010 — Continuous task owners with bounded helpers (2026-10-31)
+
+Owner clarifies that independent top-level task ownership remains, but each task
+owner may use a maximum of two active subagents for bounded subtasks or independent
+verification within that claimed task, never entire different top-level tasks.
+Helpers do not spawn others, claim unrelated work or push delivery branches.
+Owner records scope/results, retains responsibility and continues to the next
+eligible task after acceptance or explicit blocked/frozen handoff, following
+AUTONOMOUS_DIRECTIVE.md. This supersedes D009's blanket no-subagent rule, not
+atomic ownership, isolated checkouts, build limits or FULL_START acceptance.
+
 ## D009 — Independent owner-started agents and atomic claims (2026-10-31)
 
 Owner requests multiple separately started agents, not subagents, selecting

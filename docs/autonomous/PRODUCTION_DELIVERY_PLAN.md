@@ -16,7 +16,8 @@ inventory, including requirements not individually named in the batches below.
 `TEST_REPORT.md`, frontend `docs/verification.md` and slice reports hold evidence.
 **Scheduling:** [PARALLEL_EXECUTION.md](PARALLEL_EXECUTION.md) is the authoritative
 independent-agent task/claim/resource protocol. The owner starts separate sessions;
-they launch no subagents. Read live shared claims before selecting work. Batch
+each may use at most two bounded subagents within its claim, never whole other
+tasks. Read live shared claims before selecting work. Batch
 ordering below expresses dependencies, not one sequential worker's itinerary.
 Old dated statements such as “no frontend” or “no subscription UI” are historical,
 not reasons to rebuild delivered capabilities or exclude unfinished ones.
@@ -27,7 +28,8 @@ the active backend checkout's README/start script. Backend code changes use the
 isolated task worktrees. Independent sessions may implement disjoint READY tasks
 concurrently, subject to claims and shared-file/resource locks. Heavyweight local
 build/test concurrency is limited to two; integration/FULL_START is serialized.
-Independent review is a different owner-started session, not a spawned subagent.
+Independent review is a different owner-started session or bounded verifier
+subagent; count all active helpers against the owner's maximum of two.
 Never run concurrent Maven builds against one target directory.
 
 ## Current baseline, not product acceptance
