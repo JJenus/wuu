@@ -5,7 +5,13 @@ import { useGeofenceAccess } from './useGeofenceAccess'
 export function useGeofenceEditor(initial: GeofenceDraft, id?: string) {
   const { geofences, vehicles, fleetQuery, createGeofence, updateGeofence } =
     useWorkspace('geofences')
-  const { source, allowed: writeAllowed, assertWriteAccess } = useGeofenceAccess()
+  const {
+    source,
+    allowed: writeAllowed,
+    message: permissionMessage,
+    retry: retryPermissions,
+    assertWriteAccess,
+  } = useGeofenceAccess()
   const saveUnavailable = computed(
     () =>
       !source.isPreview &&
@@ -28,10 +34,12 @@ export function useGeofenceEditor(initial: GeofenceDraft, id?: string) {
     if (history.value.length > 50) history.value.shift()
   }
   function setGeometry(geometry: Geometry | null) {
+    if (busy.value || !writeAllowed.value) return
     if (!mapDragging.value) remember()
     draft.geometry = copy(geometry)
   }
   function beginMapEdit() {
+    if (busy.value || !writeAllowed.value) return
     remember()
     mapDragging.value = true
   }
@@ -39,6 +47,7 @@ export function useGeofenceEditor(initial: GeofenceDraft, id?: string) {
     mapDragging.value = false
   }
   function undo() {
+    if (busy.value || !writeAllowed.value) return
     if (history.value.length) draft.geometry = history.value.pop()!
   }
   function answerDiscard(leave: boolean) {
@@ -69,8 +78,9 @@ export function useGeofenceEditor(initial: GeofenceDraft, id?: string) {
   })
   async function save() {
     if (busy.value || saveUnavailable.value) return
+    const input = copy(draft)
     errors.value = validateGeofence(
-      draft,
+      input,
       geofences.value,
       vehicles.value.map((v) => v.id),
       id,
@@ -84,8 +94,8 @@ export function useGeofenceEditor(initial: GeofenceDraft, id?: string) {
     busy.value = true
     try {
       await assertWriteAccess()
-      const target = id || (await createGeofence(copy(draft)))
-      if (id) await updateGeofence(id, copy(draft))
+      const target = id || (await createGeofence(input))
+      if (id) await updateGeofence(id, input)
       allowed = true
       toast.add({
         title: source.isPreview
@@ -121,6 +131,9 @@ export function useGeofenceEditor(initial: GeofenceDraft, id?: string) {
     source,
     saveUnavailable,
     fleetQuery,
+    writeAllowed,
+    permissionMessage,
+    retryPermissions,
     history,
     discardOpen,
     vehicles,

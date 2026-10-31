@@ -46,7 +46,9 @@ test('denied permission and unavailable current access never expose a live save 
   await expect(page.getByRole('button', { name: 'Save changes', exact: true })).toHaveCount(0)
 })
 
-test('permission recheck failure preserves the draft and sends no mutation until explicit retry', async ({ page }) => {
+test('permission recheck failure preserves the draft and sends no mutation until explicit retry', async ({
+  page,
+}) => {
   await signIn(page)
   const description = page.getByLabel('Description', { exact: true })
   await description.fill('Keep this unsaved draft')
@@ -67,26 +69,40 @@ test('permission recheck failure preserves the draft and sends no mutation until
   expect(writes).toBe(1)
 })
 
-test('live maps disclose persistence and preserve large radius through numeric-only editing', async ({ page }) => {
+test('live maps disclose persistence and preserve large radius through numeric-only editing', async ({
+  page,
+}) => {
   await signIn(page)
   await expect(page.getByText('Geographic boundary · Live data', { exact: true })).toBeVisible()
-  await expect(page.getByText('Real map · Boundary changes are session-only', { exact: true })).toHaveCount(0)
+  await expect(
+    page.getByText('Real map · Boundary changes are session-only', { exact: true }),
+  ).toHaveCount(0)
   await page.getByLabel('Radius (meters)', { exact: true }).fill('10000')
   await expect(page.getByRole('button', { name: 'Resize circle', exact: true })).toHaveCount(0)
-  await expect(page.getByText('Use numeric coordinates for this boundary; bounded map editing is unavailable.')).toBeVisible()
+  await expect(
+    page.getByText(
+      'Use numeric coordinates for this boundary; bounded map editing is unavailable.',
+    ),
+  ).toBeVisible()
   await page.getByRole('button', { name: 'Save changes', exact: true }).click()
   await expect(page).toHaveURL('/geofences/9')
   await page.goto('/geofences/9/edit')
   await expect(page.getByLabel('Radius (meters)', { exact: true })).toHaveValue('10000')
 })
 
-test('saving freezes map handles and fields throughout a delayed permission check', async ({ page }) => {
+test('saving freezes map handles and fields throughout a delayed permission check', async ({
+  page,
+}) => {
   await signIn(page)
   await page.getByLabel('Description', { exact: true }).fill('Immutable save snapshot')
   let release!: () => void
   let seen!: () => void
-  const ready = new Promise<void>((resolve) => { release = resolve })
-  const received = new Promise<void>((resolve) => { seen = resolve })
+  const ready = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  const received = new Promise<void>((resolve) => {
+    seen = resolve
+  })
   await page.route('**/api/_wuu/access', async (route) => {
     seen()
     await ready
@@ -96,9 +112,13 @@ test('saving freezes map handles and fields throughout a delayed permission chec
   await received
   try {
     await expect(page.getByRole('button', { name: 'Resize circle', exact: true })).toHaveCount(0)
-    await expect(page.getByRole('button', { name: 'Move circle center', exact: true })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Move circle center', exact: true })).toHaveCount(
+      0,
+    )
     await expect(page.getByLabel('Radius (meters)', { exact: true })).toBeDisabled()
     await expect(page.getByRole('button', { name: 'Save changes', exact: true })).toBeDisabled()
-  } finally { release() }
+  } finally {
+    release()
+  }
   await expect(page).toHaveURL('/geofences/9')
 })

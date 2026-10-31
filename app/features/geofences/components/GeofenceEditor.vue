@@ -17,6 +17,9 @@ const {
   source,
   saveUnavailable,
   fleetQuery,
+  writeAllowed,
+  permissionMessage,
+  retryPermissions,
   history,
   discardOpen,
   vehicles,
@@ -28,6 +31,24 @@ const {
   save,
 } = useGeofenceEditor(props.initial, props.id)
 const tool = ref<'pan' | 'circle' | 'polygon' | 'edit'>('pan')
+// Shared map gestures are preview-bounded. Never clamp a saved live boundary
+// into those bounds: retain exact geometry and offer numeric editing instead.
+const mapEditingSupported = computed(() => {
+  if (source.isPreview || !draft.geometry) return true
+  const geometry = draft.geometry
+  if (geometry.type === 'circle')
+    return (
+      Math.abs(geometry.center.lat) <= 85.0511 &&
+      geometry.radiusMeters >= 50 &&
+      geometry.radiusMeters <= 5000
+    )
+  const first = geometry.vertices[0],
+    last = geometry.vertices.at(-1)
+  return (
+    geometry.vertices.every((point) => Math.abs(point.lat) <= 85.0511) &&
+    !(geometry.vertices.length > 1 && first?.lat === last?.lat && first?.lng === last?.lng)
+  )
+})
 const back = computed(() => (props.id ? `/geofences/${props.id}` : '/geofences'))
 const search = ref('')
 const filteredVehicles = computed(() =>
@@ -112,6 +133,17 @@ useHead(() => ({ title: `${props.id ? 'Edit' : 'Create'} geofence — Wuu` }))
         rules or notification delivery.
       </p>
     </div>
+    <div v-if="permissionMessage" role="alert" class="info-banner">
+      <p>{{ permissionMessage }}</p>
+      <UButton
+        type="button"
+        color="neutral"
+        variant="outline"
+        :disabled="busy"
+        @click="retryPermissions"
+        >Check permissions again</UButton
+      >
+    </div>
     <form novalidate @submit.prevent="save">
       <div
         v-if="Object.keys(errors).length"
@@ -128,7 +160,7 @@ useHead(() => ({ title: `${props.id ? 'Edit' : 'Create'} geofence — Wuu` }))
           </li>
         </ul>
       </div>
-      <fieldset :disabled="busy" class="contents">
+      <fieldset :disabled="busy || !writeAllowed" class="contents">
         <div class="geofence-editor-grid">
           <div class="detail-stack">
             <section class="panel">
@@ -196,7 +228,7 @@ useHead(() => ({ title: `${props.id ? 'Edit' : 'Create'} geofence — Wuu` }))
               </p>
               <GeofenceMap
                 :model-value="draft.geometry"
-                editable
+                :editable="!busy && writeAllowed && mapEditingSupported"
                 :tool="tool"
                 @update:model-value="setGeometry"
                 @drawn="tool = 'edit'"
@@ -234,6 +266,7 @@ useHead(() => ({ title: `${props.id ? 'Edit' : 'Create'} geofence — Wuu` }))
                       class="radius-slider"
                       min="50"
                       max="5000"
+                      :disabled="!mapEditingSupported"
                       step="10"
                       :value="draft.geometry.radiusMeters"
                       aria-label="Radius slider"
@@ -328,6 +361,9 @@ useHead(() => ({ title: `${props.id ? 'Edit' : 'Create'} geofence — Wuu` }))
                 <p v-else class="form-hint">
                   Coordinates use latitude/longitude. Map editing is not surveyed geometry. Numeric
                   coordinates support locations beyond the visible map.
+                </p>
+                <p v-if="!mapEditingSupported" class="form-hint">
+                  Use numeric coordinates for this boundary; bounded map editing is unavailable.
                 </p>
               </div>
             </section>

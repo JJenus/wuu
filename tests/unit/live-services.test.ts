@@ -324,7 +324,7 @@ describe('live trip and geofence mapping', () => {
     expect(incomplete.geometry).toBeNull()
   })
 
-  it('allows only the verified live creation subset', async () => {
+  it('creates a complete circle and rejects an absent boundary', async () => {
     const request = vi.fn(async () => ({ geofenceId: 9 }))
     const service = createLiveGeofenceService({ request } as unknown as GatewayClient)
     const geometry: Geometry = {
@@ -348,28 +348,15 @@ describe('live trip and geofence mapping', () => {
       expect.anything(),
       expect.objectContaining({
         body: expect.objectContaining({
-          vehicleId: 'VH-LIVE-1',
+          vehicleIds: ['VH-LIVE-1'],
           shapeType: 'CIRCLE',
           radiusMeters: 100,
         }),
       }),
     )
-    await expect(service.create({ ...draft, vehicleIds: [] })).rejects.toMatchObject({
-      kind: 'unavailable',
+    await expect(service.create({ ...draft, geometry: null })).rejects.toMatchObject({
+      kind: 'validation',
     })
-    await expect(
-      service.create({
-        ...draft,
-        geometry: {
-          type: 'polygon',
-          vertices: [
-            { lat: 1, lng: 1 },
-            { lat: 1, lng: 2 },
-            { lat: 2, lng: 2 },
-          ],
-        },
-      }),
-    ).rejects.toMatchObject({ kind: 'unavailable' })
   })
 })
 

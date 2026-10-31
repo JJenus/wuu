@@ -5,6 +5,8 @@ import { useMapSearchProvider } from '../../maps/composables/useMapSearchProvide
 import { normalizeLocation } from '../../maps/domain/geographic'
 import type { MapSearchResult } from '../../maps/domain/types'
 import type { Geometry } from '../domain/geofence'
+import { useDataSource } from '../../core/composables/useDataSource'
+const source = useDataSource()
 const props = withDefaults(
   defineProps<{
     modelValue: Geometry | null
@@ -43,7 +45,10 @@ function searchSelect(result: MapSearchResult) {
       <p v-if="notice" class="sr-only" role="status">{{ notice }}</p>
     </div>
     <div class="geofence-map-toolbar">
-      <span><UIcon name="i-lucide-map-pin" />Geographic boundary · Sample data</span>
+      <span
+        ><UIcon name="i-lucide-map-pin" />Geographic boundary ·
+        {{ source.isPreview ? 'Sample data' : 'Live data' }}</span
+      >
       <div class="flex gap-1">
         <UButton
           aria-label="Zoom in"
@@ -89,7 +94,11 @@ function searchSelect(result: MapSearchResult) {
       />
     </div>
     <div class="geofence-map-caption">
-      <span>Real map · Boundary changes are session-only</span
+      <span>{{
+        source.isPreview
+          ? 'Real map · Boundary changes are session-only'
+          : 'Real map · Live boundary; save editor changes to persist'
+      }}</span
       ><span>Drag to pan · + / − to zoom</span>
     </div>
   </div>

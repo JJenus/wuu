@@ -106,8 +106,13 @@ export function validateGeofence(
           ? 'Use a whole-number radius between 50 and 5,000 meters.'
           : 'Use a positive whole-number radius within the supported integer range.'
   } else {
-    const v = g.vertices
-    if (v.length < 3 || v.length > 50)
+    const raw = g.vertices
+    const first = raw[0],
+      last = raw.at(-1)
+    const closed =
+      mode === 'live' && raw.length > 1 && first?.lat === last?.lat && first?.lng === last?.lng
+    const v = closed ? raw.slice(0, -1) : raw
+    if (v.length < 3 || raw.length > 50)
       errors.geometry = 'A polygon needs between 3 and 50 vertices.'
     else if (v.some((p) => !(mode === 'preview' ? validPoint(p) : validCoordinate(p))))
       errors.geometry = 'Use valid longitude and latitudes between −85.0511 and 85.0511.'

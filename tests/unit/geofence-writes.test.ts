@@ -43,9 +43,15 @@ function fixture() {
 
 describe('live geofence lossless updates', () => {
   it('accepts an existing explicitly closed live ring without rewriting point order', () => {
-    const geometry = { type: 'polygon' as const, vertices: [
-      { lat: 51, lng: 0 }, { lat: 51, lng: 0.01 }, { lat: 51.01, lng: 0.01 }, { lat: 51, lng: 0 },
-    ] }
+    const geometry = {
+      type: 'polygon' as const,
+      vertices: [
+        { lat: 51, lng: 0 },
+        { lat: 51, lng: 0.01 },
+        { lat: 51.01, lng: 0.01 },
+        { lat: 51, lng: 0 },
+      ],
+    }
     const before = JSON.stringify(geometry)
     expect(validateGeofence({ ...draft, geometry }, [], ['VH-1', 'VH-2'], '9', 'live')).toEqual({})
     expect(JSON.stringify(geometry)).toBe(before)

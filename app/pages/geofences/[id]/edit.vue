@@ -11,6 +11,12 @@ const {
   error,
   refetch,
 } = useWorkspaceRecord('geofences', () => String(route.params.id))
+// Once admitted, keep local draft/history mounted across later access failures.
+// The editor independently disables editing and rechecks authority before writes.
+const admittedId = ref('')
+watchEffect(() => {
+  if (zone.value && allowed.value) admittedId.value = zone.value.id
+})
 </script>
 <template>
   <UiAsyncState
@@ -20,7 +26,12 @@ const {
     error-title="This geofence could not load"
     @retry="refetch"
   >
-    <GeofenceEditor v-if="zone && allowed" :key="zone.id" :id="zone.id" :initial="zone" />
+    <GeofenceEditor
+      v-if="zone && (allowed || admittedId === zone.id)"
+      :key="zone.id"
+      :id="zone.id"
+      :initial="zone"
+    />
     <UiEmptyState
       v-else-if="zone"
       title="Geofence editor unavailable"
