@@ -7,13 +7,34 @@ describe('strict geofence write gateway', () => {
   it('admits only collection POST with complete geometry and explicit associations', () => {
     expect(geofenceWriteAllowed('POST', base)).toBe(true)
     expect(geofenceWriteAllowed('PUT', base)).toBe(false)
-    const body = { name: 'Depot', description: 'Complete creation', active: true, vehicleIds: [],
-      shapeType: 'CIRCLE', centerLatitude: 51, centerLongitude: 0, radiusMeters: 100 }
+    const body = {
+      name: 'Depot',
+      description: 'Complete creation',
+      active: true,
+      vehicleIds: [],
+      shapeType: 'CIRCLE',
+      centerLatitude: 51,
+      centerLongitude: 0,
+      radiusMeters: 100,
+    }
     expect(geofenceWriteBody(base, body)).toEqual({
-      name: 'Depot', description: 'Complete creation', active: true, vehicle_ids: [],
-      shape_type: 'CIRCLE', center_latitude: 51, center_longitude: 0, radius_meters: 100,
+      name: 'Depot',
+      description: 'Complete creation',
+      active: true,
+      vehicle_ids: [],
+      shape_type: 'CIRCLE',
+      center_latitude: 51,
+      center_longitude: 0,
+      radius_meters: 100,
     })
-    for (const missing of ['name', 'active', 'vehicleIds', 'shapeType', 'centerLatitude', 'radiusMeters']) {
+    for (const missing of [
+      'name',
+      'active',
+      'vehicleIds',
+      'shapeType',
+      'centerLatitude',
+      'radiusMeters',
+    ]) {
       const incomplete = { ...body } as Record<string, unknown>
       delete incomplete[missing]
       expect(() => geofenceWriteBody(base, incomplete)).toThrow()
