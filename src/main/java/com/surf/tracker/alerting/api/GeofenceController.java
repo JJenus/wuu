@@ -200,6 +200,9 @@ public class GeofenceController {
     private Geofence convertToEntity(UpdateGeofenceRequest request) {
         Geofence geofence = new Geofence();
         geofence.setName(request.getName());
+        geofence.setDescription(request.getDescription());
+        // Null means omitted; an empty set explicitly removes all associations.
+        geofence.setVehicleIds(request.getVehicleIds());
         geofence.setIsActive(request.isActive());
         geofence.setShapeType(request.getShapeType());
         geofence.setCenterLatitude(request.getCenterLatitude());
