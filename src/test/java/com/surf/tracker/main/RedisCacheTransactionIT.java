@@ -105,6 +105,8 @@ class RedisCacheTransactionIT {
         context.registerBean(RedisTemplate.class, () -> redis);
         context.registerBean(TrackerAlertRepository.class, () -> alertRepository);
         context.registerBean(GeofenceRepository.class, () -> geofenceRepository);
+        context.registerBean(com.surf.tracker.core.infrastructure.repository.VehicleRepository.class,
+            () -> mock(com.surf.tracker.core.infrastructure.repository.VehicleRepository.class));
         context.registerBean(AlertRuleRepository.class, () -> mock(AlertRuleRepository.class));
         context.refresh();
         caches = context.getBean(CacheManager.class);
@@ -124,6 +126,8 @@ class RedisCacheTransactionIT {
             em.persist(alert); alertId = alert.getAlertId();
             Geofence geofence = new Geofence();
             geofence.setOrganizationId(92001L); geofence.setName("Committed");
+            geofence.setShapeType(com.surf.tracker.alerting.domain.enums.GeofenceShapeType.CIRCLE);
+            geofence.setCenterLatitude(51.5); geofence.setCenterLongitude(-0.12); geofence.setRadiusMeters(100);
             geofence.setVehicleIds(new HashSet<>());
             geofence.setCreatedAt(Instant.EPOCH); geofence.setUpdatedAt(Instant.EPOCH);
             em.persist(geofence); geofenceId = geofence.getGeofenceId();
