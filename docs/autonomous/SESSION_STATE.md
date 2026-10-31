@@ -1,5 +1,16 @@
 # Recoverable execution state
 
+## Latest acceptance — GEO-01, 2026-10-31
+
+Geofence backend/read contract accepted at backend-devicee0eead6/frontendfe7fcc1.
+FULL_START all8 stages PASS2026-10-31T20:55:51.234Z, stable clean fingerprints;
+vendor756/device91, frontend145units/42auth/31preview PASS. Geometry/assignments,
+tenant references, creator identity/time and polygon Redis serialization repaired.
+See handoffs/GEO-01.md for exact hashes/evidence/limits. No editor/BFF mutation
+enabled; GEO-02 now eligible. Production NOT_READY. Coordinator remains
+tracker-int00-20261031; consult live claims before next task. FLEET-01 remains
+owned/frozen for independent final review, not yet accepted or integrated.
+
 ## Current accepted baseline — INT-00, 2026-10-31
 
 INT-00 reconciliation accepted at frontend3c8eee9/backend-device451a083.

@@ -1,5 +1,15 @@
 # Verification report
 
+## GEO-01 final acceptance — 2026-10-31
+
+Full vendor gate756 backend/91 device PASS, zero failures/errors/skips; frontend
+145 units/42 auth/31 preview plus types/build/boundaries/scoped format PASS.
+FULL_START stable clean e0eead6/fe7fcc1 PASS20:55:51.234Z, all8 stages. Both real
+Java cold/restart browsers prove persisted geometry/multiple assignments and
+invalid/foreign rollback without enabling editor writes. Independent frozen
+source review approved; no reviewer runtime approval implied. Exact hashes,
+commands, raw private log retention and RED/GREEN in handoffs/GEO-01.md.
+
 ## INT-00 final runtime acceptance — 2026-10-31
 
 Frontend3c8eee9/backend-device451a083: FULL_START PASS at16:36:43.324Z, all eight

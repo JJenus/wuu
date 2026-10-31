@@ -1,5 +1,16 @@
 # Defect register
 
+## GEO-01 resolved contract defects — 2026-10-31
+
+Actual runtime/DB RED -> reviewed correction -> final e0eead6/fe7fcc1 FULL_START
+PASS closes the scoped defects: omitted assignments erased/explicit assignments
+dropped, polygon update points dropped, partial response associations, invalid
+geometry/foreign vehicle links accepted, missing update400, null point crash,
+recursive Redis polygon cache serialization, spoofed creator/epoch creation time,
+and self-intersecting/unbounded polygon rings. Vendor756/device91 and frontend
+145/42auth/31preview PASS. See handoffs/GEO-01.md for each RED/GREEN and limits.
+Editors/rule evaluation/physical device/production acceptance remain open.
+
 ## INT-00 superseding disposition — 2026-10-31
 
 - OPS-FULL-START: RESOLVED for baseline451a083/3c8eee9, all8 stages PASS including

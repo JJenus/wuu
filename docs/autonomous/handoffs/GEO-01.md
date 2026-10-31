@@ -1,4 +1,40 @@
-# GEO-01 — contract implementation, acceptance pending
+# GEO-01 — accepted contract, 2026-10-31
+
+## Final runtime acceptance
+
+**PASS2026-10-31T20:55:51.234Z**, stable clean runtime tuple:
+
+- Backend/device `e0eead6c2cff0f132e8afc20a1434fffd8aec82d`.
+- Frontend `fe7fcc18b13d802cc7c2a15f92735c07b39a6204`.
+- Backend JAR SHA256 `cfe14c20e9b7b0498ea92c44e8bdd10ded13a495d6b9a3361e99b4ee237fcf57`.
+- Device JAR SHA256 `513db900774433c8d8f58ec8d4c6af4499c077a8319f43b56da014618a843d56`.
+- `TMPDIR=/tmp/opencode sh tools/verify-release.sh`: **756 backend/91 device
+  PASS**, zero failures/errors/skips, including opt-in IT suites. This supersedes
+  the failed fixture checkpoint below; fixture-only adjustment committed e0eead6.
+- Frontend145 units/types/build;42 auth browsers;31 preview browsers; boundaries
+  and scoped formatting PASS. Selected coverage remains94.74%line/86.08%branch/
+  95.15%function, not whole-UI coverage.
+- FULL_START all8 stages PASS: dependency/backend/device/frontend readiness,
+  real Java/browser, restart, persistence and owned cleanup. Real browser cold
+  and restarted runs prove circle-to-polygon API update, omitted-field retention,
+  multiple assignments visible in the browser, invalid/foreign rollback and
+  injected fleet-error recovery, alongside existing auth/alerts/subscriptions.
+  Editor actions remain disabled; this is backend contract + read integration.
+- Sanitized receipt: workspace `.coordination/evidence/GEO-01/startup-receipt/last-startup.json`.
+  Raw private logs copied into `private-wuu-java-dS9FkM/` beside it. Reproducible
+  owner runner `run-final-gates.py` serialized existing repository commands.
+  No retained demo after cleanup; no physical hardware/owner telemetry claim.
+
+Final review approved production02671c1/frontend8e182b7; final tuple adds only
+fixture wiring and documentation. Bounded verifier
+ses_e6c3e2f50ffeym6rtyLjm5poG2 independently approved the subsequent fixture/docs
+delta and checked retained receipt/log evidence, source-only with no tests or edits.
+Subsequent acceptance
+documentation commits do not replace this recorded runtime tuple. GEO-02 is now
+eligible under its independent claim/dependency rules; production remains NOT_READY.
+
+The checkpoints below retain RED/GREEN provenance; their pending statements are
+historical, superseded by this final acceptance section.
 
 Owner: tracker-geo01-20261031. Integration coordinator: tracker-int00-20261031
 (same owner session). Backend base64715fb; frontend base0452acc. Active source

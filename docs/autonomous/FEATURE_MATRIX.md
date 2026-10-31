@@ -1,5 +1,14 @@
 # Feature matrix
 
+## GEO-01 scoped verified contract — 2026-10-31
+
+Lossless backend geometry/association updates, complete read associations,
+pre-mutation validation/tenant reference checks, authenticated creator attribution
+and polygon Redis roundtrip VERIFIED within GEO-01. Final actual-Java cold/restart
+gate passed at e0eead6/fe7fcc1; see handoffs/GEO-01.md. Geofence editors, rule UI
+and end-to-end rule evaluation remain open under GEO-02; do not mark the broad
+ALERT-01..05 family complete from a backend contract. Production NOT_READY.
+
 ## INT-00 verified baseline overlay — 2026-10-31
 
 Frontend3c8eee9/backend-device451a083 passed final-revision FULL_START with real

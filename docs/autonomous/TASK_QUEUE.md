@@ -1,5 +1,13 @@
 # Persistent task queue
 
+## GEO-01 contract accepted — 2026-10-31
+
+Backend-devicee0eead6/frontendfe7fcc1 passed final all-stage FULL_START and vendor
+756/device91, frontend145/42auth/31preview. See handoffs/GEO-01.md. GEO-02 is now
+eligible for authorized editor/rule UI work; not already implemented by GEO-01.
+FLEET-01's frozen086c2e6 awaits independent final review and coordinator acceptance;
+respect its occupied claim. Live board, not historical queue rows, governs work.
+
 ## Accepted INT-00 baseline — 2026-10-31
 
 Baseline reconciliation complete: frontend3c8eee9/backend-device451a083;
