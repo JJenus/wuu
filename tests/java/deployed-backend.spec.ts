@@ -283,6 +283,28 @@ test('actual Java: tenant fleet, sealed sessions and account-wide revocation', a
     console.log(
       'PASS own live fleet/detail and bidirectional foreign isolation; no preview fallback',
     )
+    const zoneName = `Acceptance depot ${run}`
+    const zone = await request.post(`${backend}/alerts/geofences`, {
+      headers: { authorization: `Bearer ${owners[0]!.token}` },
+      data: { vehicle_id: owners[0]!.vehicle_id, name: zoneName, shape_type: 'CIRCLE', center_latitude: 51.5, center_longitude: -0.12, radius_meters: 100, active: true },
+    })
+    expect(zone.status()).toBe(201)
+    const zoneId = (await zone.json()).geofence_id
+    expect((await beta!.request.get(`/api/_wuu/geofences/${zoneId}`)).status()).toBe(404)
+    await alpha!.goto(`/geofences/${zoneId}`)
+    await expect(alpha!.getByRole('heading', { name: zoneName, exact: true })).toBeVisible()
+    const membership = alpha!.locator('section').filter({ has: alpha!.getByRole('heading', { name: 'Linked vehicles', exact: true }) })
+    await expect(membership.getByText('1 assigned', { exact: true })).toBeVisible()
+    await expect(membership.getByRole('link', { name: `View ${owners[0]!.license_plate}`, exact: true })).toBeVisible()
+    await alpha!.route('**/api/_wuu/vehicles?*', (route) => route.fulfill({ status: 403, json: { message: 'Acceptance fleet fault injection' } }))
+    await alpha!.reload()
+    await expect(alpha!.getByRole('heading', { name: zoneName, exact: true })).toBeVisible()
+    await expect(membership.getByRole('heading', { name: 'Linked vehicle details could not load', exact: true })).toBeVisible()
+    await expect(membership.getByText('No vehicles are linked to this zone.', { exact: true })).toHaveCount(0)
+    await alpha!.unroute('**/api/_wuu/vehicles?*')
+    await membership.getByRole('button', { name: 'Try again', exact: true }).click()
+    await expect(membership.getByRole('link', { name: `View ${owners[0]!.license_plate}`, exact: true })).toBeVisible()
+    console.log('PASS persisted real geofence direct read, linked fleet, foreign denial and injected fleet-error recovery without false empty assignments')
     await alpha!.goto('/subscriptions')
     for (const name of ['Usage tokens', 'Monthly plan', 'Yearly plan']) {
       await expect(alpha!.getByRole('heading', { name, exact: true })).toBeVisible()
