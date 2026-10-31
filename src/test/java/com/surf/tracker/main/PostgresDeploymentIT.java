@@ -810,6 +810,10 @@ class PostgresDeploymentIT {
         // then: neither may split device ownership, and neither tracker is persisted
         assertThat(sameTenant.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
         assertThat(foreign.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(request(owner, HttpMethod.GET, "/api/v1/trackers/" + sameTenantTracker, null).getStatusCode())
+            .isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(request(outsider, HttpMethod.GET, "/api/v1/trackers/" + foreignTracker, null).getStatusCode())
+            .isEqualTo(HttpStatus.NOT_FOUND);
         assertThat(content(owner, "/api/v1/trackers")).isEmpty();
         assertThat(content(outsider, "/api/v1/trackers")).isEmpty();
 
@@ -818,13 +822,19 @@ class PostgresDeploymentIT {
         String trackerDevice = request(owner, HttpMethod.GET, "/api/v1/trackers/" + tracker, null)
             .getBody().get("device_id").toString();
         // when: vehicle creation tries to claim the same device, same-tenant and foreign-tenant
+        String sameTenantVehicleId = "collision-vehicle-" + IDS.incrementAndGet();
+        String foreignVehicleId = "collision-vehicle-" + IDS.incrementAndGet();
         ResponseEntity<Map> sameTenantVehicle = request(owner, HttpMethod.POST, "/api/v1/vehicles",
-            Map.of("vehicle_id", "collision-vehicle-" + IDS.incrementAndGet(), "device_id", trackerDevice));
+            Map.of("vehicle_id", sameTenantVehicleId, "device_id", trackerDevice));
         ResponseEntity<Map> foreignVehicle = request(outsider, HttpMethod.POST, "/api/v1/vehicles",
-            Map.of("vehicle_id", "collision-vehicle-" + IDS.incrementAndGet(), "device_id", trackerDevice));
-        // then: vehicle ownership cannot duplicate a registered tracker device
+            Map.of("vehicle_id", foreignVehicleId, "device_id", trackerDevice));
+        // then: vehicle ownership cannot duplicate a registered tracker device, and nothing is persisted
         assertThat(sameTenantVehicle.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
         assertThat(foreignVehicle.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(request(owner, HttpMethod.GET, "/api/v1/vehicles/" + sameTenantVehicleId, null).getStatusCode())
+            .isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(request(outsider, HttpMethod.GET, "/api/v1/vehicles/" + foreignVehicleId, null).getStatusCode())
+            .isEqualTo(HttpStatus.NOT_FOUND);
     }
 
     @Test void fleet_createValidation_rejectsMissingAndOversizedContractFields() {
@@ -832,6 +842,8 @@ class PostgresDeploymentIT {
         HttpHeaders owner = tenantHeaders();
         String vehicle = createVehicle(owner);
         String tracker = "validated-tracker-" + IDS.incrementAndGet();
+        List<String> vehicleSnapshot = content(owner, "/api/v1/vehicles").stream()
+            .map(row -> row.get("vehicle_id").toString()).toList();
         // when / then: required device identity is enforced before persistence
         assertThat(request(owner, HttpMethod.POST, "/api/v1/trackers",
             Map.of("tracker_id", tracker, "vehicle_id", vehicle)).getStatusCode())
@@ -843,19 +855,126 @@ class PostgresDeploymentIT {
 
         // when / then: bounded identifiers/descriptions fail as client errors, not conflicts
         String tooLongId = "x".repeat(51);
+        String oversizedVehicle = "validated-vehicle-" + IDS.incrementAndGet();
+        String oversizedVinVehicle = "validated-vehicle-" + IDS.incrementAndGet();
+        String oversizedPlateVehicle = "validated-vehicle-" + IDS.incrementAndGet();
         assertThat(request(owner, HttpMethod.POST, "/api/v1/vehicles",
             Map.of("vehicle_id", tooLongId)).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(request(owner, HttpMethod.POST, "/api/v1/vehicles",
-            Map.of("vehicle_id", "validated-vehicle-" + IDS.incrementAndGet(),
+            Map.of("vehicle_id", oversizedVehicle, "device_id", "D".repeat(51))).getStatusCode())
+            .isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(request(owner, HttpMethod.POST, "/api/v1/vehicles",
+            Map.of("vehicle_id", oversizedVinVehicle,
                 "vin", "V".repeat(18))).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(request(owner, HttpMethod.POST, "/api/v1/vehicles",
-            Map.of("vehicle_id", "validated-vehicle-" + IDS.incrementAndGet(),
+            Map.of("vehicle_id", oversizedPlateVehicle,
                 "license_plate", "P".repeat(21))).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(request(owner, HttpMethod.POST, "/api/v1/trackers",
             Map.of("tracker_id", tracker, "device_id", "validated-device-" + IDS.incrementAndGet(),
                 "vehicle_id", vehicle, "protocol", "P".repeat(21))).getStatusCode())
             .isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(content(owner, "/api/v1/trackers")).isEmpty();
+        assertThat(content(owner, "/api/v1/vehicles").stream()
+            .map(row -> row.get("vehicle_id").toString()).toList()).isEqualTo(vehicleSnapshot)
+            .doesNotContain(tooLongId, oversizedVehicle, oversizedVinVehicle, oversizedPlateVehicle);
+    }
+
+    @Test void fleet_updateValidation_rejectsOversizedFieldsWithoutMutation() {
+        // given
+        HttpHeaders owner = tenantHeaders();
+        String vehicle = createVehicle(owner);
+        String tracker = createTracker(owner, vehicle);
+        String vehiclePath = "/api/v1/vehicles/" + vehicle;
+        String trackerPath = "/api/v1/trackers/" + tracker;
+        Map vehicleBefore = request(owner, HttpMethod.GET, vehiclePath, null).getBody();
+        Map trackerBefore = request(owner, HttpMethod.GET, trackerPath, null).getBody();
+        // when / then: every bounded update field is rejected before any entity is saved
+        assertThat(request(owner, HttpMethod.PUT, vehiclePath,
+            Map.of("model", "M".repeat(101))).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(request(owner, HttpMethod.PUT, vehiclePath,
+            Map.of("license_plate", "P".repeat(21))).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(request(owner, HttpMethod.PUT, vehiclePath,
+            Map.of("vin", "V".repeat(18))).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(request(owner, HttpMethod.PUT, trackerPath,
+            Map.of("model", "M".repeat(101))).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(request(owner, HttpMethod.PUT, trackerPath,
+            Map.of("protocol", "P".repeat(21))).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(request(owner, HttpMethod.PUT, trackerPath,
+            Map.of("firmware_version", "F".repeat(51))).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(request(owner, HttpMethod.PUT, trackerPath,
+            Map.of("sim_number", "S".repeat(21))).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        // then
+        assertThat(request(owner, HttpMethod.GET, vehiclePath, null).getBody()).isEqualTo(vehicleBefore);
+        assertThat(request(owner, HttpMethod.GET, trackerPath, null).getBody()).isEqualTo(trackerBefore);
+    }
+
+    @Test void fleet_createTrimsIdentifierAndDeviceWhitespace() {
+        // given
+        HttpHeaders owner = tenantHeaders();
+        String suffix = String.valueOf(IDS.incrementAndGet());
+        String vehicleId = "trimmed-vehicle-" + suffix;
+        String trackerId = "trimmed-tracker-" + suffix;
+        String vehicleDevice = "trimmed-vehicle-device-" + suffix;
+        String trackerDevice = "trimmed-tracker-device-" + suffix;
+        // when
+        ResponseEntity<Map> vehicle = request(owner, HttpMethod.POST, "/api/v1/vehicles",
+            Map.of("vehicle_id", "  " + vehicleId + "  ", "device_id", "  " + vehicleDevice + "  "));
+        ResponseEntity<Map> tracker = request(owner, HttpMethod.POST, "/api/v1/trackers",
+            Map.of("tracker_id", " " + trackerId + " ", "device_id", " " + trackerDevice + " ",
+                "vehicle_id", " " + vehicleId + " "));
+        // then: canonical identifiers are stored and returned, never the padded variants
+        assertThat(vehicle.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(vehicle.getBody()).containsEntry("vehicle_id", vehicleId)
+            .containsEntry("device_id", vehicleDevice);
+        assertThat(tracker.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(tracker.getBody()).containsEntry("tracker_id", trackerId)
+            .containsEntry("device_id", trackerDevice).containsEntry("vehicle_id", vehicleId);
+        assertThat(request(owner, HttpMethod.GET, "/api/v1/vehicles/" + vehicleId, null).getStatusCode())
+            .isEqualTo(HttpStatus.OK);
+        assertThat(request(owner, HttpMethod.GET, "/api/v1/trackers/" + trackerId, null).getStatusCode())
+            .isEqualTo(HttpStatus.OK);
+    }
+
+    @Test void fleet_concurrentCrossTableDeviceClaim_allowsExactlyOneOwner() throws Exception {
+        // given: two valid target vehicles, one free device id, and two different tables racing for it
+        HttpHeaders owner = tenantHeaders();
+        String trackerVehicle = createVehicle(owner);
+        String suffix = String.valueOf(IDS.incrementAndGet());
+        String device = "cross-table-device-" + suffix;
+        String racingVehicle = "cross-table-vehicle-" + suffix;
+        String racingTracker = "cross-table-tracker-" + suffix;
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch start = new CountDownLatch(1);
+        try {
+            // when
+            Future<ResponseEntity<Map>> vehicleAttempt = executor.submit(() -> {
+                start.await();
+                return request(owner, HttpMethod.POST, "/api/v1/vehicles",
+                    Map.of("vehicle_id", racingVehicle, "device_id", device));
+            });
+            Future<ResponseEntity<Map>> trackerAttempt = executor.submit(() -> {
+                start.await();
+                return request(owner, HttpMethod.POST, "/api/v1/trackers",
+                    Map.of("tracker_id", racingTracker, "device_id", device, "vehicle_id", trackerVehicle));
+            });
+            start.countDown();
+            ResponseEntity<Map> vehicleResult = vehicleAttempt.get(30, TimeUnit.SECONDS);
+            ResponseEntity<Map> trackerResult = trackerAttempt.get(30, TimeUnit.SECONDS);
+            // then: the advisory lock serializes both writers; only the first insert may commit
+            assertThat(List.of(vehicleResult.getStatusCode(), trackerResult.getStatusCode()))
+                .containsExactlyInAnyOrder(HttpStatus.CREATED, HttpStatus.CONFLICT);
+            Long owners = jdbc.queryForObject(
+                "select (select count(*) from vehicles where device_id = ?) "
+                    + "+ (select count(*) from trackers where device_id = ?)", Long.class, device, device);
+            assertThat(owners).isEqualTo(1L);
+            boolean vehicleWon = vehicleResult.getStatusCode() == HttpStatus.CREATED;
+            assertThat(request(owner, HttpMethod.GET, "/api/v1/vehicles/" + racingVehicle, null).getStatusCode())
+                .isEqualTo(vehicleWon ? HttpStatus.OK : HttpStatus.NOT_FOUND);
+            assertThat(request(owner, HttpMethod.GET, "/api/v1/trackers/" + racingTracker, null).getStatusCode())
+                .isEqualTo(vehicleWon ? HttpStatus.NOT_FOUND : HttpStatus.OK);
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     @Test void fleet_createdTimestamps_areCurrentInsteadOfEpoch() {

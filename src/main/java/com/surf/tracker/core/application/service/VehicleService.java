@@ -1,5 +1,6 @@
 package com.surf.tracker.core.application.service;
 
+import com.surf.tracker.core.application.DeviceIdentityGuard;
 import com.surf.tracker.core.domain.entity.*;
 import com.surf.tracker.core.domain.enums.TripEndReason;
 import com.surf.tracker.core.domain.enums.TripStartReason;
@@ -27,15 +28,18 @@ public class VehicleService {
     private final TrackerRepository trackerRepository;
     private final TripRepository tripRepository;
     private final TrackerLocationRepository locationRepository;
+    private final DeviceIdentityGuard deviceIdentityGuard;
 
     public VehicleService(VehicleRepository vehicleRepository,
                           TrackerRepository trackerRepository,
                           TripRepository tripRepository,
-                          TrackerLocationRepository locationRepository) {
+                          TrackerLocationRepository locationRepository,
+                          DeviceIdentityGuard deviceIdentityGuard) {
         this.vehicleRepository = vehicleRepository;
         this.trackerRepository = trackerRepository;
         this.tripRepository = tripRepository;
         this.locationRepository = locationRepository;
+        this.deviceIdentityGuard = deviceIdentityGuard;
     }
 
     @Transactional
@@ -44,18 +48,24 @@ public class VehicleService {
         if (organizationId == null || organizationId <= 0) {
             throw new IllegalArgumentException("Organization identity is required");
         }
-        if (vehicle.getVehicleId() == null || vehicle.getVehicleId().isBlank()) {
+        String vehicleId = vehicle.getVehicleId() == null ? null : vehicle.getVehicleId().trim();
+        if (vehicleId == null || vehicleId.isEmpty()) {
             throw new IllegalArgumentException("Vehicle ID is required");
         }
+        vehicle.setVehicleId(vehicleId);
         String deviceId = vehicle.getDeviceId() == null ? null : vehicle.getDeviceId().trim();
         if (deviceId != null && deviceId.isEmpty()) {
             deviceId = null;
         }
         vehicle.setDeviceId(deviceId);
-        if (deviceId != null && trackerRepository.existsByDeviceId(deviceId)) {
-            // The vehicle and tracker tables share one physical device namespace.
-            throw new org.springframework.dao.DuplicateKeyException(
-                    "Device is already registered to a tracker: " + deviceId);
+        if (deviceId != null) {
+            // Serialize with tracker registration so both sides re-check after the same lock.
+            deviceIdentityGuard.lockForRegistration(deviceId);
+            if (vehicleRepository.existsByDeviceId(deviceId) || trackerRepository.existsByDeviceId(deviceId)) {
+                // The vehicle and tracker tables share one physical device namespace.
+                throw new org.springframework.dao.DuplicateKeyException(
+                        "Device is already registered: " + deviceId);
+            }
         }
         vehicle.setOrganizationId(organizationId);
         // Assigned identifiers must be inserted, never merged over an existing tenant's graph.

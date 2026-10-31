@@ -1,5 +1,6 @@
 package com.surf.tracker.core.application.service;
 
+import com.surf.tracker.core.application.DeviceIdentityGuard;
 import com.surf.tracker.core.domain.entity.Tracker;
 import com.surf.tracker.core.domain.entity.Vehicle;
 import com.surf.tracker.core.domain.enums.TrackerStatus;
@@ -22,10 +23,13 @@ public class TrackerService {
 
     private final TrackerRepository trackerRepository;
     private final VehicleRepository vehicleRepository;
+    private final DeviceIdentityGuard deviceIdentityGuard;
 
-    public TrackerService(TrackerRepository trackerRepository, VehicleRepository vehicleRepository) {
+    public TrackerService(TrackerRepository trackerRepository, VehicleRepository vehicleRepository,
+                          DeviceIdentityGuard deviceIdentityGuard) {
         this.trackerRepository = trackerRepository;
         this.vehicleRepository = vehicleRepository;
+        this.deviceIdentityGuard = deviceIdentityGuard;
     }
 
     @Transactional(readOnly = true)
@@ -62,25 +66,31 @@ public class TrackerService {
     public Tracker createTracker(Tracker tracker, String vehicleId) {
         Long orgId = TenantContext.getCurrentOrgId();
         if (orgId == null || orgId <= 0) throw new IllegalArgumentException("Organization identity is required");
-        if (tracker.getTrackerId() == null || tracker.getTrackerId().isBlank()) {
+        String trackerId = tracker.getTrackerId() == null ? null : tracker.getTrackerId().trim();
+        if (trackerId == null || trackerId.isEmpty()) {
             throw new IllegalArgumentException("Tracker ID is required");
         }
-        if (vehicleId == null || vehicleId.isBlank()) {
+        String normalizedVehicleId = vehicleId == null ? null : vehicleId.trim();
+        if (normalizedVehicleId == null || normalizedVehicleId.isEmpty()) {
             throw new IllegalArgumentException("Vehicle ID is required");
         }
-        if (tracker.getDeviceId() == null || tracker.getDeviceId().isBlank()) {
+        String deviceId = tracker.getDeviceId() == null ? null : tracker.getDeviceId().trim();
+        if (deviceId == null || deviceId.isEmpty()) {
             throw new IllegalArgumentException("Device ID is required");
         }
-        String deviceId = tracker.getDeviceId().trim();
+        tracker.setTrackerId(trackerId);
         tracker.setDeviceId(deviceId);
+        // Validate ownership before taking a shared device lock so invalid callers cannot serialize writers.
+        Vehicle vehicle = vehicleRepository.findByIdAndOrganizationId(normalizedVehicleId, orgId)
+                .orElseThrow(() -> new IllegalArgumentException("Vehicle not found: " + normalizedVehicleId));
+        tracker.setVehicle(vehicle);
+        // Serialize with vehicle creation so both sides re-check after the same lock.
+        deviceIdentityGuard.lockForRegistration(deviceId);
         if (trackerRepository.existsByDeviceId(deviceId) || vehicleRepository.existsByDeviceId(deviceId)) {
             // The vehicle and tracker tables share one physical device namespace.
             throw new org.springframework.dao.DuplicateKeyException(
                     "Device is already registered: " + deviceId);
         }
-        Vehicle vehicle = vehicleRepository.findByIdAndOrganizationId(vehicleId, orgId)
-                .orElseThrow(() -> new IllegalArgumentException("Vehicle not found: " + vehicleId));
-        tracker.setVehicle(vehicle);
         entityManager.persist(tracker);
         entityManager.flush();
         return tracker;
