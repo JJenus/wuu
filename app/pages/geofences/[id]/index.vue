@@ -6,7 +6,7 @@ import GeofenceMap from '~/features/geofences/components/GeofenceMap.vue'
 import { geometryArea, geometrySummary } from '~/features/geofences/domain/geofence'
 const route = useRoute()
 const source = useDataSource()
-const { vehicles } = useWorkspace('geofences')
+const { vehicles, fleetQuery } = useWorkspace('geofences')
 const {
   data: zone,
   isPending,
@@ -23,6 +23,11 @@ const polygon = computed(() => {
   return geometry?.type === 'polygon' ? geometry : null
 })
 const members = computed(() => vehicles.value.filter((v) => zone.value?.vehicleIds.includes(v.id)))
+const unavailableMemberIds = computed(() =>
+  (zone.value?.vehicleIds ?? []).filter(
+    (id) => !members.value.some((vehicle) => vehicle.id === id),
+  ),
+)
 useHead(() => ({ title: `${zone.value?.name || 'Geofence not found'} — Wuu` }))
 </script>
 
@@ -145,7 +150,7 @@ useHead(() => ({ title: `${zone.value?.name || 'Geofence not found'} — Wuu` })
             <section class="panel">
               <div class="panel-heading">
                 <h2>Linked vehicles</h2>
-                <span class="preview-tag">{{ members.length }} records</span>
+                <span class="preview-tag">{{ zone.vehicleIds.length }} assigned</span>
               </div>
               <div class="section-body detail-stack">
                 <p class="muted">
@@ -155,20 +160,32 @@ useHead(() => ({ title: `${zone.value?.name || 'Geofence not found'} — Wuu` })
                       : 'Assignment data supplied by the live geofence record.'
                   }}
                 </p>
-                <NuxtLink
-                  v-for="vehicle in members"
-                  :key="vehicle.id"
-                  :to="`/vehicles/${vehicle.id}`"
-                  :aria-label="`View ${vehicle.name}`"
-                  class="related-record"
-                  ><span class="vehicle-icon"><UIcon name="i-lucide-truck" /></span>
-                  <div>
-                    <strong>{{ vehicle.name }}</strong>
-                    <p>{{ vehicle.driver ?? 'Driver not assigned' }} · {{ vehicle.plate }}</p>
-                  </div>
-                  <UIcon name="i-lucide-arrow-up-right"
-                /></NuxtLink>
-                <p v-if="!members.length" class="muted">No vehicles are linked to this zone.</p>
+                <UiAsyncState
+                  v-if="zone.vehicleIds.length"
+                  :pending="fleetQuery.isPending.value"
+                  :error="fleetQuery.isError.value ? fleetQuery.error.value : null"
+                  loading-label="Loading linked vehicle details…"
+                  error-title="Linked vehicle details could not load"
+                  @retry="fleetQuery.refetch()"
+                >
+                  <NuxtLink
+                    v-for="vehicle in members"
+                    :key="vehicle.id"
+                    :to="`/vehicles/${vehicle.id}`"
+                    :aria-label="`View ${vehicle.name}`"
+                    class="related-record"
+                    ><span class="vehicle-icon"><UIcon name="i-lucide-truck" /></span>
+                    <div>
+                      <strong>{{ vehicle.name }}</strong>
+                      <p>{{ vehicle.driver ?? 'Driver not assigned' }} · {{ vehicle.plate }}</p>
+                    </div>
+                    <UIcon name="i-lucide-arrow-up-right"
+                  /></NuxtLink>
+                  <p v-for="id in unavailableMemberIds" :key="id" class="muted">
+                    Vehicle details are unavailable for assigned vehicle {{ id }}.
+                  </p>
+                </UiAsyncState>
+                <p v-else class="muted">No vehicles are linked to this zone.</p>
               </div>
             </section>
           </div>
