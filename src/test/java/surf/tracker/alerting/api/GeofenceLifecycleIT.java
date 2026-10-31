@@ -81,6 +81,79 @@ class GeofenceLifecycleIT {
     @Autowired PlatformTransactionManager transactions;
     @Autowired org.springframework.data.redis.core.RedisTemplate<String, Object> redis;
     @Autowired com.surf.tracker.alerting.infrastructure.cache.RedisKeyGenerator cacheKeys;
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
+
+    @Test
+    void createGeofence_spoofedCreator_persistsAuthenticatedActorAndCreationTime() {
+        // given
+        HttpHeaders owner = tenantHeaders();
+        String vehicle = createVehicle(owner);
+        Number userId = (Number) read(owner, "/api/v1/users/me").get("id");
+        var data = new java.util.HashMap<>(circle(vehicle));
+        data.put("created_by", "spoofed actor");
+
+        // when
+        ResponseEntity<Map> created = request(owner, HttpMethod.POST, "/alerts/geofences", data);
+
+        // then
+        assertThat(created.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        Number id = (Number) created.getBody().get("geofence_id");
+        var softly = new org.assertj.core.api.SoftAssertions();
+        softly.assertThat(jdbc.queryForObject("select created_by from geofences where geofence_id = ?", String.class, id))
+                .isEqualTo(userId.toString());
+        softly.assertThat(java.time.Instant.parse((String) created.getBody().get("created_at")))
+                .isAfter(java.time.Instant.EPOCH);
+        softly.assertAll();
+    }
+
+    @Test
+    void updateGeofence_shapeTransitions_replaceOnlyRelevantGeometry() {
+        // given
+        HttpHeaders owner = tenantHeaders();
+        String vehicle = createVehicle(owner);
+        String path = createCircle(owner, vehicle);
+
+        // when / then
+        assertThat(request(owner, HttpMethod.PUT, path, Map.of("shape_type", "POLYGON", "points", triangle(20)))
+                .getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(read(owner, path)).containsEntry("points", triangle(20)).containsEntry("radius_meters", null)
+                .containsEntry("center_latitude", null).containsEntry("center_longitude", null);
+        assertThat(request(owner, HttpMethod.PUT, path, Map.of("shape_type", "CIRCLE", "center_latitude", 40,
+                "center_longitude", 20, "radius_meters", 200)).getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(read(owner, path)).containsEntry("shape_type", "CIRCLE").containsEntry("radius_meters", 200)
+                .containsEntry("vehicle_ids", List.of(vehicle));
+        Object points = read(owner, path).get("points");
+        assertThat(points == null || ((List<?>) points).isEmpty()).isTrue();
+    }
+
+    @Test
+    void updateGeofence_selfIntersectingPolygon_rejectsBeforeMutation() {
+        // given
+        HttpHeaders owner = tenantHeaders();
+        String path = createPolygon(owner, createVehicle(owner));
+        Map before = read(owner, path);
+
+        // when / then: the crossing ring has nonzero signed area, so area alone is insufficient.
+        assertThat(request(owner, HttpMethod.PUT, path, Map.of("points",
+                List.of(point(0, 0), point(4, 4), point(0, 4), point(3, 0))))
+                .getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(read(owner, path)).isEqualTo(before);
+    }
+
+    @Test
+    void updateGeofence_moreThanSupportedFiftyVertices_rejectsBeforeMutation() {
+        // given: the existing editor contract caps polygon complexity at fifty vertices.
+        HttpHeaders owner = tenantHeaders();
+        String path = createPolygon(owner, createVehicle(owner));
+        Map before = read(owner, path);
+        var vertices = java.util.stream.IntStream.range(0, 51).mapToObj(i ->
+                point(10 + Math.cos(i * 2 * Math.PI / 51), 10 + Math.sin(i * 2 * Math.PI / 51))).toList();
+
+        // when / then
+        assertThat(request(owner, HttpMethod.PUT, path, Map.of("points", vertices)).getStatusCode())
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(read(owner, path)).isEqualTo(before);
+    }
 
     @Test
     void getGeofence_polygon_warmsRealRedisAndReturnsSameOrderedPoints() {
