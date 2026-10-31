@@ -38,7 +38,7 @@ export function toGeofence(dto: GeofenceDto): Geofence {
   return {
     id: String(dto.geofenceId),
     name: dto.name,
-    description: dto.description?.trim() || 'No description provided.',
+    description: dto.description ?? '',
     icon: 'i-lucide-map-pinned',
     radius: geometrySummary(geometry),
     location: 'Location label not provided',

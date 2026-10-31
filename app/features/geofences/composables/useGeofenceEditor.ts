@@ -1,8 +1,16 @@
 import { validateGeofence, type GeofenceDraft, type Geometry } from '../domain/geofence'
 import { useWorkspace } from '../../workspace/composables/useWorkspace'
+import { useGeofenceAccess } from './useGeofenceAccess'
 
 export function useGeofenceEditor(initial: GeofenceDraft, id?: string) {
-  const { geofences, vehicles, createGeofence, updateGeofence } = useWorkspace()
+  const { geofences, vehicles, fleetQuery, createGeofence, updateGeofence } =
+    useWorkspace('geofences')
+  const { source, allowed: writeAllowed, assertWriteAccess } = useGeofenceAccess()
+  const saveUnavailable = computed(
+    () =>
+      !source.isPreview &&
+      (!writeAllowed.value || fleetQuery.isPending.value || fleetQuery.isError.value),
+  )
   const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value))
   const draft = reactive<GeofenceDraft>(copy(initial))
   const baseline = JSON.stringify(initial)
@@ -60,12 +68,13 @@ export function useGeofenceEditor(initial: GeofenceDraft, id?: string) {
     decision?.(false)
   })
   async function save() {
-    if (busy.value) return
+    if (busy.value || saveUnavailable.value) return
     errors.value = validateGeofence(
       draft,
       geofences.value,
       vehicles.value.map((v) => v.id),
       id,
+      source.mode,
     )
     if (Object.keys(errors.value).length) {
       await nextTick()
@@ -74,12 +83,21 @@ export function useGeofenceEditor(initial: GeofenceDraft, id?: string) {
     }
     busy.value = true
     try {
+      await assertWriteAccess()
       const target = id || (await createGeofence(copy(draft)))
       if (id) await updateGeofence(id, copy(draft))
       allowed = true
       toast.add({
-        title: id ? 'Geofence updated in preview' : 'Geofence created in preview',
-        description: 'Session only. No monitoring or notification was activated.',
+        title: source.isPreview
+          ? id
+            ? 'Geofence updated in preview'
+            : 'Geofence created in preview'
+          : id
+            ? 'Geofence updated'
+            : 'Geofence created',
+        description: source.isPreview
+          ? 'Session only. No monitoring or notification was activated.'
+          : 'Saved to the live workspace. Alert rules are configured separately.',
         color: 'success',
       })
       busy.value = false
@@ -100,6 +118,9 @@ export function useGeofenceEditor(initial: GeofenceDraft, id?: string) {
     dirty,
     errors,
     busy,
+    source,
+    saveUnavailable,
+    fleetQuery,
     history,
     discardOpen,
     vehicles,

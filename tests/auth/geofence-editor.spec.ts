@@ -3,13 +3,17 @@ import { randomUUID } from 'node:crypto'
 
 async function signIn(page: Page, permission = 'write') {
   await page.goto('/sign-in?next=/geofences/9/edit')
-  await page.getByLabel('Email', { exact: true }).fill(`geo-ui-${permission}-${randomUUID()}@example.com`)
+  await page
+    .getByLabel('Email', { exact: true })
+    .fill(`geo-ui-${permission}-${randomUUID()}@example.com`)
   await page.getByLabel('Password', { exact: true }).fill('test-only-password')
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
   await expect(page).toHaveURL('/geofences/9/edit')
 }
 
-test('authorized live editor persists description, geometry and explicit unlink-all', async ({ page }) => {
+test('authorized live editor persists description, geometry and explicit unlink-all', async ({
+  page,
+}) => {
   await signIn(page)
   await expect(page.getByLabel('Geofence name', { exact: true })).toHaveValue('London depot')
   await expect(page.getByLabel('Center latitude', { exact: true })).toHaveValue('51.5')
@@ -30,7 +34,9 @@ test('authorized live editor persists description, geometry and explicit unlink-
   await expect(page.getByLabel('Assign LONDON-2', { exact: true })).not.toBeChecked()
 })
 
-test('denied permission and unavailable current access never expose a live save control', async ({ page }) => {
+test('denied permission and unavailable current access never expose a live save control', async ({
+  page,
+}) => {
   await signIn(page, 'denied')
   await expect(page.getByText('You do not have permission to edit geofences.')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Save changes', exact: true })).toHaveCount(0)
