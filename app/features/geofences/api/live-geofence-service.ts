@@ -44,7 +44,7 @@ export function toGeofence(dto: GeofenceDto): Geofence {
     location: 'Location label not provided',
     events: 'Monitoring configuration not provided',
     active: dto.active,
-    vehicleIds: dto.vehicleId ? [dto.vehicleId] : [],
+    vehicleIds: dto.vehicleIds ? [...dto.vehicleIds] : dto.vehicleId ? [dto.vehicleId] : [],
     geometry,
   }
 }

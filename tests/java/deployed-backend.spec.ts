@@ -298,6 +298,59 @@ test('actual Java: tenant fleet, sealed sessions and account-wide revocation', a
     })
     expect(zone.status()).toBe(201)
     const zoneId = (await zone.json()).geofence_id
+    const geofenceHeaders = { authorization: `Bearer ${owners[0]!.token}` }
+    const secondVehicle = `${owners[0]!.vehicle_id}-geo2`
+    const secondPlate = `GEO-${run}`
+    const secondCreated = await request.post(`${backend}/api/v1/vehicles`, {
+      headers: geofenceHeaders,
+      data: { vehicle_id: secondVehicle, license_plate: secondPlate, model: 'Geofence acceptance' },
+    })
+    expect(secondCreated.status()).toBe(201)
+    const polygonPoints = [
+      { latitude: 51.5, longitude: -0.12 },
+      { latitude: 51.5, longitude: -0.1 },
+      { latitude: 51.52, longitude: -0.12 },
+    ]
+    const zonePath = `${backend}/alerts/geofences/${zoneId}`
+    const zoneUpdated = await request.put(zonePath, {
+      headers: geofenceHeaders,
+      data: {
+        shape_type: 'POLYGON',
+        points: polygonPoints,
+        vehicle_ids: [owners[0]!.vehicle_id, secondVehicle],
+      },
+    })
+    expect(zoneUpdated.status()).toBe(200)
+    expect(
+      (
+        await request.put(zonePath, {
+          headers: geofenceHeaders,
+          data: { description: 'Persisted polygon acceptance' },
+        })
+      ).status(),
+    ).toBe(200)
+    const zoneSnapshot = await (await request.get(zonePath, { headers: geofenceHeaders })).json()
+    expect(zoneSnapshot).toMatchObject({
+      shape_type: 'POLYGON',
+      points: polygonPoints,
+      description: 'Persisted polygon acceptance',
+      radius_meters: null,
+    })
+    expect(zoneSnapshot.vehicle_ids.sort()).toEqual([owners[0]!.vehicle_id, secondVehicle].sort())
+    expect(
+      (await request.put(zonePath, { headers: geofenceHeaders, data: { points: [] } })).status(),
+    ).toBe(400)
+    expect(
+      (
+        await request.put(zonePath, {
+          headers: geofenceHeaders,
+          data: { vehicle_ids: [owners[1]!.vehicle_id] },
+        })
+      ).status(),
+    ).toBe(400)
+    expect(await (await request.get(zonePath, { headers: geofenceHeaders })).json()).toEqual(
+      zoneSnapshot,
+    )
     expect((await beta!.request.get(`/api/_wuu/geofences/${zoneId}`)).status()).toBe(404)
     await beta!.goto(`/geofences/${zoneId}`)
     await expect(
@@ -309,7 +362,10 @@ test('actual Java: tenant fleet, sealed sessions and account-wide revocation', a
     const membership = alpha!
       .locator('section')
       .filter({ has: alpha!.getByRole('heading', { name: 'Linked vehicles', exact: true }) })
-    await expect(membership.getByText('1 assigned', { exact: true })).toBeVisible()
+    await expect(membership.getByText('2 assigned', { exact: true })).toBeVisible()
+    await expect(
+      membership.getByRole('link', { name: `View ${secondPlate}`, exact: true }),
+    ).toBeVisible()
     await expect(
       membership.getByRole('link', { name: `View ${owners[0]!.license_plate}`, exact: true }),
     ).toBeVisible()
@@ -333,7 +389,7 @@ test('actual Java: tenant fleet, sealed sessions and account-wide revocation', a
       membership.getByRole('link', { name: `View ${owners[0]!.license_plate}`, exact: true }),
     ).toBeVisible()
     console.log(
-      'PASS persisted real geofence direct read, linked fleet, foreign denial and injected fleet-error recovery without false empty assignments',
+      'PASS real persisted circle-to-polygon update, complete assignments, invalid/foreign rollback, browser membership and injected fleet-error recovery; editor writes remain disabled',
     )
     await alpha!.goto('/subscriptions')
     for (const name of ['Usage tokens', 'Monthly plan', 'Yearly plan']) {

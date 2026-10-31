@@ -9,6 +9,7 @@ export const geofencePointDtoSchema = z.object({
 export const geofenceDtoSchema = z.object({
   geofenceId: z.number().int(),
   vehicleId: z.string().nullable().optional(),
+  vehicleIds: z.array(z.string().min(1)).optional(),
   name: z.string(),
   shapeType: z.enum(['CIRCLE', 'POLYGON', 'circle', 'polygon']),
   centerLatitude: z.number().nullable().optional(),

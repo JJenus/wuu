@@ -238,7 +238,13 @@ describe('live alert mapping and guarded transitions', () => {
 
 describe('live trip and geofence mapping', () => {
   it('keeps every authoritative geofence assignment, including an explicitly empty list', () => {
-    const fixture = { geofenceId: 9, name: 'Depot', shapeType: 'CIRCLE', active: true, vehicleId: 'OWN-1' }
+    const fixture = {
+      geofenceId: 9,
+      name: 'Depot',
+      shapeType: 'CIRCLE',
+      active: true,
+      vehicleId: 'OWN-1',
+    }
     const multiple = geofenceDtoSchema.parse({ ...fixture, vehicleIds: ['OWN-1', 'OWN-2'] })
     expect(toGeofence(multiple).vehicleIds).toEqual(['OWN-1', 'OWN-2'])
     const cleared = geofenceDtoSchema.parse({ ...fixture, vehicleIds: [] })
