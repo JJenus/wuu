@@ -6,6 +6,7 @@ import com.surf.tracker.alerting.api.dto.GeofenceResponse;
 import com.surf.tracker.alerting.api.dto.PagedResponse;
 import com.surf.tracker.alerting.api.dto.SearchRequest;
 import com.surf.tracker.alerting.domain.entity.Geofence;
+import com.surf.tracker.alerting.exception.AlertException;
 import com.surf.tracker.alerting.infrastructure.cache.GeofenceCacheService;
 import com.surf.tracker.alerting.infrastructure.repository.GeofenceRepository;
 import com.surf.tracker.shared.security.TenantContext;
@@ -127,7 +128,7 @@ public class GeofenceService {
                 .orElseGet(() -> {
                     // Cache miss - load from DB with org scoping
                     Geofence geofence = geofenceRepository.findByIdAndOrganizationId(geofenceId, orgId)
-                            .orElseThrow(() -> new IllegalArgumentException("Geofence not found"));
+                            .orElseThrow(() -> AlertException.geofenceNotFound(String.valueOf(geofenceId)));
 
                     // Cache for future requests
                     geofenceCacheService.cacheGeofence(geofence);
