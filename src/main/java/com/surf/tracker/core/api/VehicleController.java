@@ -47,7 +47,7 @@ public class VehicleController {
     }
 
     @PostMapping
-    public ResponseEntity<VehicleResponse> createVehicle(@RequestBody CreateVehicleRequest request) {
+    public ResponseEntity<VehicleResponse> createVehicle(@jakarta.validation.Valid @RequestBody CreateVehicleRequest request) {
         Vehicle vehicle = new Vehicle();
         vehicle.setVehicleId(request.getVehicleId());
         vehicle.setDeviceId(request.getDeviceId());
@@ -67,7 +67,7 @@ public class VehicleController {
 
     @PutMapping("/{vehicleId}")
     public ResponseEntity<VehicleResponse> updateVehicle(@PathVariable String vehicleId,
-                                                         @RequestBody UpdateVehicleRequest request) {
+                                                         @jakarta.validation.Valid @RequestBody UpdateVehicleRequest request) {
         Vehicle vehicle = vehicleService.getVehicle(vehicleId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Vehicle not found"));
 

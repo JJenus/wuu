@@ -65,6 +65,19 @@ public class TrackerService {
         if (tracker.getTrackerId() == null || tracker.getTrackerId().isBlank()) {
             throw new IllegalArgumentException("Tracker ID is required");
         }
+        if (vehicleId == null || vehicleId.isBlank()) {
+            throw new IllegalArgumentException("Vehicle ID is required");
+        }
+        if (tracker.getDeviceId() == null || tracker.getDeviceId().isBlank()) {
+            throw new IllegalArgumentException("Device ID is required");
+        }
+        String deviceId = tracker.getDeviceId().trim();
+        tracker.setDeviceId(deviceId);
+        if (trackerRepository.existsByDeviceId(deviceId) || vehicleRepository.existsByDeviceId(deviceId)) {
+            // The vehicle and tracker tables share one physical device namespace.
+            throw new org.springframework.dao.DuplicateKeyException(
+                    "Device is already registered: " + deviceId);
+        }
         Vehicle vehicle = vehicleRepository.findByIdAndOrganizationId(vehicleId, orgId)
                 .orElseThrow(() -> new IllegalArgumentException("Vehicle not found: " + vehicleId));
         tracker.setVehicle(vehicle);

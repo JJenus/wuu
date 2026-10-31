@@ -47,6 +47,9 @@ public interface VehicleRepository extends JpaRepository<Vehicle, String> {
     Page<Vehicle> findVehiclesWithActiveFuelCut(@Param("organizationId") Long organizationId, Pageable pageable);
     
     boolean existsByDeviceIdAndOrganizationId(String deviceId, Long organizationId);
+
+    // Device identities route telemetry globally, so collision checks cannot be tenant-local.
+    boolean existsByDeviceId(String deviceId);
     
     boolean existsByLicensePlateAndOrganizationId(String licensePlate, Long organizationId);
 

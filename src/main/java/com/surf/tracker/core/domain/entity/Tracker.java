@@ -70,6 +70,17 @@ public class Tracker {
     @Column(name = "updated_at")
     private Instant updatedAt = Instant.EPOCH;
 
+    @PrePersist
+    protected void onCreate() {
+        Instant now = TimeProvider.now();
+        if (this.createdAt == null || Instant.EPOCH.equals(this.createdAt)) {
+            this.createdAt = now;
+        }
+        if (this.updatedAt == null || Instant.EPOCH.equals(this.updatedAt)) {
+            this.updatedAt = now;
+        }
+    }
+
     @PreUpdate
     protected void onUpdate() {
         this.updatedAt = TimeProvider.now();

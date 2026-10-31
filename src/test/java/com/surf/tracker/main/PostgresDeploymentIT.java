@@ -790,6 +790,92 @@ class PostgresDeploymentIT {
             .isEqualTo(HttpStatus.BAD_REQUEST);
     }
 
+    @Test void fleet_deviceIdentity_isUniqueAcrossVehiclesAndTrackersPerTenantAndGlobally() {
+        // given: a vehicle already claims a physical device identity
+        HttpHeaders owner = tenantHeaders();
+        HttpHeaders outsider = tenantHeaders();
+        String ownerVehicle = createVehicle(owner);
+        String otherOwnerVehicle = createVehicle(owner);
+        String vehicleDevice = "shared-device-" + IDS.incrementAndGet();
+        assertThat(request(owner, HttpMethod.POST, "/api/v1/vehicles",
+            Map.of("vehicle_id", ownerVehicle + "-with-device", "device_id", vehicleDevice)).getStatusCode())
+            .isEqualTo(HttpStatus.CREATED);
+        // when: a same-tenant and a foreign-tenant tracker both try to register the device
+        String sameTenantTracker = "collision-tracker-" + IDS.incrementAndGet();
+        String foreignTracker = "collision-tracker-" + IDS.incrementAndGet();
+        ResponseEntity<Map> sameTenant = request(owner, HttpMethod.POST, "/api/v1/trackers",
+            Map.of("tracker_id", sameTenantTracker, "device_id", vehicleDevice, "vehicle_id", otherOwnerVehicle));
+        ResponseEntity<Map> foreign = request(outsider, HttpMethod.POST, "/api/v1/trackers",
+            Map.of("tracker_id", foreignTracker, "device_id", vehicleDevice, "vehicle_id", createVehicle(outsider)));
+        // then: neither may split device ownership, and neither tracker is persisted
+        assertThat(sameTenant.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(foreign.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(content(owner, "/api/v1/trackers")).isEmpty();
+        assertThat(content(outsider, "/api/v1/trackers")).isEmpty();
+
+        // given: a tracker now claims a device identity
+        String tracker = createTracker(owner, otherOwnerVehicle);
+        String trackerDevice = request(owner, HttpMethod.GET, "/api/v1/trackers/" + tracker, null)
+            .getBody().get("device_id").toString();
+        // when: vehicle creation tries to claim the same device, same-tenant and foreign-tenant
+        ResponseEntity<Map> sameTenantVehicle = request(owner, HttpMethod.POST, "/api/v1/vehicles",
+            Map.of("vehicle_id", "collision-vehicle-" + IDS.incrementAndGet(), "device_id", trackerDevice));
+        ResponseEntity<Map> foreignVehicle = request(outsider, HttpMethod.POST, "/api/v1/vehicles",
+            Map.of("vehicle_id", "collision-vehicle-" + IDS.incrementAndGet(), "device_id", trackerDevice));
+        // then: vehicle ownership cannot duplicate a registered tracker device
+        assertThat(sameTenantVehicle.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(foreignVehicle.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+    }
+
+    @Test void fleet_createValidation_rejectsMissingAndOversizedContractFields() {
+        // given
+        HttpHeaders owner = tenantHeaders();
+        String vehicle = createVehicle(owner);
+        String tracker = "validated-tracker-" + IDS.incrementAndGet();
+        // when / then: required device identity is enforced before persistence
+        assertThat(request(owner, HttpMethod.POST, "/api/v1/trackers",
+            Map.of("tracker_id", tracker, "vehicle_id", vehicle)).getStatusCode())
+            .isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(request(owner, HttpMethod.POST, "/api/v1/trackers",
+            Map.of("tracker_id", tracker, "device_id", " ", "vehicle_id", vehicle)).getStatusCode())
+            .isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(content(owner, "/api/v1/trackers")).isEmpty();
+
+        // when / then: bounded identifiers/descriptions fail as client errors, not conflicts
+        String tooLongId = "x".repeat(51);
+        assertThat(request(owner, HttpMethod.POST, "/api/v1/vehicles",
+            Map.of("vehicle_id", tooLongId)).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(request(owner, HttpMethod.POST, "/api/v1/vehicles",
+            Map.of("vehicle_id", "validated-vehicle-" + IDS.incrementAndGet(),
+                "vin", "V".repeat(18))).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(request(owner, HttpMethod.POST, "/api/v1/vehicles",
+            Map.of("vehicle_id", "validated-vehicle-" + IDS.incrementAndGet(),
+                "license_plate", "P".repeat(21))).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(request(owner, HttpMethod.POST, "/api/v1/trackers",
+            Map.of("tracker_id", tracker, "device_id", "validated-device-" + IDS.incrementAndGet(),
+                "vehicle_id", vehicle, "protocol", "P".repeat(21))).getStatusCode())
+            .isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(content(owner, "/api/v1/trackers")).isEmpty();
+    }
+
+    @Test void fleet_createdTimestamps_areCurrentInsteadOfEpoch() {
+        // given
+        HttpHeaders owner = tenantHeaders();
+        String vehicle = createVehicle(owner);
+        String tracker = createTracker(owner, vehicle);
+        // when
+        java.sql.Timestamp vehicleCreated = jdbc.queryForObject(
+            "select created_at from vehicles where vehicle_id = ?", java.sql.Timestamp.class, vehicle);
+        java.sql.Timestamp trackerCreated = jdbc.queryForObject(
+            "select created_at from trackers where tracker_id = ?", java.sql.Timestamp.class, tracker);
+        java.sql.Timestamp trackerUpdated = jdbc.queryForObject(
+            "select updated_at from trackers where tracker_id = ?", java.sql.Timestamp.class, tracker);
+        // then: new aggregate roots must not persist the 1970 placeholder
+        assertThat(vehicleCreated.toInstant()).isAfter(java.time.Instant.parse("2020-01-01T00:00:00Z"));
+        assertThat(trackerCreated.toInstant()).isAfter(java.time.Instant.parse("2020-01-01T00:00:00Z"));
+        assertThat(trackerUpdated.toInstant()).isAfter(java.time.Instant.parse("2020-01-01T00:00:00Z"));
+    }
+
     private String provisionTrip(String vehicleId, String suffix) {
         String id = "fleet-trip-" + suffix + "-" + IDS.incrementAndGet();
         new TransactionTemplate(transactions).executeWithoutResult(status -> {
