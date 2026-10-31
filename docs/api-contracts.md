@@ -1,6 +1,12 @@
 # Backend and live adapter contracts
 
-## GEO-01 complete association reads — 2026-10-31 (acceptance pending)
+## GEO-01 complete association reads — 2026-10-31 (accepted)
+
+Final stable clean backend-devicee0eead6/frontendfe7fcc1 passed all8 FULL_START
+stages at20:55:51.234Z; vendor756/device91 and frontend145units/42auth/31preview
+PASS. Real Java cold/restart proves persisted polygon/multiple assignment reads
+and invalid/foreign rollback. This supersedes pending checkpoints below. No
+geofence UI/BFF writes are enabled; GEO-02 remains a separate authorized task.
 
 Backend geofence responses now retain complete sorted `vehicle_ids`; the legacy
 singular `vehicle_id` remains for compatibility. The frontend DTO normalizes this

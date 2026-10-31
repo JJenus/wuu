@@ -1,5 +1,17 @@
 # Progress and next slice
 
+## GEO-01 accepted — 2026-10-31
+
+Final runtime tuple backend-devicee0eead6/frontendfe7fcc1 passed FULL_START all8
+stages at20:55:51.234Z with stable clean fingerprints. Vendor756/device91,
+frontend145units/42auth/31preview/types/build/boundaries/scoped format PASS.
+Complete associations, persisted polygon updates and invalid/foreign rollback
+were real-Java browser tested before and after restart. Raw logs retained in
+workspace .coordination/evidence/GEO-01/private-wuu-java-dS9FkM/; receipt beside
+it under startup-receipt/. Backend handoffs/GEO-01.md contains exact hashes,
+review and RED/GREEN. GEO-02 editors now eligible, not enabled by this task.
+Earlier pending paragraphs below are checkpoints. Production NOT_READY.
+
 ## GEO-01 integration — 2026-10-31 (not accepted yet)
 
 Complete-association read adapter now preserves backend `vehicle_ids` instead of
