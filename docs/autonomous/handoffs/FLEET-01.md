@@ -63,6 +63,28 @@ skip it, and a writer that bypasses these services is still unconstrained. The
 durable cross-database guarantee remains a coordinator-owned migration or device
 registry; do not claim database-wide enforcement beyond the service layer.
 
+### Proposed coordinator migration (not applied, needs owner approval)
+
+To close the gap database-wide, a single shared registry is the smallest robust
+shape: one row per physical device, referenced by both aggregate roots. Sketch
+only — the coordinator owns numbering, dialect history and the final design:
+
+```sql
+create table device_identity (
+    device_id varchar(50) primary key,
+    owner_kind varchar(16) not null,
+    owner_id varchar(50) not null,
+    created_at timestamptz not null default now()
+);
+-- Backfill from vehicles.device_id and trackers.device_id, failing on collisions.
+-- Replace the per-table uniqueness reliance with triggers (or deferred FKs) on
+-- vehicles/trackers insert/delete that maintain device_identity in the same
+-- transaction. Then the advisory lock can be retired.
+```
+
+This is a design suggestion for the integration owner, not an approved contract
+and not a substitute for migration review; it must not be applied from this task.
+
 ## RED / GREEN evidence
 
 Commands run in the isolated worktree with `TMPDIR=/tmp/opencode`.
