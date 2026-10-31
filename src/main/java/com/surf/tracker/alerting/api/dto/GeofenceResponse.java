@@ -8,6 +8,7 @@ import java.util.List;
 public class GeofenceResponse {
     private Long geofenceId;
     private String vehicleId;
+    private List<String> vehicleIds = List.of();
     private String name;
     private GeofenceShapeType shapeType;
     private Double centerLatitude;
@@ -38,6 +39,9 @@ public class GeofenceResponse {
     public void setVehicleId(String vehicleId) {
         this.vehicleId = vehicleId;
     }
+
+    public List<String> getVehicleIds() { return vehicleIds; }
+    public void setVehicleIds(List<String> vehicleIds) { this.vehicleIds = List.copyOf(vehicleIds); }
 
     public String getName() {
         return name;

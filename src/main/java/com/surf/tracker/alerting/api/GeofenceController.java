@@ -208,14 +208,25 @@ public class GeofenceController {
         geofence.setCenterLatitude(request.getCenterLatitude());
         geofence.setCenterLongitude(request.getCenterLongitude());
         geofence.setRadiusMeters(request.getRadiusMeters());
+        if (request.getPoints() == null) {
+            geofence.setPoints(null);
+        } else {
+            for (int i = 0; i < request.getPoints().size(); i++) {
+                GeofencePointDto point = request.getPoints().get(i);
+                geofence.addPoint(point.getLatitude(), point.getLongitude(), i + 1);
+            }
+        }
         return geofence;
     }
 
     private GeofenceResponse toResponse(Geofence geofence) {
         GeofenceResponse response = new GeofenceResponse();
         response.setGeofenceId(geofence.getGeofenceId());
-        response.setVehicleId(geofence.getVehicleIds().stream().findFirst().orElse(null));
+        List<String> vehicleIds = geofence.getVehicleIds().stream().sorted().toList();
+        response.setVehicleIds(vehicleIds);
+        response.setVehicleId(vehicleIds.stream().findFirst().orElse(null));
         response.setName(geofence.getName());
+        response.setDescription(geofence.getDescription());
         response.setShapeType(geofence.getShapeType());
         response.setCenterLatitude(geofence.getCenterLatitude());
         response.setCenterLongitude(geofence.getCenterLongitude());

@@ -104,6 +104,10 @@ class GeofenceServiceTest {
         Geofence existing = new Geofence();
         existing.setGeofenceId(1L);
         existing.setOrganizationId(ORG_ID);
+        existing.setShapeType(GeofenceShapeType.CIRCLE);
+        existing.setCenterLatitude(51.5);
+        existing.setCenterLongitude(-0.12);
+        existing.setRadiusMeters(100);
         Geofence updates = new Geofence();
         updates.setName("Updated");
         when(geofenceRepository.findByIdAndOrganizationId(1L, ORG_ID)).thenReturn(Optional.of(existing));

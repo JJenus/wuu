@@ -6,6 +6,8 @@ import com.surf.tracker.alerting.api.dto.GeofenceResponse;
 import com.surf.tracker.alerting.api.dto.PagedResponse;
 import com.surf.tracker.alerting.api.dto.SearchRequest;
 import com.surf.tracker.alerting.domain.entity.Geofence;
+import com.surf.tracker.alerting.domain.entity.GeofencePoint;
+import com.surf.tracker.alerting.domain.enums.GeofenceShapeType;
 import com.surf.tracker.alerting.exception.AlertException;
 import com.surf.tracker.alerting.infrastructure.cache.GeofenceCacheService;
 import com.surf.tracker.alerting.infrastructure.repository.GeofenceRepository;
@@ -142,7 +144,15 @@ public class GeofenceService {
     public Geofence updateGeofence(Long geofenceId, Geofence updates) {
         Long orgId = requireOrganizationId();
         Geofence geofence = geofenceRepository.findByIdAndOrganizationId(geofenceId, orgId)
-                .orElseThrow(() -> new IllegalArgumentException("Geofence not found"));
+                .orElseThrow(() -> AlertException.geofenceNotFound(String.valueOf(geofenceId)));
+
+        // Validate the merged geometry before touching a managed entity or its caches.
+        GeofenceShapeType shape = updates.getShapeType() != null ? updates.getShapeType() : geofence.getShapeType();
+        Double latitude = updates.getCenterLatitude() != null ? updates.getCenterLatitude() : geofence.getCenterLatitude();
+        Double longitude = updates.getCenterLongitude() != null ? updates.getCenterLongitude() : geofence.getCenterLongitude();
+        Integer radius = updates.getRadiusMeters() != null ? updates.getRadiusMeters() : geofence.getRadiusMeters();
+        List<GeofencePoint> points = updates.getPoints() != null ? updates.getPoints() : geofence.getPoints();
+        validateGeometry(shape, latitude, longitude, radius, points);
 
         // Track affected vehicles for cache invalidation
         Set<String> oldVehicleIds = new HashSet<>(geofence.getVehicleIds());
@@ -166,6 +176,21 @@ public class GeofenceService {
 
         if (updates.getRadiusMeters() != null) {
             geofence.setRadiusMeters(updates.getRadiusMeters());
+        }
+
+        if (shape == GeofenceShapeType.CIRCLE) {
+            geofence.getPoints().clear();
+        } else {
+            geofence.setCenterLatitude(null);
+            geofence.setCenterLongitude(null);
+            geofence.setRadiusMeters(null);
+            if (updates.getPoints() != null) {
+                geofence.getPoints().clear();
+                for (int i = 0; i < points.size(); i++) {
+                    GeofencePoint point = points.get(i);
+                    geofence.addPoint(point.getLatitude(), point.getLongitude(), i + 1);
+                }
+            }
         }
 
         // Update vehicle associations
@@ -237,6 +262,42 @@ public class GeofenceService {
 
     // ========== HELPER METHODS ==========
 
+    private void validateGeometry(GeofenceShapeType shape, Double latitude, Double longitude,
+                                  Integer radius, List<GeofencePoint> points) {
+        if (shape == GeofenceShapeType.CIRCLE) {
+            validateCoordinate(latitude, 90, "Center latitude");
+            validateCoordinate(longitude, 180, "Center longitude");
+            if (radius == null || radius <= 0) {
+                throw new IllegalArgumentException("Circle radius must be positive");
+            }
+        } else if (shape == GeofenceShapeType.POLYGON) {
+            if (points == null || points.size() < 3) {
+                throw new IllegalArgumentException("Polygon requires at least three points");
+            }
+            double area = 0;
+            for (int i = 0; i < points.size(); i++) {
+                GeofencePoint point = points.get(i);
+                if (point == null) throw new IllegalArgumentException("Polygon point is required");
+                validateCoordinate(point.getLatitude(), 90, "Point latitude");
+                validateCoordinate(point.getLongitude(), 180, "Point longitude");
+            }
+            for (int i = 0; i < points.size(); i++) {
+                GeofencePoint a = points.get(i);
+                GeofencePoint b = points.get((i + 1) % points.size());
+                area += a.getLongitude() * b.getLatitude() - b.getLongitude() * a.getLatitude();
+            }
+            if (area == 0) throw new IllegalArgumentException("Polygon must have nonzero area");
+        } else {
+            throw new IllegalArgumentException("Geofence shape type is required");
+        }
+    }
+
+    private void validateCoordinate(Double coordinate, int bound, String field) {
+        if (coordinate == null || !Double.isFinite(coordinate) || Math.abs(coordinate) > bound) {
+            throw new IllegalArgumentException(field + " must be finite and between -" + bound + " and " + bound);
+        }
+    }
+
     private Pageable createPageable(SearchRequest searchRequest) {
         Sort sort = Sort.by(searchRequest.getSortDirection(), searchRequest.getSortBy());
         return PageRequest.of(searchRequest.getPage(), searchRequest.getSize(), sort);
@@ -253,7 +314,9 @@ public class GeofenceService {
     private GeofenceResponse toResponse(Geofence geofence) {
         GeofenceResponse response = new GeofenceResponse();
         response.setGeofenceId(geofence.getGeofenceId());
-        response.setVehicleId(geofence.getVehicleIds().stream().findFirst().orElse(null));
+        List<String> vehicleIds = geofence.getVehicleIds().stream().sorted().toList();
+        response.setVehicleIds(vehicleIds);
+        response.setVehicleId(vehicleIds.stream().findFirst().orElse(null));
         response.setName(geofence.getName());
         response.setDescription(geofence.getDescription());
         response.setShapeType(geofence.getShapeType());

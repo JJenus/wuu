@@ -28,11 +28,12 @@ class GeofenceControllerTest {
     @Mock
     private GeofenceService service;
     private GeofenceController controller;
+    private Geofence saved;
 
     @BeforeEach
     void setUp() {
         controller = new GeofenceController(service);
-        Geofence saved = new Geofence();
+        saved = new Geofence();
         saved.setGeofenceId(5L);
         saved.setName("Depot");
         saved.setShapeType(GeofenceShapeType.CIRCLE);
@@ -76,10 +77,7 @@ class GeofenceControllerTest {
     @Test
     void updateGeofence_multipleAssociations_responseContainsEveryId() {
         // given
-        Geofence saved = new Geofence();
-        saved.setGeofenceId(5L);
         saved.setVehicleIds(Set.of("OWN-1", "OWN-2"));
-        when(service.updateGeofence(eq(5L), any(Geofence.class))).thenReturn(saved);
 
         // when
         JsonNode json = new ObjectMapper().findAndRegisterModules()

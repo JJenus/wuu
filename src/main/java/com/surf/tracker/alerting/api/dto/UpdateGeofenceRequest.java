@@ -2,6 +2,8 @@ package com.surf.tracker.alerting.api.dto;
 
 import com.surf.tracker.alerting.domain.enums.GeofenceShapeType;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.Valid;
+import java.util.List;
 import java.util.Set;
 
 public class UpdateGeofenceRequest {
@@ -21,6 +23,9 @@ public class UpdateGeofenceRequest {
     private Boolean active;
 
     private Set<String> vehicleIds;
+
+    @Valid
+    private List<GeofencePointDto> points;
 
     // Getters and Setters
     public String getName() { return name; }
@@ -46,4 +51,7 @@ public class UpdateGeofenceRequest {
 
     public Set<String> getVehicleIds() { return vehicleIds; }
     public void setVehicleIds(Set<String> vehicleIds) { this.vehicleIds = vehicleIds; }
+
+    public List<GeofencePointDto> getPoints() { return points; }
+    public void setPoints(List<GeofencePointDto> points) { this.points = points; }
 }
