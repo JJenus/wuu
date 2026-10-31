@@ -99,6 +99,9 @@ Commands run in the isolated worktree with `TMPDIR=/tmp/opencode`.
   `./mvnw -B -Dtest=PostgresDeploymentIT test` → **43/43 tests, 0 failures**,
   93.2 s. This also covers the two fleet CRUD methods omitted from the focused
   run. Log: `/tmp/opencode/fleet01-full-it.log`.
+- Cross-table race stability: the concurrency method was run **3 additional
+  times** against real PostgreSQL on code revision `0a0776f`; all 3 runs passed
+  with no assertion errors. Logs: `/tmp/opencode/fleet01-race-run{1,2,3}.log`.
 - Fleet unit slice, prior revision: `VehicleControllerTest, TrackerControllerTest,
   VehicleCommandServiceTest, VehicleQueryServiceTest, VehicleEventHandlerTest,
   VehicleTest` → **53/53**, 0 failures. Log: `/tmp/opencode/fleet01-unit.log`.
