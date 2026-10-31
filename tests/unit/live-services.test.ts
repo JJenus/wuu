@@ -324,7 +324,7 @@ describe('live trip and geofence mapping', () => {
     expect(incomplete.geometry).toBeNull()
   })
 
-  it('allows only the verified live creation subset and fails closed on update', async () => {
+  it('allows only the verified live creation subset', async () => {
     const request = vi.fn(async () => ({ geofenceId: 9 }))
     const service = createLiveGeofenceService({ request } as unknown as GatewayClient)
     const geometry: Geometry = {
@@ -370,7 +370,6 @@ describe('live trip and geofence mapping', () => {
         },
       }),
     ).rejects.toMatchObject({ kind: 'unavailable' })
-    await expect(service.update('9', draft)).rejects.toMatchObject({ kind: 'unavailable' })
   })
 })
 

@@ -1,7 +1,7 @@
 import type { GeofenceService } from '../services/geofence-service'
 import type { GatewayClient } from '../../core/api/gateway-client'
 import { finalListPage } from '../../core/api/list-completeness'
-import { capabilityUnavailable, isApiError } from '../../core/domain/errors'
+import { ApiError, capabilityUnavailable, isApiError } from '../../core/domain/errors'
 import { geometrySummary, type GeofenceDraft, type Geometry } from '../domain/geofence'
 import type { Geofence } from '../../workspace/domain/types'
 import { geofenceDtoSchema, geofencePageSchema, type GeofenceDto } from './contracts'
@@ -102,10 +102,34 @@ export function createLiveGeofenceService(client: GatewayClient): GeofenceServic
       })
       return String(dto.geofenceId)
     },
-    async update() {
-      throw capabilityUnavailable(
-        'Live geofence editing is disabled until the backend update contract preserves geometry and assignments.',
-      )
+    async update(id, input) {
+      if (!/^[1-9][0-9]{0,18}$/.test(id) || BigInt(id) > 9223372036854775807n)
+        throw new ApiError({ kind: 'validation', message: 'Invalid geofence identifier.' })
+      if (!input.geometry)
+        throw new ApiError({ kind: 'validation', message: 'A boundary is required.' })
+      const geometry = input.geometry
+      await client.request('PUT', `/geofences/${id}`, geofenceDtoSchema, {
+        body: {
+          name: input.name.trim(),
+          description: input.description,
+          active: input.active,
+          vehicleIds: [...input.vehicleIds],
+          ...(geometry.type === 'circle'
+            ? {
+                shapeType: 'CIRCLE',
+                centerLatitude: geometry.center.lat,
+                centerLongitude: geometry.center.lng,
+                radiusMeters: geometry.radiusMeters,
+              }
+            : {
+                shapeType: 'POLYGON',
+                points: geometry.vertices.map((point) => ({
+                  latitude: point.lat,
+                  longitude: point.lng,
+                })),
+              }),
+        },
+      })
     },
   }
 }
