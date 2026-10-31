@@ -5,6 +5,7 @@ const sessions = new Map()
 const refreshTokens = new Map()
 const enrollments = new Map()
 const alertStates = new Map()
+const geofenceStates = new Map()
 const planId = '00000000-0000-4000-8000-000000000001'
 const accounts = new Map([
   ['operator@example.com', 'Fleet Operator'],
@@ -95,6 +96,29 @@ createServer(async (request, response) => {
   const token = request.headers.authorization?.replace('Bearer ', '')
   const email = sessions.get(token)
   if (!email) return send(401, { code: 'UNAUTHENTICATED' })
+  if (email.startsWith('geo-ui-')) {
+    if (!geofenceStates.has(email)) geofenceStates.set(email, {
+      geofence_id: 9, name: 'London depot', description: 'Original description',
+      shape_type: 'CIRCLE', center_latitude: 51.5, center_longitude: -0.1,
+      radius_meters: 250, active: true, vehicle_ids: ['VH-1', 'VH-2'],
+    })
+    if (path === '/api/v1/vehicles' && request.method === 'GET')
+      return send(200, page([{ vehicle_id: 'VH-1', license_plate: 'LONDON-1' },
+        { vehicle_id: 'VH-2', license_plate: 'LONDON-2' }]))
+    if (path === '/alerts/geofences' && request.method === 'GET')
+      return send(200, page([geofenceStates.get(email)]))
+    if (path === '/alerts/geofences/9') {
+      if (request.method === 'GET') return send(200, geofenceStates.get(email))
+      if (request.method === 'PUT') {
+        if (!email.startsWith('geo-ui-write-')) return send(403, { code: 'FORBIDDEN' })
+        const input = JSON.parse(body)
+        if (Object.keys(input).some((key) => /[A-Z]/.test(key)))
+          return send(400, { message: 'Expected production snake_case payload' })
+        Object.assign(geofenceStates.get(email), input)
+        return send(200, geofenceStates.get(email))
+      }
+    }
+  }
   if (email.startsWith('alert-ui-') && !alertStates.has(email))
     alertStates.set(email, { alert_id: 1, alert_type: 'OVERSPEED', message: 'Review depot speed event', severity: 'WARNING', acknowledged: false, resolved: false })
   if (email.startsWith('alert-ui-') && request.method === 'GET') {
@@ -170,7 +194,7 @@ createServer(async (request, response) => {
       user_id: email === 'forbidden@example.com' ? 8 : 7,
       organization_id: 12,
       permissions:
-        email.startsWith('alert-ui-write-') ? ['vehicles.read', 'alerts.read', 'alerts.write'] : email === 'roles@example.com' ? ['vehicles.read', 'roles.read'] : ['vehicles.read'],
+        email.startsWith('alert-ui-write-') || email.startsWith('geo-ui-write-') ? ['vehicles.read', 'alerts.read', 'alerts.write'] : email === 'roles@example.com' ? ['vehicles.read', 'roles.read'] : ['vehicles.read'],
       access_expires_at: '2099-01-01T00:00:00Z',
     })
   if (path === '/api/v1/roles') {
