@@ -1,12 +1,15 @@
 # FLEET-01 handoff — fleet create / tracker registration contract
 
-State: READY_FOR_INTEGRATION
+State: READY_FOR_REVIEW (final code revision awaiting independent review)
 Owner: `ses_e6d4cee94ffe0soMAS0OPwIgxf-fleet01`
 Base: backend `origin/main` `f82a5df`
-Implementation commits: `6a184de1930db41c09ee7f5ab93471504ee48355` (contract),
-`0a0776f` (advisory-lock race fix, update/trimming tests)
+Code revision under test: `0a0776f` (advisory-lock race fix, update/trimming tests);
+docs-only commits follow at the branch tip.
+Prior commits: `6a184de1930db41c09ee7f5ab93471504ee48355` (contract),
+`ab16978` (initial handoff).
 Branch: `agent/FLEET-01/ses_e6d4cee94ffe0soMAS0OPwIgxf-fleet01`
-Frontend: not changed. No migration was written (resources: `fleet`, `build-slot-1`).
+Frontend: not changed. No migration was written (resource `fleet` held through
+integration; `build-slot-1` released after the final test runs).
 
 ## Delivered contract
 
@@ -88,10 +91,20 @@ cross-table device collisions, padded identifier/device trimming, and concurrent
 vehicle-vs-tracker creation for the same device (exactly one owner). The final
 full-IT run includes all of them.
 
-Review findings addressed: cross-table race (advisory lock plus real concurrency
-test), update-validation coverage, full `PostgresDeploymentIT` execution, and
-negative-create persistence assertions. The IT file remains large by design; the
-full class is the acceptance run, so no partial-slice claim is made.
+Review findings addressed from the independent review of `6a184de`/`ab16978`:
+cross-table race (advisory lock plus real concurrency test), update-validation
+coverage, full `PostgresDeploymentIT` execution, and negative-create persistence
+assertions. The IT file remains large by design; the full class is the acceptance
+run, so no partial-slice claim is made.
+
+**Review status of the final code revision:** the first independent review covered
+`6a184de`. A bounded re-review of the corrected revision `0a0776f` was requested
+but the verifier session could not start (provider usage limit, no model
+available). The corrected revision therefore still needs an independent review
+before integration; the coordinator should schedule `REVIEW-FLEET-01-<tip SHA>`
+against the frozen code revision `0a0776f` (docs-only commits after it do not
+change runtime behavior). This worker does not claim independent acceptance of
+the corrected revision.
 
 Artifact/JAR and FULL_START were **not** run by this worker: the integration
 coordinator owns `integration` and must run the final FULL_START against the
