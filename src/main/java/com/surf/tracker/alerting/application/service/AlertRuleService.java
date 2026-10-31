@@ -85,6 +85,12 @@ public class AlertRuleService {
     @Transactional
     @CacheEvict(value = {"alertRules", "alertRulesPaged", "vehicleRules"}, allEntries = true)
     public AlertRuleResponse createOverspeedRule(OverspeedRuleTemplateRequest request) {
+        return createOverspeedRule(request, null);
+    }
+
+    @Transactional
+    @CacheEvict(value = {"alertRules", "alertRulesPaged", "vehicleRules"}, allEntries = true)
+    public AlertRuleResponse createOverspeedRule(OverspeedRuleTemplateRequest request, String createdBy) {
         logger.info("Creating overspeed rule: {}", request.getRuleKey());
 
         validateRuleKeyUniqueness(request.getRuleKey());
@@ -98,6 +104,7 @@ public class AlertRuleService {
 
         // Create and save rule
         AlertRule rule = createBaseRule(request, AlertRuleType.SPEED, parameters);
+        rule.setCreatedBy(createdBy);
         rule.setActions(actionsJson);
         rule.setVehicleIds(request.getVehicleIds());
 
@@ -112,6 +119,12 @@ public class AlertRuleService {
     @Transactional
     @CacheEvict(value = {"alertRules", "alertRulesPaged", "vehicleRules"}, allEntries = true)
     public AlertRuleResponse createIdleTimeoutRule(IdleTimeoutRuleTemplateRequest request) {
+        return createIdleTimeoutRule(request, null);
+    }
+
+    @Transactional
+    @CacheEvict(value = {"alertRules", "alertRulesPaged", "vehicleRules"}, allEntries = true)
+    public AlertRuleResponse createIdleTimeoutRule(IdleTimeoutRuleTemplateRequest request, String createdBy) {
         logger.info("Creating idle timeout rule: {}", request.getRuleKey());
 
         validateRuleKeyUniqueness(request.getRuleKey());
@@ -122,6 +135,7 @@ public class AlertRuleService {
 
         // Create and save rule
         AlertRule rule = createBaseRule(request, AlertRuleType.TIME, parameters);
+        rule.setCreatedBy(createdBy);
         rule.setVehicleIds(request.getVehicleIds());
 
         AlertRule saved = saveAndCacheRule(rule);
@@ -135,6 +149,12 @@ public class AlertRuleService {
     @Transactional
     @CacheEvict(value = {"alertRules", "alertRulesPaged", "vehicleRules"}, allEntries = true)
     public AlertRuleResponse createGeofenceRule(GeofenceRuleTemplateRequest request) {
+        return createGeofenceRule(request, null);
+    }
+
+    @Transactional
+    @CacheEvict(value = {"alertRules", "alertRulesPaged", "vehicleRules"}, allEntries = true)
+    public AlertRuleResponse createGeofenceRule(GeofenceRuleTemplateRequest request, String createdBy) {
         logger.info("Creating geofence rule: {}", request.getRuleKey());
 
         validateRuleKeyUniqueness(request.getRuleKey());
@@ -153,6 +173,7 @@ public class AlertRuleService {
 
         // Create and save rule
         AlertRule rule = createBaseRule(request, AlertRuleType.GEOFENCE, parameters);
+        rule.setCreatedBy(createdBy);
         rule.setVehicleIds(request.getVehicleIds());
 
         AlertRule saved = saveAndCacheRule(rule);
@@ -168,6 +189,12 @@ public class AlertRuleService {
     @Transactional
     @CacheEvict(value = {"alertRules", "alertRulesPaged", "vehicleRules"}, allEntries = true)
     public AlertRuleResponse createRule(CreateAlertRuleRequest request) {
+        return createRule(request, null);
+    }
+
+    @Transactional
+    @CacheEvict(value = {"alertRules", "alertRulesPaged", "vehicleRules"}, allEntries = true)
+    public AlertRuleResponse createRule(CreateAlertRuleRequest request, String createdBy) {
         logger.info("Creating custom alert rule: {}", request.getRuleKey());
 
         validateRuleKeyUniqueness(request.getRuleKey());
@@ -192,6 +219,8 @@ public class AlertRuleService {
         rule.setVehicleIds(vehicleIds);
         rule.setCooldownMinutes(5);
         rule.setOrganizationId(TenantContext.getCurrentOrgId());
+        rule.setCreatedBy(createdBy);
+        rule.setCreatedAt(clock.instant());
 
         AlertRule saved = saveAndCacheRule(rule);
 
@@ -765,13 +794,19 @@ public class AlertRuleService {
     @Transactional
     @CacheEvict(value = {"alertRules", "alertRulesPaged", "vehicleRules"}, allEntries = true)
     public List<AlertRuleResponse> batchCreateRules(List<CreateAlertRuleRequest> requests) {
+        return batchCreateRules(requests, null);
+    }
+
+    @Transactional
+    @CacheEvict(value = {"alertRules", "alertRulesPaged", "vehicleRules"}, allEntries = true)
+    public List<AlertRuleResponse> batchCreateRules(List<CreateAlertRuleRequest> requests, String createdBy) {
         logger.info("Batch creating {} alert rules", requests.size());
 
         List<AlertRuleResponse> responses = new ArrayList<>();
 
         for (CreateAlertRuleRequest request : requests) {
             try {
-                AlertRuleResponse response = createRule(request);
+                AlertRuleResponse response = createRule(request, createdBy);
                 responses.add(response);
             } catch (Exception e) {
                 logger.error("Failed to create rule {} in batch: {}",

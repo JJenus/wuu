@@ -9,9 +9,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
+import java.security.Principal;
 import java.util.List;
 
 @RestController
@@ -29,9 +31,10 @@ public class AlertRuleController {
 
     @PostMapping
     @Operation(summary = "Create a new custom alert rule")
-    public ResponseEntity<AlertRuleResponse> createRule(@Valid @RequestBody CreateAlertRuleRequest request) {
+    public ResponseEntity<AlertRuleResponse> createRule(@Valid @RequestBody CreateAlertRuleRequest request,
+                                                       Principal principal) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ruleService.createRule(request));
+                .body(ruleService.createRule(request, authenticatedActor(principal)));
     }
 
     @GetMapping
@@ -151,25 +154,25 @@ public class AlertRuleController {
     @PostMapping("/templates/overspeed")
     @Operation(summary = "Create overspeed rule from template")
     public ResponseEntity<AlertRuleResponse> createOverspeedRule(
-            @Valid @RequestBody OverspeedRuleTemplateRequest request) {
+            @Valid @RequestBody OverspeedRuleTemplateRequest request, Principal principal) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ruleService.createOverspeedRule(request));
+                .body(ruleService.createOverspeedRule(request, authenticatedActor(principal)));
     }
 
     @PostMapping("/templates/idle-timeout")
     @Operation(summary = "Create idle timeout rule from template")
     public ResponseEntity<AlertRuleResponse> createIdleTimeoutRule(
-            @Valid @RequestBody IdleTimeoutRuleTemplateRequest request) {
+            @Valid @RequestBody IdleTimeoutRuleTemplateRequest request, Principal principal) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ruleService.createIdleTimeoutRule(request));
+                .body(ruleService.createIdleTimeoutRule(request, authenticatedActor(principal)));
     }
 
     @PostMapping("/templates/geofence")
     @Operation(summary = "Create geofence rule from template")
     public ResponseEntity<AlertRuleResponse> createGeofenceRule(
-            @Valid @RequestBody GeofenceRuleTemplateRequest request) {
+            @Valid @RequestBody GeofenceRuleTemplateRequest request, Principal principal) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ruleService.createGeofenceRule(request));
+                .body(ruleService.createGeofenceRule(request, authenticatedActor(principal)));
     }
 
     // ========== BATCH OPERATIONS ==========
@@ -177,9 +180,17 @@ public class AlertRuleController {
     @PostMapping("/batch")
     @Operation(summary = "Create multiple alert rules in batch")
     public ResponseEntity<List<AlertRuleResponse>> batchCreateRules(
-            @Valid @RequestBody List<CreateAlertRuleRequest> requests) {
+            @Valid @RequestBody List<CreateAlertRuleRequest> requests, Principal principal) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ruleService.batchCreateRules(requests));
+                .body(ruleService.batchCreateRules(requests, authenticatedActor(principal)));
+    }
+
+    private String authenticatedActor(Principal principal) {
+        if (principal == null || principal.getName() == null || principal.getName().isBlank()) {
+            throw new AccessDeniedException("An authenticated alert rule actor is required");
+        }
+        // JwtAuthFilter supplies the database user ID, never request-created_by.
+        return principal.getName();
     }
 
     @PostMapping("/batch/enable")
