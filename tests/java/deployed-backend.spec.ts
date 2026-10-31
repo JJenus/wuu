@@ -299,6 +299,11 @@ test('actual Java: tenant fleet, sealed sessions and account-wide revocation', a
     expect(zone.status()).toBe(201)
     const zoneId = (await zone.json()).geofence_id
     expect((await beta!.request.get(`/api/_wuu/geofences/${zoneId}`)).status()).toBe(404)
+    await beta!.goto(`/geofences/${zoneId}`)
+    await expect(
+      beta!.getByRole('heading', { name: 'Geofence not found', exact: true }),
+    ).toBeVisible()
+    await expect(beta!.getByRole('heading', { name: zoneName, exact: true })).toHaveCount(0)
     await alpha!.goto(`/geofences/${zoneId}`)
     await expect(alpha!.getByRole('heading', { name: zoneName, exact: true })).toBeVisible()
     const membership = alpha!
