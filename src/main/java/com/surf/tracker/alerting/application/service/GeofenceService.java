@@ -13,6 +13,7 @@ import com.surf.tracker.alerting.infrastructure.cache.GeofenceCacheService;
 import com.surf.tracker.alerting.infrastructure.repository.GeofenceRepository;
 import com.surf.tracker.core.infrastructure.repository.VehicleRepository;
 import com.surf.tracker.shared.security.TenantContext;
+import com.surf.tracker.shared.util.TimeProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -57,6 +58,8 @@ public class GeofenceService {
                 geofence.getRadiusMeters(), geofence.getPoints());
         validateVehicleReferences(geofence.getVehicleIds(), organizationId);
         geofence.setOrganizationId(organizationId);
+        geofence.setCreatedAt(TimeProvider.now());
+        geofence.setUpdatedAt(geofence.getCreatedAt());
         Geofence saved = geofenceRepository.save(geofence);
 
         // Cache the geofence
@@ -293,8 +296,9 @@ public class GeofenceService {
                 throw new IllegalArgumentException("Circle radius must be positive");
             }
         } else if (shape == GeofenceShapeType.POLYGON) {
-            if (points == null || points.size() < 3) {
-                throw new IllegalArgumentException("Polygon requires at least three points");
+            // Match the existing editor's complexity bound and bound pairwise edge checks.
+            if (points == null || points.size() < 3 || points.size() > 50) {
+                throw new IllegalArgumentException("Polygon requires between three and fifty points");
             }
             double area = 0;
             for (int i = 0; i < points.size(); i++) {
@@ -303,15 +307,52 @@ public class GeofenceService {
                 validateCoordinate(point.getLatitude(), 90, "Point latitude");
                 validateCoordinate(point.getLongitude(), 180, "Point longitude");
             }
-            for (int i = 0; i < points.size(); i++) {
+            int count = points.size();
+            if (samePoint(points.get(0), points.get(count - 1))) count--;
+            if (count < 3) throw new IllegalArgumentException("Polygon requires three distinct vertices");
+            for (int i = 0; i < count; i++) {
                 GeofencePoint a = points.get(i);
-                GeofencePoint b = points.get((i + 1) % points.size());
-                area += a.getLongitude() * b.getLatitude() - b.getLongitude() * a.getLatitude();
+                GeofencePoint b = points.get((i + 1) % count);
+                area += orientation(points.get(0), a, b);
+                for (int j = i + 1; j < count; j++) {
+                    if (samePoint(a, points.get(j))) {
+                        throw new IllegalArgumentException("Polygon vertices must be distinct");
+                    }
+                    if (j == i + 1 || (i == 0 && j == count - 1)) continue;
+                    if (segmentsIntersect(a, b, points.get(j), points.get((j + 1) % count))) {
+                        throw new IllegalArgumentException("Polygon edges must not cross or touch");
+                    }
+                }
             }
             if (area == 0) throw new IllegalArgumentException("Polygon must have nonzero area");
         } else {
             throw new IllegalArgumentException("Geofence shape type is required");
         }
+    }
+
+    private boolean samePoint(GeofencePoint a, GeofencePoint b) {
+        return a.getLatitude().doubleValue() == b.getLatitude().doubleValue()
+                && a.getLongitude().doubleValue() == b.getLongitude().doubleValue();
+    }
+
+    private double orientation(GeofencePoint a, GeofencePoint b, GeofencePoint c) {
+        return (b.getLongitude() - a.getLongitude()) * (c.getLatitude() - a.getLatitude())
+                - (b.getLatitude() - a.getLatitude()) * (c.getLongitude() - a.getLongitude());
+    }
+
+    private boolean onSegment(GeofencePoint a, GeofencePoint b, GeofencePoint point) {
+        return point.getLatitude() >= Math.min(a.getLatitude(), b.getLatitude())
+                && point.getLatitude() <= Math.max(a.getLatitude(), b.getLatitude())
+                && point.getLongitude() >= Math.min(a.getLongitude(), b.getLongitude())
+                && point.getLongitude() <= Math.max(a.getLongitude(), b.getLongitude());
+    }
+
+    private boolean segmentsIntersect(GeofencePoint a, GeofencePoint b, GeofencePoint c, GeofencePoint d) {
+        double abc = orientation(a, b, c), abd = orientation(a, b, d);
+        double cda = orientation(c, d, a), cdb = orientation(c, d, b);
+        if (Math.signum(abc) * Math.signum(abd) < 0 && Math.signum(cda) * Math.signum(cdb) < 0) return true;
+        return (abc == 0 && onSegment(a, b, c)) || (abd == 0 && onSegment(a, b, d))
+                || (cda == 0 && onSegment(c, d, a)) || (cdb == 0 && onSegment(c, d, b));
     }
 
     private void validateCoordinate(Double coordinate, int bound, String field) {

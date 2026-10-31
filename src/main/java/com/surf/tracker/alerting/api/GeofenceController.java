@@ -12,6 +12,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
+import java.security.Principal;
+import org.springframework.security.access.AccessDeniedException;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -28,8 +30,14 @@ public class GeofenceController {
 
     @PostMapping
     @Operation(summary = "Create a new geofence")
-    public ResponseEntity<GeofenceResponse> createGeofence(@Valid @RequestBody CreateGeofenceRequest request) {
+    public ResponseEntity<GeofenceResponse> createGeofence(@Valid @RequestBody CreateGeofenceRequest request,
+                                                          Principal principal) {
+        if (principal == null || principal.getName() == null || principal.getName().isBlank()) {
+            throw new AccessDeniedException("An authenticated geofence actor is required");
+        }
         Geofence geofence = convertToEntity(request);
+        // JwtAuthFilter installs the database user ID, never a browser-supplied display name.
+        geofence.setCreatedBy(principal.getName());
         Geofence created = geofenceService.createGeofence(geofence);
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(created));
     }
@@ -184,7 +192,6 @@ public class GeofenceController {
         geofence.setCenterLongitude(request.getCenterLongitude());
         geofence.setRadiusMeters(request.getRadiusMeters());
         geofence.setIsActive(request.isActive());
-        geofence.setCreatedBy(request.getCreatedBy());
 
         // Add polygon points if provided
         if (request.getPoints() != null) {
