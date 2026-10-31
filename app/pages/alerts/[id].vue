@@ -3,10 +3,17 @@ import AlertResponseActions from '~/features/alerts/components/AlertResponseActi
 import { useDataSource } from '~/features/core/composables/useDataSource'
 import { formatDateTime } from '~/features/core/domain/time'
 import { useWorkspace } from '~/features/workspace/composables/useWorkspace'
+import { useWorkspaceRecord } from '~/features/workspace/composables/useWorkspaceRecord'
 const route = useRoute()
 const source = useDataSource()
-const { alerts, vehicles, isPending, isError, error, refetch } = useWorkspace('alerts')
-const alert = computed(() => alerts.value.find((a) => a.id === route.params.id))
+const { vehicles } = useWorkspace('alerts')
+const {
+  data: alert,
+  isPending,
+  isError,
+  error,
+  refetch,
+} = useWorkspaceRecord('alerts', () => String(route.params.id))
 const vehicle = computed(() => vehicles.value.find((v) => v.id === alert.value?.vehicleId))
 useHead(() => ({ title: `${alert.value?.title || 'Alert not found'} — Wuu` }))
 </script>

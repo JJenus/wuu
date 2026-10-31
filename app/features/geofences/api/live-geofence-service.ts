@@ -1,5 +1,6 @@
 import type { GeofenceService } from '../services/geofence-service'
 import type { GatewayClient } from '../../core/api/gateway-client'
+import { finalListPage } from '../../core/api/list-completeness'
 import { capabilityUnavailable, isApiError } from '../../core/domain/errors'
 import { geometrySummary, type GeofenceDraft, type Geometry } from '../domain/geofence'
 import type { Geofence } from '../../workspace/domain/types'
@@ -76,7 +77,7 @@ export function createLiveGeofenceService(client: GatewayClient): GeofenceServic
         signal: options?.signal,
       })
       geofences.push(...response.content.map(toGeofence))
-      if (response.last || response.empty || response.content.length === 0) break
+      if (finalListPage(response, page, MAX_PAGES)) break
     }
     return geofences
   }

@@ -2,13 +2,20 @@
 import { useDataSource } from '~/features/core/composables/useDataSource'
 import { formatDateTime } from '~/features/core/domain/time'
 import { useWorkspace } from '~/features/workspace/composables/useWorkspace'
+import { useWorkspaceRecord } from '~/features/workspace/composables/useWorkspaceRecord'
 import { useTripExport } from '~/features/workspace/composables/useTripExport'
 import TripReplay from '~/features/tracking/components/TripReplay.vue'
 const route = useRoute()
 const source = useDataSource()
-const { trips, vehicles, isPending, isError, error, refetch } = useWorkspace('trips')
+const { vehicles } = useWorkspace('trips')
 const { exportTrips } = useTripExport()
-const trip = computed(() => trips.value.find((t) => t.id === route.params.id))
+const {
+  data: trip,
+  isPending,
+  isError,
+  error,
+  refetch,
+} = useWorkspaceRecord('trips', () => String(route.params.id))
 const vehicle = computed(() => vehicles.value.find((v) => v.id === trip.value?.vehicleId))
 useHead(() => ({
   title: `${trip.value ? `Journey ${trip.value.id}` : 'Trip not found'} — Wuu`,

@@ -1,5 +1,6 @@
 import type { FleetService, ServiceRequestOptions } from '../services/fleet-service'
 import type { GatewayClient } from '../../core/api/gateway-client'
+import { finalListPage } from '../../core/api/list-completeness'
 import { capabilityUnavailable, isApiError } from '../../core/domain/errors'
 import { toVehicle, vehicleDtoSchema, vehiclePageSchema } from './contracts'
 
@@ -16,7 +17,7 @@ export function createLiveFleetService(client: GatewayClient): FleetService {
           signal: options?.signal,
         })
         vehicles.push(...response.content.map((dto) => toVehicle(dto)))
-        if (response.last || response.empty || response.content.length === 0) break
+        if (finalListPage(response, page, MAX_PAGES)) break
       }
       return vehicles
     },

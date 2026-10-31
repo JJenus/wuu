@@ -1,5 +1,6 @@
 import type { TripService } from '../services/trip-service'
 import type { GatewayClient } from '../../core/api/gateway-client'
+import { finalListPage } from '../../core/api/list-completeness'
 import { isApiError } from '../../core/domain/errors'
 import { formatDateTime, formatDuration } from '../../core/domain/time'
 import type { Trip } from '../../workspace/domain/types'
@@ -37,7 +38,7 @@ export function createLiveTripService(client: GatewayClient): TripService {
           signal: options?.signal,
         })
         trips.push(...response.content.map((dto) => toTrip(dto)))
-        if (response.last || response.empty || response.content.length === 0) break
+        if (finalListPage(response, page, MAX_PAGES)) break
       }
       return trips
     },

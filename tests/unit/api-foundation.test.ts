@@ -170,7 +170,7 @@ describe('contracts and page normalization', () => {
     expect(isoInstantSchema.safeParse('2026-10-22T12:00:00').success).toBe(false)
   })
 
-  it('defaults malformed page metadata while still rejecting malformed records', () => {
+  it('defaults display metadata but requires a trustworthy final-page marker', () => {
     const page = pagedResponseSchema(itemSchema).parse({
       content: [{ id: 'A' }],
       pageNumber: -1,
@@ -178,10 +178,13 @@ describe('contracts and page normalization', () => {
       totalElements: -2,
       totalPages: -3,
       first: 'nope',
-      last: 'nope',
+      last: true,
       empty: 'nope',
     })
     expect(page).toMatchObject({ pageNumber: 0, pageSize: 20, totalElements: 0, totalPages: 0 })
+    expect(pagedResponseSchema(itemSchema).safeParse({ content: [], last: 'nope' }).success).toBe(
+      false,
+    )
     expect(pagedResponseSchema(itemSchema).safeParse({ content: [{ id: 3 }] }).success).toBe(false)
   })
 

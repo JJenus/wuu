@@ -1,11 +1,16 @@
 <script setup lang="ts">
 import GeofenceEditor from '~/features/geofences/components/GeofenceEditor.vue'
 import { useDataSource } from '~/features/core/composables/useDataSource'
-import { useWorkspace } from '~/features/workspace/composables/useWorkspace'
+import { useWorkspaceRecord } from '~/features/workspace/composables/useWorkspaceRecord'
 const route = useRoute()
 const source = useDataSource()
-const { geofences, isPending, isError, error, refetch } = useWorkspace()
-const zone = computed(() => geofences.value.find((z) => z.id === route.params.id))
+const {
+  data: zone,
+  isPending,
+  isError,
+  error,
+  refetch,
+} = useWorkspaceRecord('geofences', () => String(route.params.id))
 </script>
 <template>
   <UiAsyncState

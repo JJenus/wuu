@@ -1,12 +1,19 @@
 <script setup lang="ts">
 import { useDataSource } from '~/features/core/composables/useDataSource'
 import { useWorkspace } from '~/features/workspace/composables/useWorkspace'
+import { useWorkspaceRecord } from '~/features/workspace/composables/useWorkspaceRecord'
 import GeofenceMap from '~/features/geofences/components/GeofenceMap.vue'
 import { geometryArea, geometrySummary } from '~/features/geofences/domain/geofence'
 const route = useRoute()
 const source = useDataSource()
-const { geofences, vehicles, isPending, isError, error, refetch } = useWorkspace('geofences')
-const zone = computed(() => geofences.value.find((z) => z.id === route.params.id))
+const { vehicles } = useWorkspace('geofences')
+const {
+  data: zone,
+  isPending,
+  isError,
+  error,
+  refetch,
+} = useWorkspaceRecord('geofences', () => String(route.params.id))
 const circle = computed(() => {
   const geometry = zone.value?.geometry
   return geometry?.type === 'circle' ? geometry : null

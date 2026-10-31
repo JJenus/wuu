@@ -1,12 +1,18 @@
 <script setup lang="ts">
 import { useDataSource } from '~/features/core/composables/useDataSource'
 import { useWorkspace } from '~/features/workspace/composables/useWorkspace'
+import { useWorkspaceRecord } from '~/features/workspace/composables/useWorkspaceRecord'
 import FleetMap from '~/features/fleet/components/FleetMap.vue'
 const route = useRoute()
 const source = useDataSource()
-const { vehicles, alerts, trips, isPending, isError, error, refetch, alertsQuery, tripsQuery } =
-  useWorkspace('fleet')
-const vehicle = computed(() => vehicles.value.find((v) => v.id === route.params.id))
+const { alerts, trips, alertsQuery, tripsQuery } = useWorkspace('fleet')
+const {
+  data: vehicle,
+  isPending,
+  isError,
+  error,
+  refetch,
+} = useWorkspaceRecord('fleet', () => String(route.params.id))
 const relatedAlerts = computed(() =>
   alerts.value.filter((a) => a.vehicleId === vehicle.value?.id && a.status !== 'resolved'),
 )

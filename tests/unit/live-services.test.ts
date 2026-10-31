@@ -40,6 +40,77 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 describe('live vehicle mapping and paging', () => {
+  it.each([
+    ['vehicles', createLiveFleetService, vehicleDtoFixture],
+    ['alerts', createLiveAlertService, { alertId: 1 }],
+    ['trips', createLiveTripService, { tripId: 'T-1' }],
+    [
+      'geofences',
+      createLiveGeofenceService,
+      { geofenceId: 1, name: 'Depot', shapeType: 'CIRCLE', active: true },
+    ],
+  ] as const)(
+    '%s rejects an incomplete list at the safety limit',
+    async (_name, create, record) => {
+      const request = vi.fn(async () => page([record], { last: false }))
+      await expect(create({ request } as unknown as GatewayClient).list()).rejects.toMatchObject({
+        kind: 'contract',
+        message: expect.stringMatching(/incomplete/i),
+      })
+      expect(request).toHaveBeenCalledTimes(50)
+    },
+  )
+
+  it('rejects an empty non-final page rather than returning partial success', async () => {
+    const request = vi.fn(async () => page([], { last: false }))
+    await expect(
+      createLiveFleetService({ request } as unknown as GatewayClient).list(),
+    ).rejects.toMatchObject({ kind: 'contract' })
+  })
+
+  it('requires a valid final-page marker from the live gateway', async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse({ content: [vehicleDtoFixture] }))
+    await expect(
+      createLiveFleetService(createGatewayClient({ fetchImpl })).list(),
+    ).rejects.toMatchObject({ kind: 'contract' })
+  })
+
+  it('accepts a final page exactly at the cap and preserves cancellation on every request', async () => {
+    const controller = new AbortController()
+    let count = 0
+    const request = vi.fn(async () =>
+      page([{ ...vehicleDtoFixture, vehicleId: `V-${count++}` }], { last: count === 50 }),
+    )
+    const service = createLiveFleetService({ request } as unknown as GatewayClient)
+    await expect(service.list({ signal: controller.signal })).resolves.toHaveLength(50)
+    expect(request).toHaveBeenLastCalledWith(
+      'GET',
+      '/vehicles',
+      expect.anything(),
+      expect.objectContaining({
+        signal: controller.signal,
+        query: expect.objectContaining({ page: 49 }),
+      }),
+    )
+  })
+
+  it('accepts a genuinely empty final page', async () => {
+    const request = vi.fn(async () => page([]))
+    await expect(
+      createLiveFleetService({ request } as unknown as GatewayClient).list(),
+    ).resolves.toEqual([])
+  })
+
+  it('propagates a later page failure without returning earlier records', async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(page([vehicleDtoFixture], { last: false }))
+      .mockRejectedValueOnce(responseApiError(403, {}))
+    await expect(
+      createLiveFleetService({ request } as unknown as GatewayClient).list(),
+    ).rejects.toMatchObject({ kind: 'forbidden' })
+  })
+
   it('maps only observable telemetry and never invents a driver', () => {
     const vehicle = toVehicle(vehicleDtoFixture, Date.parse('2026-10-22T12:01:00.000Z'))
     expect(vehicle).toMatchObject({

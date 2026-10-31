@@ -12,7 +12,7 @@ export const pagedResponseSchema = <T extends z.ZodType>(item: T) =>
     totalElements: z.number().int().nonnegative().catch(0),
     totalPages: z.number().int().nonnegative().catch(0),
     first: z.boolean().catch(true),
-    last: z.boolean().catch(true),
+    last: z.boolean(),
     empty: z.boolean().catch(false),
   })
 

@@ -1,5 +1,6 @@
 import type { AlertService, AlertTransitionContext } from '../services/alert-service'
 import type { GatewayClient } from '../../core/api/gateway-client'
+import { finalListPage } from '../../core/api/list-completeness'
 import { capabilityUnavailable, isApiError } from '../../core/domain/errors'
 import { formatRelativeTime } from '../../core/domain/time'
 import type { AlertState, FleetAlert } from '../../workspace/domain/types'
@@ -70,7 +71,7 @@ export function createLiveAlertService(client: GatewayClient): AlertService {
           signal: options?.signal,
         })
         alerts.push(...response.content.map((dto) => toFleetAlert(dto)))
-        if (response.last || response.empty || response.content.length === 0) break
+        if (finalListPage(response, page, MAX_PAGES)) break
       }
       return alerts
     },

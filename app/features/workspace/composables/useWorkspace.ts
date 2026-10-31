@@ -95,18 +95,18 @@ export function useWorkspace(domain?: 'fleet' | 'alerts' | 'trips' | 'geofences'
   const updateAlert = useMutation({
     mutationFn: (input: { id: string; status: AlertState; context?: AlertTransitionContext }) =>
       services.alerts.transition(input.id, input.status, input.context),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.alerts.list(context) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.alerts.all(context) }),
   })
 
   const createGeofence = useMutation({
     mutationFn: (input: GeofenceDraft) => services.geofences.create(input),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.geofences.list(context) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.geofences.all(context) }),
   })
 
   const updateGeofence = useMutation({
     mutationFn: (input: { id: string; draft: GeofenceDraft }) =>
       services.geofences.update(input.id, input.draft),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.geofences.list(context) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.geofences.all(context) }),
   })
 
   return {

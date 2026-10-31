@@ -89,3 +89,18 @@ blocker recorded), completeness3/5 (UI/Java acceptance pending), clarity4/5
 (boundary explicit), actionability4/5 (resume command), conciseness4/5 (existing
 gateway reused). Highest-impact next step is restoring disposable infrastructure
 and running actual-Java acceptance before enabling UI actions.
+
+# B1 in progress — authenticated actor attribution retained
+
+The browser does not select an actor. Java derives `acknowledged_by` and
+`resolved_by` from the authenticated database user ID, persisting their timestamps
+and resolution notes. Removing client actor payloads prevents forged attribution;
+it does not remove the action-to-actor relationship. The detail adapter now carries
+these persisted values into the UI for inspection (IDs are not invented names).
+This is current alert-state attribution, not a claim of an immutable audit ledger.
+
+Live list/detail response controls are under verification: current permission
+checks, notes10–1000, confirmation/cancel, explicit failure/pending state and cache
+refresh. Adapter RED e4a61db and UI regression eaf2046 precede acceptance.
+Do not treat this implementation as VERIFIED until final FULL_START includes the
+actual browser clicks, persisted authenticated actors/notes and reload checks.
