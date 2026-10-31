@@ -1,5 +1,14 @@
 # Persistent task queue
 
+## Accepted INT-00 baseline — 2026-10-31
+
+Baseline reconciliation complete: frontend3c8eee9/backend-device451a083;
+FULL_START all-stage PASS2026-10-31T16:36:43.324Z. Alert lifecycle UI and direct
+detail/list-completeness baseline accepted, not whole-product readiness. See
+[handoffs/INT-00.md](handoffs/INT-00.md). SESS-01 may now be claimed; dependent UI
+tasks still require accepted domain contracts. FLEET-01 review/integration remains
+with its owner/coordinator; do not duplicate it. Live board overrides old tables.
+
 ## CURRENT DISPATCH — 2026-10-31
 
 Use [PARALLEL_EXECUTION.md](PARALLEL_EXECUTION.md) before choosing work. Its task

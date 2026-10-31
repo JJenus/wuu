@@ -1,5 +1,17 @@
 # Feature matrix
 
+## INT-00 verified baseline overlay — 2026-10-31
+
+Frontend3c8eee9/backend-device451a083 passed final-revision FULL_START with real
+Java cold/restart browsers and persistence. Alert list/detail acknowledge/resolve
+UI, notes and authenticated actor attribution are now VERIFIED for the scoped B1
+workflow. Direct-detail reads and fail-closed list completeness are accepted;
+geofence linked-fleet errors never become empty membership. Missing/foreign
+geofence reads return404. See handoffs/INT-00.md for evidence and limitations.
+Broader geofence writes/evaluation, telemetry/commands, team, financial billing,
+notifications and production operations remain PARTIAL/BLOCKED as documented.
+No whole-family or production-readiness certification is implied.
+
 ## Current planning/acceptance overlay — 2026-10-30
 
 Pinned execution order and full-start acceptance:

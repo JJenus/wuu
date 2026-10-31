@@ -1,5 +1,20 @@
 # Defect register
 
+## INT-00 superseding disposition — 2026-10-31
+
+- OPS-FULL-START: RESOLVED for baseline451a083/3c8eee9, all8 stages PASS including
+  independent device startup/restart and owned cleanup. Future updates require a
+  new final-runtime-tuple gate. No production/hardware implication.
+- GEO-MEMBERSHIP-EMPTY (Medium): incomplete/403/503 linked fleet reads displayed
+  false0/no assignments. Browser RED3/3; fix34d3740 retains known membership and
+  independent pending/error/retry. Auth40 and real Java recovery PASS.
+- GEO-READ-404 (Medium): missing/foreign scoped GET raised IllegalArgumentException
+  and returned400. Real Java RED plus unit RED7270707; fix451a083 uses existing
+  not-found domain factory. Backend646 and real Java foreign API/page404 PASS.
+  Mutation/geometry/assignment rules remain GEO-01 scope.
+- Independent bounded reviews accepted both corrections by source inspection;
+  runtime evidence/limits in handoffs/INT-00.md. Production blockers remain open.
+
 ## Current startup acceptance findings — 2026-10-30
 
 - **OPS-FULL-START (HIGH, OPEN):** no retained single invocation currently proves

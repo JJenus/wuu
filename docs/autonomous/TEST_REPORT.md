@@ -1,5 +1,18 @@
 # Verification report
 
+## INT-00 final runtime acceptance — 2026-10-31
+
+Frontend3c8eee9/backend-device451a083: FULL_START PASS at16:36:43.324Z, all eight
+stages, clean stable fingerprints. Backend646/device91; frontend144 units,
+40 auth browsers,31 preview browsers; types/build/boundaries/scoped format PASS.
+Real Java cold/restart browsers each PASS, including alert actor persistence,
+tenant/permission denial and persisted geofence membership/error recovery.
+Source-only independent scoped reviews complete. Raw logs retained under workspace
+.coordination/evidence/INT-00, with full-start2-private copied out of /tmp.
+See handoffs/INT-00.md for commands, artifact hashes, RED/GREEN and scope limits.
+This default Maven verify does not run all opt-in *IT; no whole-backend coverage
+or production-readiness claim.
+
 ## Session refresh lifetime contract — 2026-10-29
 
 - Final frontend at `5b7278c`: **133 unit / 32 auth browser tests PASS**;

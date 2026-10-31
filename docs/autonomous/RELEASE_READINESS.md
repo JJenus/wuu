@@ -1,6 +1,12 @@
 # Release readiness
 
 Updated2026-10-30. **STATUS=IN_PROGRESS — NOT RELEASE_READY.**
+
+INT-00 update2026-10-31: local final-revision full startup/restart baseline now
+PASS (frontend3c8eee9/backend-device451a083). Alert lifecycle UI and actor/notes
+persistence accepted; backend646/device91 and frontend144/40auth/31preview pass.
+See handoffs/INT-00.md. Historical pending startup/disabled-UI rows below are
+superseded only for this baseline. Broad feature and production gates remain open.
 Authority: workspace AUTONOMOUS_DIRECTIVE.md§17. Pinned detailed plan:
 [PRODUCTION_DELIVERY_PLAN.md](PRODUCTION_DELIVERY_PLAN.md). No deployment authority.
 

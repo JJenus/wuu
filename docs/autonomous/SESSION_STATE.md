@@ -1,5 +1,17 @@
 # Recoverable execution state
 
+## Current accepted baseline — INT-00, 2026-10-31
+
+INT-00 reconciliation accepted at frontend3c8eee9/backend-device451a083.
+FULL_START PASS2026-10-31T16:36:43.324Z with stable clean revisions and all eight
+stages, including browser/restart/persistence/cleanup. Backend646/device91,
+frontend144 units/40 auth/31 preview PASS; scoped reviews complete. See
+[handoffs/INT-00.md](handoffs/INT-00.md) for hashes, limits, raw evidence and
+RED/GREEN. Earlier disabled-alert-UI/missing-device-harness statements below are
+historical. Coordinator remains tracker-int00-20261031; live shared board decides
+task availability. Production NOT_READY; no deployment authority. FLEET-01 is
+independently owned and not integrated. SESS-01 dependency INT-00 is now satisfied.
+
 ## Owner update — independent agents, 2026-10-31
 
 - Implementation paused to prepare parallel independent-session dispatch, not
