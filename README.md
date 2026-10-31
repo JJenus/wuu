@@ -239,6 +239,36 @@ sh tools/verify-release.sh
 java -jar target/tracking-engine-1.0.0-SNAPSHOT.jar
 ```
 
+### **Starting with disposable dependencies**
+
+`start-backend.sh` starts the backend and the dependencies it needs. It is a
+local-development helper, not a deployment tool:
+
+```bash
+# Default profile: H2 + disposable Redis and Artemis
+./start-backend.sh
+
+# Available profiles can be selected by flag or position
+./start-backend.sh --profile postgres   # PostgreSQL + Redis + Artemis
+./start-backend.sh postgres             # Equivalent positional form
+./start-backend.sh --list-profiles
+./start-backend.sh --profile postgres --skip-tests # Skip test compilation/execution
+```
+
+The script publishes dependency ports on `127.0.0.1` only, generates random
+broker/database passwords and an ephemeral `JWT_SECRET` (unless `JWT_SECRET` is
+already set), waits for each dependency to become ready, and removes its
+containers when the backend exits. `--keep-deps` leaves the containers running;
+`--external-deps` skips Docker and requires explicitly supplied
+`ARTEMIS_USER`/`ARTEMIS_PASSWORD` (plus `DB_URL`, `DB_USERNAME` and
+`DB_PASSWORD` for the postgres profile).
+
+If local Docker is stopped, the script attempts to start its systemd service
+(using non-interactive sudo when needed). If authorization is required, it exits
+with instructions instead of prompting. Remote Docker contexts are not started.
+`--skip-tests` passes `-Dmaven.test.skip=true`, since Spring Boot startup also
+compiles tests; it does not bypass main-source compilation failures.
+
 The default database is **ephemeral H2** and is not a durable deployment.
 For PostgreSQL use `SPRING_PROFILES_ACTIVE=postgres`, the database/broker/Redis
 settings in [SECURITY.md](SECURITY.md), and Flyway migrations. Never switch
