@@ -3,6 +3,7 @@ package com.surf.tracker.alerting.api.dto;
 import com.surf.tracker.alerting.domain.enums.GeofenceShapeType;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.Valid;
 import java.util.List;
 
 public class CreateGeofenceRequest {
@@ -20,7 +21,8 @@ public class CreateGeofenceRequest {
     private Double centerLongitude;
     private Integer radiusMeters;
 
-    private List<GeofencePointDto> points;
+    @Valid
+    private List<@NotNull GeofencePointDto> points;
     private boolean active = true;
     private String createdBy;
 

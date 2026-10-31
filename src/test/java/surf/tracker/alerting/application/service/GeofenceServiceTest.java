@@ -5,6 +5,7 @@ import com.surf.tracker.alerting.domain.enums.GeofenceShapeType;
 import com.surf.tracker.alerting.exception.AlertException;
 import com.surf.tracker.alerting.infrastructure.cache.GeofenceCacheService;
 import com.surf.tracker.alerting.infrastructure.repository.GeofenceRepository;
+import com.surf.tracker.core.infrastructure.repository.VehicleRepository;
 import com.surf.tracker.shared.security.TenantContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,13 +36,15 @@ class GeofenceServiceTest {
     private GeofenceRepository geofenceRepository;
     @Mock
     private GeofenceCacheService geofenceCacheService;
+    @Mock
+    private VehicleRepository vehicleRepository;
 
     private GeofenceService service;
 
     @BeforeEach
     void setUp() {
         TenantContext.setCurrentOrgId(ORG_ID);
-        service = new GeofenceService(geofenceRepository, geofenceCacheService);
+        service = new GeofenceService(geofenceRepository, geofenceCacheService, vehicleRepository);
     }
 
     @AfterEach
@@ -52,6 +55,10 @@ class GeofenceServiceTest {
     @Test
     void createGeofence_setsCurrentOrgIdAndSaves() {
         Geofence geofence = new Geofence();
+        geofence.setShapeType(GeofenceShapeType.CIRCLE);
+        geofence.setCenterLatitude(51.5);
+        geofence.setCenterLongitude(-0.12);
+        geofence.setRadiusMeters(100);
         when(geofenceRepository.save(any(Geofence.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Geofence saved = service.createGeofence(geofence);

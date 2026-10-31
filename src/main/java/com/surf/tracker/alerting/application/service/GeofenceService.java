@@ -11,6 +11,7 @@ import com.surf.tracker.alerting.domain.enums.GeofenceShapeType;
 import com.surf.tracker.alerting.exception.AlertException;
 import com.surf.tracker.alerting.infrastructure.cache.GeofenceCacheService;
 import com.surf.tracker.alerting.infrastructure.repository.GeofenceRepository;
+import com.surf.tracker.core.infrastructure.repository.VehicleRepository;
 import com.surf.tracker.shared.security.TenantContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,18 +38,25 @@ public class GeofenceService {
 
     private final GeofenceRepository geofenceRepository;
     private final GeofenceCacheService geofenceCacheService;
+    private final VehicleRepository vehicleRepository;
 
     public GeofenceService(
             GeofenceRepository geofenceRepository,
-            GeofenceCacheService geofenceCacheService) {
+            GeofenceCacheService geofenceCacheService,
+            VehicleRepository vehicleRepository) {
         this.geofenceRepository = geofenceRepository;
         this.geofenceCacheService = geofenceCacheService;
+        this.vehicleRepository = vehicleRepository;
     }
 
     @Transactional
     @CacheEvict(value = "geofencesPaged", allEntries = true)
     public Geofence createGeofence(Geofence geofence) {
-        geofence.setOrganizationId(requireOrganizationId());
+        Long organizationId = requireOrganizationId();
+        validateGeometry(geofence.getShapeType(), geofence.getCenterLatitude(), geofence.getCenterLongitude(),
+                geofence.getRadiusMeters(), geofence.getPoints());
+        validateVehicleReferences(geofence.getVehicleIds(), organizationId);
+        geofence.setOrganizationId(organizationId);
         Geofence saved = geofenceRepository.save(geofence);
 
         // Cache the geofence
@@ -153,6 +161,9 @@ public class GeofenceService {
         Integer radius = updates.getRadiusMeters() != null ? updates.getRadiusMeters() : geofence.getRadiusMeters();
         List<GeofencePoint> points = updates.getPoints() != null ? updates.getPoints() : geofence.getPoints();
         validateGeometry(shape, latitude, longitude, radius, points);
+        if (updates.getVehicleIds() != null) {
+            validateVehicleReferences(updates.getVehicleIds(), orgId);
+        }
 
         // Track affected vehicles for cache invalidation
         Set<String> oldVehicleIds = new HashSet<>(geofence.getVehicleIds());
@@ -261,6 +272,17 @@ public class GeofenceService {
     }
 
     // ========== HELPER METHODS ==========
+
+    private void validateVehicleReferences(Set<String> vehicleIds, Long organizationId) {
+        if (vehicleIds == null) throw new IllegalArgumentException("Vehicle associations are required");
+        for (String vehicleId : vehicleIds) {
+            if (vehicleId == null || vehicleId.isBlank() || vehicleId.length() > 50
+                    || vehicleRepository.findByIdAndOrganizationId(vehicleId, organizationId).isEmpty()) {
+                // Foreign and nonexistent identifiers have the same public error.
+                throw new IllegalArgumentException("Assigned vehicle is unavailable");
+            }
+        }
+    }
 
     private void validateGeometry(GeofenceShapeType shape, Double latitude, Double longitude,
                                   Integer radius, List<GeofencePoint> points) {

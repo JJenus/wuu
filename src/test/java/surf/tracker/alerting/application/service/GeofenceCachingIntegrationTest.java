@@ -8,6 +8,8 @@ import com.surf.tracker.alerting.domain.entity.Geofence;
 import com.surf.tracker.alerting.infrastructure.cache.GeofenceCacheService;
 import com.surf.tracker.alerting.infrastructure.cache.RedisKeyGenerator;
 import com.surf.tracker.alerting.infrastructure.repository.GeofenceRepository;
+import com.surf.tracker.core.infrastructure.repository.VehicleRepository;
+import com.surf.tracker.core.domain.entity.Vehicle;
 import com.surf.tracker.alerting.support.RedisCacheTestStore;
 import com.surf.tracker.shared.security.TenantContext;
 import org.junit.jupiter.api.AfterEach;
@@ -51,6 +53,9 @@ class GeofenceCachingIntegrationTest {
         context.registerBean(RedisTemplate.class, store::template);
         context.registerBean(RedisKeyGenerator.class);
         context.registerBean(GeofenceRepository.class, () -> repository);
+        VehicleRepository vehicles = mock(VehicleRepository.class);
+        when(vehicles.findByIdAndOrganizationId(anyString(), anyLong())).thenReturn(Optional.of(new Vehicle()));
+        context.registerBean(VehicleRepository.class, () -> vehicles);
         context.registerBean(GeofenceCacheService.class);
         context.registerBean(GeofenceService.class);
         context.refresh();
