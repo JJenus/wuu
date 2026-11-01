@@ -1,15 +1,47 @@
 import { expect, test, type Page } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
 
-async function signIn(page: Page, permission = 'write') {
-  await page.goto('/sign-in?next=/geofences/9/edit')
+async function signIn(page: Page, permission = 'write', path = '/geofences/9/edit') {
+  await page.goto(`/sign-in?next=${path}`)
   await page
     .getByLabel('Email', { exact: true })
     .fill(`geo-ui-${permission}-${randomUUID()}@example.com`)
   await page.getByLabel('Password', { exact: true }).fill('test-only-password')
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await expect(page).toHaveURL('/geofences/9/edit')
+  await expect(page).toHaveURL(path)
 }
+
+test('authorized user creates a complete polygon from the live list and reloads every field', async ({ page }) => {
+  await signIn(page, 'write', '/geofences')
+  await page.getByRole('link', { name: 'Create geofence', exact: true }).click()
+  await expect(page).toHaveURL('/geofences/new')
+  await page.getByLabel('Geofence name', { exact: true }).fill('Created polygon')
+  await page.getByLabel('Description', { exact: true }).fill('All three points and two vehicles')
+  await page.getByRole('button', { name: 'Draw polygon', exact: true }).click()
+  const points = [{ lat: 51, lng: 0 }, { lat: 51, lng: 0.01 }, { lat: 51.01, lng: 0.01 }]
+  for (const [index, point] of points.entries()) {
+    await page.getByRole('button', { name: 'Add vertex using coordinates', exact: true }).click()
+    await page.getByLabel(`Vertex ${index + 1} latitude`, { exact: true }).fill(String(point.lat))
+    await page.getByLabel(`Vertex ${index + 1} longitude`, { exact: true }).fill(String(point.lng))
+  }
+  await page.getByLabel('Assign LONDON-1', { exact: true }).check()
+  await page.getByLabel('Assign LONDON-2', { exact: true }).check()
+  let writes = 0
+  page.on('request', (request) => {
+    if (request.method() === 'POST' && request.url().endsWith('/api/_wuu/geofences')) writes++
+  })
+  await page.getByRole('button', { name: 'Create geofence', exact: true }).click()
+  await expect(page).toHaveURL('/geofences/9')
+  expect(writes).toBe(1)
+  await page.reload()
+  await expect(page.getByText('2 assigned', { exact: true })).toBeVisible()
+  await expect(page.getByText('All three points and two vehicles', { exact: true })).toBeVisible()
+  await page.getByRole('link', { name: 'Edit geofence', exact: true }).click()
+  for (const [index, point] of points.entries()) {
+    await expect(page.getByLabel(`Vertex ${index + 1} latitude`, { exact: true })).toHaveValue(String(point.lat))
+    await expect(page.getByLabel(`Vertex ${index + 1} longitude`, { exact: true })).toHaveValue(String(point.lng))
+  }
+})
 
 test('authorized live editor persists description, geometry and explicit unlink-all', async ({
   page,

@@ -107,6 +107,14 @@ createServer(async (request, response) => {
         { vehicle_id: 'VH-2', license_plate: 'LONDON-2' }]))
     if (path === '/alerts/geofences' && request.method === 'GET')
       return send(200, page([geofenceStates.get(email)]))
+    if (path === '/alerts/geofences' && request.method === 'POST') {
+      if (!email.startsWith('geo-ui-write-')) return send(403, { code: 'FORBIDDEN' })
+      const input = JSON.parse(body)
+      if (Object.keys(input).some((key) => /[A-Z]/.test(key)))
+        return send(400, { message: 'Expected production snake_case payload' })
+      geofenceStates.set(email, { ...input, geofence_id: 9 })
+      return send(201, geofenceStates.get(email))
+    }
     if (path === '/alerts/geofences/9') {
       if (request.method === 'GET') return send(200, geofenceStates.get(email))
       if (request.method === 'PUT') {
