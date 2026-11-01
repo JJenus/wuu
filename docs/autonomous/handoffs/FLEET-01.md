@@ -1,10 +1,11 @@
 # FLEET-01 handoff — fleet create / tracker registration contract
 
-State: READY_FOR_REVIEW (final code revision awaiting independent review)
+State: READY_FOR_INTEGRATION (conditional; independent review of `0a0776f` complete)
 Owner: `ses_e6d4cee94ffe0soMAS0OPwIgxf-fleet01`
 Base: backend `origin/main` `f82a5df`
-Code revision under test: `0a0776f` (advisory-lock race fix, update/trimming tests);
-docs-only commits follow at the branch tip.
+Reviewed code revision: `0a0776f` (advisory-lock race fix, update/trimming tests).
+Post-review deltas are comment/doc-only (see "Independent review of the final
+revision"); no runtime behavior changed after review.
 Prior commits: `6a184de1930db41c09ee7f5ab93471504ee48355` (contract),
 `ab16978` (initial handoff).
 Branch: `agent/FLEET-01/ses_e6d4cee94ffe0soMAS0OPwIgxf-fleet01`
@@ -55,8 +56,10 @@ telemetry lookup is global by device id. The API rejects cross-table collisions
 before insert (`409`) and, on PostgreSQL, both create paths serialize through a
 transaction-scoped advisory lock (`DeviceIdentityGuard`) keyed by device id.
 Tracker creation validates vehicle ownership before acquiring the lock, then
-re-checks both tables while holding it. The real-PostgreSQL race test proves one
-`201` and one `409` with exactly one persisted owner across both tables.
+re-checks both tables while holding it. The real-PostgreSQL race test exercises
+the cross-table race and asserts exactly one persisted owner across both tables
+(one `201`, one `409`); the ordering is not deterministically forced, so its
+invariant assertion — not the interleaving — is the evidence.
 
 **Remaining caveat:** the lock is a PostgreSQL-only stopgap. H2/dev deployments
 skip it, and a writer that bypasses these services is still unconstrained. The
@@ -122,14 +125,31 @@ coverage, full `PostgresDeploymentIT` execution, and negative-create persistence
 assertions. The IT file remains large by design; the full class is the acceptance
 run, so no partial-slice claim is made.
 
-**Review status of the final code revision:** the first independent review covered
-`6a184de`. A bounded re-review of the corrected revision `0a0776f` was requested
-but the verifier session could not start (provider usage limit, no model
-available). The corrected revision therefore still needs an independent review
-before integration; the coordinator should schedule `REVIEW-FLEET-01-<tip SHA>`
-against the frozen code revision `0a0776f` (docs-only commits after it do not
-change runtime behavior). This worker does not claim independent acceptance of
-the corrected revision.
+## Independent review of the final revision
+
+Verifier session `ses_e6c466cd5ffekMpVLanCBySL6n` (read-only static review of
+`f82a5df..0a0776f`; ran no builds/tests). **Verdict: READY for coordinator
+integration, conditional.** No CRITICAL or HIGH finding. Dispositions:
+
+- **M1 (concurrency test does not deterministically force the check→insert
+  overlap):** accepted. The claim was softened above to "exercises the race and
+  asserts exactly one owner". The genuine evidence is the `owners == 1` invariant.
+  A deterministic latch/`pg_locks`-waiter test was drafted but **not committed**:
+  both host build slots were held by `GEO-02`, so it could not be executed, and
+  committing an unrun test would overstate verification. Coordinator follow-up.
+- **M2 (post-lock re-check relies on default READ_COMMITTED):** documented in
+  `DeviceIdentityGuard` javadoc, including that the tracker path validates vehicle
+  ownership before locking and therefore depends on READ_COMMITTED. A lock-first
+  reorder was drafted and reverted for the same build-slot reason; the coordinator
+  may prefer to land it under a reviewed revision.
+- **L1/L2:** documented (active-transaction precondition; PostgreSQL 11+ and
+  driver/void-projection caveat).
+- **L3 (validation measured on untrimmed value):** accepted as-is; `@Size` is
+  intentionally measured on the raw request value.
+- **L4/L5:** docs-only/style; no action.
+
+The post-review delta on the frozen branch is comment/doc-only, so the reviewed
+behavior of `0a0776f` is unchanged; FULL_START is still required.
 
 Artifact/JAR and FULL_START were **not** run by this worker: the integration
 coordinator owns `integration` and must run the final FULL_START against the
