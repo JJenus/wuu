@@ -94,7 +94,7 @@ function addVertex() {
   if (draft.geometry?.type === 'polygon' && draft.geometry.vertices.length < 50) {
     const last = draft.geometry.vertices.at(-1)
     const p: GeoPoint = last
-      ? { lat: Math.max(37.69, last.lat - 0.001), lng: last.lng }
+      ? { lat: last.lat - 0.001, lng: last.lng }
       : { lat: 37.76, lng: -122.43 }
     setGeometry({ ...draft.geometry, vertices: [...draft.geometry.vertices, p] })
   }

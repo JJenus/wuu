@@ -17,7 +17,7 @@ useHead({ title: 'Geofences — Wuu' })
       <UButton
         to="/geofences/new"
         icon="i-lucide-plus"
-        :disabled="!source.isPreview"
+        :disabled="false"
         :title="
           source.isPreview
             ? undefined
