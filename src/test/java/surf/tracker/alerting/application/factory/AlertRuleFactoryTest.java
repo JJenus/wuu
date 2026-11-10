@@ -177,4 +177,18 @@ class AlertRuleFactoryTest {
         // then
         assertThat(result).isNull();
     }
+
+    @Test
+    void createDomainRule_inactiveGeofence_returnsNull() {
+        // given
+        AlertRule entity = AlertRuleTestBuilder.defaultRule().ruleType(AlertRuleType.GEOFENCE)
+                .parameter("geofenceId", "1").parameter("action", "BOTH")
+                .vehicleId("vehicle-001").build();
+        Geofence geofence = GeofenceTestBuilder.circularGeofence().geofenceId(1L)
+                .vehicleId("vehicle-001").build();
+        geofence.setIsActive(false);
+        when(geofenceService.getGeofenceById(1L)).thenReturn(geofence);
+        // when / then
+        assertThat(alertRuleFactory.createDomainRule(entity, "vehicle-001")).isNull();
+    }
 }
