@@ -1,6 +1,5 @@
 package com.surf.tracker.core.api;
 
-import com.surf.tracker.core.application.DeviceIdentityGuard;
 import com.surf.tracker.core.application.service.TrackerService;
 import com.surf.tracker.core.application.service.VehicleService;
 import com.surf.tracker.core.domain.entity.Tracker;
@@ -61,7 +60,7 @@ class CreateIsolationIntegrationTest {
 
     @Configuration
     @EnableJpaRepositories(basePackageClasses = VehicleRepository.class)
-    @Import({VehicleService.class, TrackerService.class, DeviceIdentityGuard.class})
+    @Import({VehicleService.class, TrackerService.class})
     static class Config {
         @Bean
         PersistenceManagedTypes persistenceManagedTypes() {

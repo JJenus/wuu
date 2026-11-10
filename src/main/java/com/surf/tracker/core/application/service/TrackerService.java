@@ -1,6 +1,5 @@
 package com.surf.tracker.core.application.service;
 
-import com.surf.tracker.core.application.DeviceIdentityGuard;
 import com.surf.tracker.core.domain.entity.Tracker;
 import com.surf.tracker.core.domain.entity.Vehicle;
 import com.surf.tracker.core.domain.enums.TrackerStatus;
@@ -23,13 +22,10 @@ public class TrackerService {
 
     private final TrackerRepository trackerRepository;
     private final VehicleRepository vehicleRepository;
-    private final DeviceIdentityGuard deviceIdentityGuard;
 
-    public TrackerService(TrackerRepository trackerRepository, VehicleRepository vehicleRepository,
-                          DeviceIdentityGuard deviceIdentityGuard) {
+    public TrackerService(TrackerRepository trackerRepository, VehicleRepository vehicleRepository) {
         this.trackerRepository = trackerRepository;
         this.vehicleRepository = vehicleRepository;
-        this.deviceIdentityGuard = deviceIdentityGuard;
     }
 
     @Transactional(readOnly = true)
@@ -80,12 +76,11 @@ public class TrackerService {
         }
         tracker.setTrackerId(trackerId);
         tracker.setDeviceId(deviceId);
-        // Validate ownership before taking a shared device lock so invalid callers cannot serialize writers.
+        // Validate ownership before attempting registration.
         Vehicle vehicle = vehicleRepository.findByIdAndOrganizationId(normalizedVehicleId, orgId)
                 .orElseThrow(() -> new IllegalArgumentException("Vehicle not found: " + normalizedVehicleId));
         tracker.setVehicle(vehicle);
-        // Serialize with vehicle creation so both sides re-check after the same lock.
-        deviceIdentityGuard.lockForRegistration(deviceId);
+        // Friendly early rejection; database triggers enforce the invariant for concurrent/direct writers.
         if (trackerRepository.existsByDeviceId(deviceId) || vehicleRepository.existsByDeviceId(deviceId)) {
             // The vehicle and tracker tables share one physical device namespace.
             throw new org.springframework.dao.DuplicateKeyException(

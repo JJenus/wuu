@@ -1,6 +1,5 @@
 package com.surf.tracker.core.application.service;
 
-import com.surf.tracker.core.application.DeviceIdentityGuard;
 import com.surf.tracker.core.domain.entity.*;
 import com.surf.tracker.core.domain.enums.TripEndReason;
 import com.surf.tracker.core.domain.enums.TripStartReason;
@@ -28,18 +27,15 @@ public class VehicleService {
     private final TrackerRepository trackerRepository;
     private final TripRepository tripRepository;
     private final TrackerLocationRepository locationRepository;
-    private final DeviceIdentityGuard deviceIdentityGuard;
 
     public VehicleService(VehicleRepository vehicleRepository,
                           TrackerRepository trackerRepository,
                           TripRepository tripRepository,
-                          TrackerLocationRepository locationRepository,
-                          DeviceIdentityGuard deviceIdentityGuard) {
+                          TrackerLocationRepository locationRepository) {
         this.vehicleRepository = vehicleRepository;
         this.trackerRepository = trackerRepository;
         this.tripRepository = tripRepository;
         this.locationRepository = locationRepository;
-        this.deviceIdentityGuard = deviceIdentityGuard;
     }
 
     @Transactional
@@ -59,8 +55,7 @@ public class VehicleService {
         }
         vehicle.setDeviceId(deviceId);
         if (deviceId != null) {
-            // Serialize with tracker registration so both sides re-check after the same lock.
-            deviceIdentityGuard.lockForRegistration(deviceId);
+            // Friendly early rejection; database triggers arbitrate concurrent/direct writers.
             if (vehicleRepository.existsByDeviceId(deviceId) || trackerRepository.existsByDeviceId(deviceId)) {
                 // The vehicle and tracker tables share one physical device namespace.
                 throw new org.springframework.dao.DuplicateKeyException(
