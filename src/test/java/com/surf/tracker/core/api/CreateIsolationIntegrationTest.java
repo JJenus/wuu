@@ -177,6 +177,59 @@ class CreateIsolationIntegrationTest {
                 .isEqualTo("new");
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"vehicles", "trackers"})
+    void create_crossTableDeviceId_returnsConflictWithoutRegistrationLeak(String resource) throws Exception {
+        // given
+        var before = snapshot();
+        String body = resource.equals("vehicles")
+                ? "{\"vehicleId\":\"new\",\"deviceId\":\"tracker-device\"}"
+                : "{\"trackerId\":\"new\",\"deviceId\":\"vehicle-device\",\"vehicleId\":\"target\"}";
+        // when
+        var response = mvc.perform(post("/api/v1/" + resource).contentType(MediaType.APPLICATION_JSON)
+                .content(body)).andReturn().getResponse();
+        // then
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(snapshot()).isEqualTo(before);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"{\"trackerId\":\"new\",\"vehicleId\":\"target\"}",
+            "{\"trackerId\":\"new\",\"deviceId\":\"   \",\"vehicleId\":\"target\"}",
+            "{\"trackerId\":\"new\",\"deviceId\":\"available\",\"vehicleId\":\"   \"}"})
+    void createTracker_missingIdentity_rejectsBeforePersistence(String body) throws Exception {
+        // given
+        var before = snapshot();
+        // when
+        var response = mvc.perform(post("/api/v1/trackers").contentType(MediaType.APPLICATION_JSON)
+                .content(body)).andReturn().getResponse();
+        // then
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(snapshot()).isEqualTo(before);
+    }
+
+    @Test
+    void create_trimmedIds_persistsSetupFieldsAndCurrentTimestamps() throws Exception {
+        // given / when
+        var vehicle = mvc.perform(post("/api/v1/vehicles").contentType(MediaType.APPLICATION_JSON).content("""
+                {"vehicleId":" new ","deviceId":"   ","model":"Van","licensePlate":"ABC","vin":"12345678901234567"}
+                """)).andReturn().getResponse();
+        var tracker = mvc.perform(post("/api/v1/trackers").contentType(MediaType.APPLICATION_JSON).content("""
+                {"trackerId":" new-tracker ","deviceId":" new-device ","vehicleId":" new ",
+                 "model":"GPS","protocol":"GT06","firmwareVersion":"1.2","simNumber":"555"}
+                """)).andReturn().getResponse();
+        // then: query committed data, not controller response objects.
+        assertThat(vehicle.getStatus()).isEqualTo(201);
+        assertThat(tracker.getStatus()).isEqualTo(201);
+        assertThat(jdbc.queryForObject("select device_id from vehicles where vehicle_id='new'", String.class)).isNull();
+        assertThat(jdbc.queryForObject("select license_plate from vehicles where vehicle_id='new'", String.class)).isEqualTo("ABC");
+        assertThat(jdbc.queryForObject("select protocol from trackers where tracker_id='new-tracker'", String.class)).isEqualTo("GT06");
+        assertThat(jdbc.queryForObject("select owner_id from device_identity where device_id='new-device'", String.class))
+                .isEqualTo("new-tracker");
+        assertThat(jdbc.queryForObject("select created_at from trackers where tracker_id='new-tracker'", java.time.OffsetDateTime.class)
+                .toInstant()).isAfter(Instant.EPOCH);
+    }
+
     @Test
     void update_authorizedVehicle_changesFieldsWithoutReplacingAssociations() throws Exception {
         // given
@@ -198,7 +251,8 @@ class CreateIsolationIntegrationTest {
         return Map.of("vehicles", jdbc.queryForList("select * from vehicles order by vehicle_id"),
                 "trackers", jdbc.queryForList("select * from trackers order by tracker_id"),
                 "locations", jdbc.queryForList("select * from tracker_location_data order by location_id"),
-                "trips", jdbc.queryForList("select * from trips order by trip_id"));
+                "trips", jdbc.queryForList("select * from trips order by trip_id"),
+                "identities", jdbc.queryForList("select * from device_identity order by device_id"));
     }
 
     private Vehicle vehicle(String id, String deviceId, long organizationId) {

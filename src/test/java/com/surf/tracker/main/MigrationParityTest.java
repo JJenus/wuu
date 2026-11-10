@@ -36,7 +36,7 @@ class MigrationParityTest {
 
     @Test void securityMigrations_bothVendors_haveIdenticalSeedsAndRevocation() throws IOException {
         // given / when / then
-        for (String migration : new String[]{"V2__seed_permissions_and_super_admin.sql", "V3__session_organization.sql", "V4__alert_event_outbox.sql"}) {
+        for (String migration : new String[]{"V2__seed_permissions_and_super_admin.sql", "V3__session_organization.sql", "V4__alert_event_outbox.sql", "V7__device_identity_registry.sql"}) {
             assertThat(resource("/db/postgresql/" + migration)).isEqualTo(resource("/db/migration/" + migration));
         }
     }
