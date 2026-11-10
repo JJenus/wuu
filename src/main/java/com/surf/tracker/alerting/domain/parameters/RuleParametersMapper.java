@@ -1,6 +1,7 @@
 package com.surf.tracker.alerting.domain.parameters;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.surf.tracker.alerting.domain.enums.AlertRuleType;
 
 import java.util.LinkedHashMap;
@@ -11,7 +12,10 @@ public class RuleParametersMapper {
     private final ObjectMapper objectMapper;
 
     public RuleParametersMapper(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
+        // Stored parameter maps use camelCase independently of HTTP/JMS naming.
+        // Keep the shared mapper (and its snake_case contract) unchanged.
+        this.objectMapper = objectMapper.copy()
+                .setPropertyNamingStrategy(PropertyNamingStrategies.LOWER_CAMEL_CASE);
     }
 
     public RuleParameters fromMap(AlertRuleType type, Map<String, Object> map) {

@@ -184,9 +184,15 @@ public class GeofenceController {
 
     private Geofence convertToEntity(CreateGeofenceRequest request) {
         Geofence geofence = new Geofence();
-        geofence.setVehicleIds(new java.util.HashSet<>());
-        geofence.getVehicleIds().add(request.getVehicleId());
+        if (request.getVehicleIds() != null) {
+            geofence.setVehicleIds(new java.util.HashSet<>(request.getVehicleIds()));
+        } else if (request.getVehicleId() != null && !request.getVehicleId().isBlank()) {
+            geofence.setVehicleIds(new java.util.HashSet<>(java.util.Set.of(request.getVehicleId())));
+        } else {
+            throw new IllegalArgumentException("Vehicle associations are required");
+        }
         geofence.setName(request.getName());
+        geofence.setDescription(request.getDescription());
         geofence.setShapeType(request.getShapeType());
         geofence.setCenterLatitude(request.getCenterLatitude());
         geofence.setCenterLongitude(request.getCenterLongitude());

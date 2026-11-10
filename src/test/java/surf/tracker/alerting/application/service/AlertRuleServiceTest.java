@@ -125,8 +125,8 @@ class AlertRuleServiceTest {
         assertThat(result.getRuleType()).isEqualTo(AlertRuleType.SPEED);
         assertThat(result.getPriority()).isEqualTo(3);
         assertThat(result.isEnabled()).isTrue();
-        // Custom rules retain the entity's existing creation timestamp default.
-        assertThat(result.getCreatedAt()).isEqualTo(Instant.EPOCH);
+        // Custom rules use the same injected clock as their update timestamp.
+        assertThat(result.getCreatedAt()).isEqualTo(FIXED_CLOCK.instant());
         assertThat(result.getUpdatedAt()).isEqualTo(FIXED_CLOCK.instant());
         verify(ruleCacheService).cacheRule(saved.getValue());
         verify(vehicleRuleCacheService).invalidateVehicleRules("vehicle-001");

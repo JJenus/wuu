@@ -3,13 +3,22 @@ package com.surf.tracker.alerting.api.dto;
 import com.surf.tracker.alerting.domain.enums.GeofenceShapeType;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.Set;
 
 public class CreateGeofenceRequest {
 
-    @NotEmpty(message = "Vehicle ID is required")
+    // Legacy singular input; the complete array is authoritative when present.
+    @Size(min = 1, max = 50)
     private String vehicleId;
+
+    private Set<@NotBlank @Size(max = 50) String> vehicleIds;
+
+    @Size(max = 500)
+    private String description;
 
     @NotEmpty(message = "Name is required")
     private String name;
@@ -29,6 +38,14 @@ public class CreateGeofenceRequest {
     public String getVehicleId() {
         return vehicleId;
     }
+
+    public Set<String> getVehicleIds() { return vehicleIds; }
+
+    public void setVehicleIds(Set<String> vehicleIds) { this.vehicleIds = vehicleIds; }
+
+    public String getDescription() { return description; }
+
+    public void setDescription(String description) { this.description = description; }
 
     public void setVehicleId(String vehicleId) {
         this.vehicleId = vehicleId;

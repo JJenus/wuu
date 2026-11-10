@@ -84,6 +84,65 @@ class GeofenceLifecycleIT {
     @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     @Test
+    void createGeofence_completePolygon_persistsDescriptionAndAllAssociationsAtomically() {
+        // given
+        HttpHeaders owner = tenantHeaders();
+        String first = createVehicle(owner);
+        String second = createVehicle(owner);
+        var data = new java.util.HashMap<String, Object>();
+        data.put("name", "Complete polygon");
+        data.put("description", "Gate and loading yard");
+        data.put("vehicle_ids", List.of(first, second));
+        data.put("shape_type", "POLYGON");
+        data.put("points", triangle(10));
+        data.put("active", false);
+
+        // when
+        ResponseEntity<Map> created = request(owner, HttpMethod.POST, "/alerts/geofences", data);
+
+        // then
+        assertThat(created.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        String path = "/alerts/geofences/" + created.getBody().get("geofence_id");
+        Map saved = read(owner, path);
+        assertThat(saved).containsEntry("description", "Gate and loading yard")
+                .containsEntry("points", triangle(10)).containsEntry("active", false);
+        assertThat((List<String>) saved.get("vehicle_ids")).containsExactlyInAnyOrder(first, second);
+    }
+
+    @Test
+    void createGeofence_legacyVehicle_preservesDescriptionAndExplicitEmptyOverridesAlias() {
+        // given
+        HttpHeaders owner = tenantHeaders();
+        var legacy = new java.util.HashMap<>(circle(createVehicle(owner)));
+        legacy.put("description", "Legacy caller description");
+
+        // when / then
+        ResponseEntity<Map> created = request(owner, HttpMethod.POST, "/alerts/geofences", legacy);
+        assertThat(created.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(created.getBody()).containsEntry("description", "Legacy caller description");
+        legacy.put("vehicle_ids", List.of());
+        ResponseEntity<Map> unlinked = request(owner, HttpMethod.POST, "/alerts/geofences", legacy);
+        assertThat(unlinked.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat((List<?>) unlinked.getBody().get("vehicle_ids")).isEmpty();
+    }
+
+    @Test
+    void createGeofence_foreignPluralAssociation_rejectsWithoutPersistingAnyRow() {
+        // given
+        HttpHeaders owner = tenantHeaders();
+        String own = createVehicle(owner);
+        String foreign = createVehicle(tenantHeaders());
+        var data = new java.util.HashMap<>(circle(own));
+        data.put("vehicle_ids", List.of(own, foreign));
+        long before = jdbc.queryForObject("select count(*) from geofences", Long.class);
+
+        // when / then
+        assertThat(request(owner, HttpMethod.POST, "/alerts/geofences", data).getStatusCode())
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(jdbc.queryForObject("select count(*) from geofences", Long.class)).isEqualTo(before);
+    }
+
+    @Test
     void createGeofence_spoofedCreator_persistsAuthenticatedActorAndCreationTime() {
         // given
         HttpHeaders owner = tenantHeaders();
