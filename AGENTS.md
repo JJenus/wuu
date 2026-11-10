@@ -1,5 +1,13 @@
 # Wayline frontend
 
+## Type discipline
+
+Use well-defined DTOs/interfaces/schemas for known payloads. Avoid generic maps,
+`object`, `any`, and Java-style `Map<String, Object>` shapes unless a genuinely
+dynamic boundary requires them; validate external unknown data at that boundary.
+Apply this strictly to new/changed work, not a repository-wide retrofit. At app
+completion, flag remaining legacy usages for the owner's decision.
+
 This directory is an **independent Git repository** on `frontend-app`. Run frontend Git and pnpm commands here. The parent workspace's Maven instructions apply to `../sidie/`, not this frontend.
 
 ## Before each slice
