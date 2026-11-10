@@ -1,12 +1,31 @@
 package com.surf.tracker.core.api.dto;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
 public class CreateTrackerRequest {
+    @NotBlank(message = "Tracker ID is required")
+    @Size(max = 50, message = "Tracker ID cannot exceed 50 characters")
     private String trackerId;
+
+    @NotBlank(message = "Device ID is required")
+    @Size(max = 50, message = "Device ID cannot exceed 50 characters")
     private String deviceId;
+
+    @NotBlank(message = "Vehicle ID is required")
+    @Size(max = 50, message = "Vehicle ID cannot exceed 50 characters")
     private String vehicleId;
+
+    @Size(max = 100, message = "Model cannot exceed 100 characters")
     private String model;
+
+    @Size(max = 20, message = "Protocol cannot exceed 20 characters")
     private String protocol;
+
+    @Size(max = 50, message = "Firmware version cannot exceed 50 characters")
     private String firmwareVersion;
+
+    @Size(max = 20, message = "SIM number cannot exceed 20 characters")
     private String simNumber;
 
     public String getTrackerId() { return trackerId; }

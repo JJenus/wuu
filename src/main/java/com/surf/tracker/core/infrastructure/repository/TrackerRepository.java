@@ -44,6 +44,9 @@ public interface TrackerRepository extends JpaRepository<Tracker, String> {
     @Query("SELECT CASE WHEN COUNT(t) > 0 THEN true ELSE false END FROM Tracker t WHERE t.deviceId = :deviceId AND t.vehicle.organizationId = :organizationId")
     boolean existsByDeviceIdAndOrganizationId(@Param("deviceId") String deviceId, @Param("organizationId") Long organizationId);
 
+    // Device identities route telemetry globally, so collision checks cannot be tenant-local.
+    boolean existsByDeviceId(String deviceId);
+
     @Query("SELECT t FROM Tracker t WHERE t.vehicle.organizationId = :organizationId")
     Page<Tracker> findByOrganizationId(@Param("organizationId") Long organizationId, Pageable pageable);
 

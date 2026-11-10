@@ -65,7 +65,7 @@ public class TrackerController {
     }
 
     @PostMapping
-    public ResponseEntity<TrackerResponse> createTracker(@RequestBody CreateTrackerRequest request) {
+    public ResponseEntity<TrackerResponse> createTracker(@jakarta.validation.Valid @RequestBody CreateTrackerRequest request) {
         Tracker tracker = new Tracker();
         tracker.setTrackerId(request.getTrackerId());
         tracker.setDeviceId(request.getDeviceId());
@@ -87,7 +87,7 @@ public class TrackerController {
 
     @PutMapping("/{trackerId}")
     public ResponseEntity<TrackerResponse> updateTracker(@PathVariable String trackerId,
-                                                         @RequestBody UpdateTrackerRequest request) {
+                                                         @jakarta.validation.Valid @RequestBody UpdateTrackerRequest request) {
         Tracker update = new Tracker();
         update.setModel(request.getModel());
         update.setProtocol(request.getProtocol());
