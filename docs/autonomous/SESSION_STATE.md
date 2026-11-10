@@ -1,4 +1,8 @@
-# Recoverable execution state
+# Historical execution state
+
+> Archived in place on 2026-11-10. These checkpoints are not current readiness
+> claims or instructions to resume an autonomous loop. Use workspace
+> `DELIVERY_PLAN.md` and inspect actual branches before recovering specific work.
 
 ## Latest acceptance — GEO-01, 2026-10-31
 

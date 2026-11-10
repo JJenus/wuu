@@ -37,8 +37,15 @@
 - Rule caches use versioned organization namespaces in both Spring and manual Redis paths. Preserve `AlertRuleService`'s cache resolver/key generator and explicit organization IDs for background reads; a missing vehicle index is a cache miss, not proof that no rules exist. Run `AlertRuleCachingIntegrationTest` for proxy-level isolation/invalidation coverage.
 - `shared` currently mixes event/command interfaces with Redis, JMS, Reactor Netty, and tenant context. Keep business implementation out of it; business-module consolidation must not pull business dependencies into the device-facing interface.
 
-## Autonomous recovery
+## Bounded delivery
 
-Read `docs/autonomous/SESSION_STATE.md`, TASK_QUEUE.md, FEATURE_MATRIX.md, DEFECT_REGISTER.md and TEST_REPORT.md before resuming delivery. Treat interrupted agent changes as unverified until tests and review pass. Owner scope clarification: only ride-hailing is deferred; subscriptions must support configurable token usage and monthly/yearly periodic models. Inspect existing frontend/backend evidence and choose safe reversible implementation defaults autonomously; paid entitlement requires real evidence, not simulated payment success. Production credentials/deployment remain outside the authorization. STATUS remains IN_PROGRESS/BLOCKED unless all release gates actually pass.
+Follow workspace `../AGENTS.md` and `../DELIVERY_PLAN.md`: complete one requested
+app outcome, run relevant checks, report and stop. Use focused tests during
+development; full release verification belongs to release/cross-stack work.
+Legacy `docs/autonomous/` documents retain requirements and evidence, not active
+scheduling instructions. Consult only the specific report needed to recover work.
+Preserve unfinished branches and unrelated edits. Only ride-hailing is deferred;
+paid entitlement requires real provider evidence, not simulated payment success.
 
-Independent-agent coordination: before choosing/editing work, read workspace DELIVERY_PLAN.md and `docs/autonomous/PARALLEL_EXECUTION.md`. Separate owner-started sessions atomically claim tasks/resources in the shared workspace `.coordination/` and maintain progress. Use isolated task worktrees and push only task branches. Each owner may use at most two active subagents for bounded subtasks or independent verification within its claim, never entire other top-level tasks; owner retains responsibility. Only the claimed integration coordinator updates delivery branches/shared contracts. Two heavyweight builds/tests maximum on the host; integration/FULL_START is serialized. Finish/hand off the current task and claim the next eligible one automatically, following AUTONOMOUS_DIRECTIVE.md. This owner update supersedes older D007/no-subagent scheduling rules.
+Commit and push verified task changes when finished; exclude unrelated local edits.
+Deployment and production operations remain separately authorized.

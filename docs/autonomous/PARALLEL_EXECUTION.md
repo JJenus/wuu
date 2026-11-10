@@ -1,4 +1,8 @@
-# Independent-agent execution contract
+# Historical independent-agent execution contract
+
+> Retired 2026-11-10. Retained for task definitions and unfinished-branch recovery
+> only. Workspace `AGENTS.md` and `DELIVERY_PLAN.md` supersede all execution,
+> claim, automatic continuation, review and acceptance mandates below.
 
 Updated: 2026-10-31. Owner requested separate, manually launched task-owning agents,
 with at most two bounded subagents per task owner. This supersedes sequential-only scheduling and the old

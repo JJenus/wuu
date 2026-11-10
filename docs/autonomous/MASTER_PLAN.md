@@ -1,4 +1,7 @@
-# Autonomous delivery plan
+# Historical delivery plan
+
+> Retired 2026-11-10: workspace `DELIVERY_PLAN.md` now owns priorities. Consult
+> this file only for specific requirements/history, not task dispatch.
 
 ## PINNED CURRENT ROADMAP — 2026-10-30
 

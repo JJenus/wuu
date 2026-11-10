@@ -1,4 +1,8 @@
-# Production delivery plan — pinned execution order
+# Historical production delivery plan
+
+> Retired as execution policy on 2026-11-10. Follow workspace `AGENTS.md` and
+> `DELIVERY_PLAN.md`. Requirements and evidence below remain reference material;
+> scheduling and mandatory per-task gates do not.
 
 Updated: 2026-10-31. STATUS=IN_PROGRESS. Authority:
 workspace `AUTONOMOUS_DIRECTIVE.md`, especially §§7,13–19, plus owner scope

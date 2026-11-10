@@ -1,4 +1,7 @@
-# Persistent task queue
+# Historical task queue
+
+> Retired 2026-11-10. This is not a live queue. Use workspace `DELIVERY_PLAN.md`;
+> old READY/ownership/continuation instructions below are historical only.
 
 ## GEO-01 contract accepted — 2026-10-31
 
