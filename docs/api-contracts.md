@@ -1,5 +1,19 @@
 # Backend and live adapter contracts
 
+## Live geofence editing — 2026-11-10
+
+Exact collection POST and positive signed-Long individual PUT routes now expose
+authorized geofence creation/editing. Browser bodies are strict camelCase;
+the gateway maps only approved fields to Java snake_case, enforces same origin,
+rejects query/actor/tenant overrides, and bounds these bodies to 16 KiB. Atomic
+creation includes description, active state, complete `vehicleIds` and circle or
+polygon geometry. An explicit empty assignment array unlinks all vehicles;
+omission in a partial update preserves associations. Legacy singular backend
+create input remains compatible. Java enforces current `alerts.write`, tenant
+references and geometry validity. Rule writes/delete/bulk side paths remain
+blocked by the gateway. This supersedes disabled-geofence statements below.
+See [geofence-editors.md](geofence-editors.md) for checks and remaining limits.
+
 ## Fleet setup — 2026-11-10
 
 Live vehicle creation and assigned-tracker registration are now enabled. Exact

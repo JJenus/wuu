@@ -1,25 +1,31 @@
 <script setup lang="ts">
 import GeofenceEditor from '~/features/geofences/components/GeofenceEditor.vue'
-import { useDataSource } from '~/features/core/composables/useDataSource'
+import { useGeofenceAccess } from '~/features/geofences/composables/useGeofenceAccess'
 import type { GeofenceDraft } from '~/features/geofences/domain/geofence'
-const source = useDataSource()
+const { source, allowed, message, retry } = useGeofenceAccess()
+// Keep an admitted draft mounted when a later permission refresh fails.
+const admitted = ref(false)
+watchEffect(() => {
+  if (allowed.value) admitted.value = true
+})
 const initial: GeofenceDraft = {
   name: '',
   description: '',
   location: '',
   active: true,
-  events: 'Entry and exit',
+  events: source.isPreview ? 'Entry and exit' : '',
   vehicleIds: [],
   geometry: null,
 }
 </script>
 <template>
-  <GeofenceEditor v-if="source.isPreview" :initial="initial" />
+  <GeofenceEditor v-if="allowed || admitted" :initial="initial" />
   <UiEmptyState
     v-else
-    title="Live geofence creation is disabled"
-    description="The current backend contract cannot safely preserve polygon geometry and multi-vehicle assignments. Use another configured workflow until that contract is verified."
+    title="Geofence editor unavailable"
+    :description="message"
     icon="i-lucide-shield-alert"
-    ><UButton to="/geofences">Back to geofences</UButton></UiEmptyState
+    ><UButton color="neutral" variant="outline" @click="retry">Check permissions again</UButton>
+    <UButton to="/geofences">Back to geofences</UButton></UiEmptyState
   >
 </template>

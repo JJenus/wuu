@@ -42,6 +42,6 @@ Maps use real geographic Leaflet tiles with visible provider attribution and met
 
 ## Verification limits
 
-Geofence maps use geographic circles with meter radii and geographic polygons. Handles are draggable/keyboard-nudged, with numeric alternatives and fit/reset controls. Geometry changes remain session-only, not server monitoring or surveyed boundaries. Preserve ordinary scrolling outside the map. Preview assignments are not live occupancy.
+Geofence maps use geographic circles with meter radii and geographic polygons. Handles are draggable/keyboard-nudged, with numeric alternatives and fit/reset controls. Preview changes remain session-only; authorized live editors persist geometry and complete vehicle links. Saving a boundary does not configure monitoring or prove surveyed accuracy. Preserve ordinary scrolling outside the map. Preview assignments are not live occupancy.
 
 Responsive browser screenshots and automated checks are evidence of tested states, not a complete accessibility certification. Manual screen-reader, contrast, and keyboard review remain necessary before production.

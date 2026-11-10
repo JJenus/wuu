@@ -1,5 +1,15 @@
 # Access matrix and role register
 
+## Live geofence editing — 2026-11-10
+
+Current `alerts.write` enables creation/editing; the editor refreshes that
+permission before each save and Java rechecks tenant/permission boundaries.
+Unavailable permissions disable controls while preserving admitted drafts.
+Fleet assignment reads must succeed before saving; unknown assignments are
+retained and flagged, never silently dropped. Client role names confer nothing.
+Only exact collection POST and individual PUT are exposed; rule administration,
+delete and bulk writes remain unavailable. See [geofence-editors.md](geofence-editors.md).
+
 ## Fleet setup — 2026-11-10
 
 Current database-derived `vehicles.write` enables the live vehicle form;

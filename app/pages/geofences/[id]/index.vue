@@ -4,6 +4,8 @@ import { useWorkspace } from '~/features/workspace/composables/useWorkspace'
 import { useWorkspaceRecord } from '~/features/workspace/composables/useWorkspaceRecord'
 import GeofenceMap from '~/features/geofences/components/GeofenceMap.vue'
 import { geometryArea, geometrySummary } from '~/features/geofences/domain/geofence'
+import { useGeofenceAccess } from '~/features/geofences/composables/useGeofenceAccess'
+const { allowed, message } = useGeofenceAccess()
 const route = useRoute()
 const source = useDataSource()
 const { vehicles, fleetQuery } = useWorkspace('geofences')
@@ -48,12 +50,8 @@ useHead(() => ({ title: `${zone.value?.name || 'Geofence not found'} — Wuu` })
           ><UButton
             :to="`/geofences/${zone.id}/edit`"
             icon="i-lucide-pencil"
-            :disabled="!source.isPreview"
-            :title="
-              source.isPreview
-                ? undefined
-                : 'Live geofence editing is disabled until the update contract preserves geometry and assignments'
-            "
+            :disabled="!allowed"
+            :title="message || undefined"
             >Edit geofence</UButton
           ></UiPageHeading
         >

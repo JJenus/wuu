@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import GeofenceEditor from '~/features/geofences/components/GeofenceEditor.vue'
-import { useDataSource } from '~/features/core/composables/useDataSource'
+import { useGeofenceAccess } from '~/features/geofences/composables/useGeofenceAccess'
 import { useWorkspaceRecord } from '~/features/workspace/composables/useWorkspaceRecord'
 const route = useRoute()
-const source = useDataSource()
+const { allowed, message, retry } = useGeofenceAccess()
 const {
   data: zone,
   isPending,
@@ -11,6 +11,12 @@ const {
   error,
   refetch,
 } = useWorkspaceRecord('geofences', () => String(route.params.id))
+// Once admitted, keep local draft/history mounted across later access failures.
+// The editor independently disables editing and rechecks authority before writes.
+const admittedId = ref('')
+watchEffect(() => {
+  if (zone.value && allowed.value) admittedId.value = zone.value.id
+})
 </script>
 <template>
   <UiAsyncState
@@ -20,13 +26,19 @@ const {
     error-title="This geofence could not load"
     @retry="refetch"
   >
-    <GeofenceEditor v-if="zone && source.isPreview" :key="zone.id" :id="zone.id" :initial="zone" />
+    <GeofenceEditor
+      v-if="zone && (allowed || admittedId === zone.id)"
+      :key="zone.id"
+      :id="zone.id"
+      :initial="zone"
+    />
     <UiEmptyState
       v-else-if="zone"
-      title="Live geofence editing is disabled"
-      description="The current backend update contract can lose polygon geometry or multi-vehicle assignments."
+      title="Geofence editor unavailable"
+      :description="message"
       icon="i-lucide-shield-alert"
-      ><UButton :to="`/geofences/${zone.id}`">Back to geofence</UButton></UiEmptyState
+      ><UButton color="neutral" variant="outline" @click="retry">Check permissions again</UButton>
+      <UButton :to="`/geofences/${zone.id}`">Back to geofence</UButton></UiEmptyState
     >
     <UiEmptyState
       v-else

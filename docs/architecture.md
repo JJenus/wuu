@@ -1,5 +1,16 @@
 # Architecture contract
 
+## Live geofence editing — 2026-11-10
+
+Recovered the existing geofence adapter/editor through the same service/gateway
+boundary. Editor composables own draft/history, permission rechecks and saves;
+once admitted, pages retain drafts across permission/read failures. Save snapshots
+freeze controls, invalid/blank coordinates cannot become zero, and ambiguous
+failures do not trigger automatic retries. The gateway admits only strict bounded
+create/edit payloads and preserves existing fleet/subscription/alert routes.
+Numeric geometry outside map editing bounds stays lossless rather than clamped.
+Rule configuration and telemetry evaluation remain separate from boundary saving.
+
 ## Fleet setup — 2026-11-10
 
 Live fleet setup follows the existing service/adapter/gateway path.

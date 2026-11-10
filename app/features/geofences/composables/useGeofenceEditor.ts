@@ -1,9 +1,33 @@
 import { validateGeofence, type GeofenceDraft, type Geometry } from '../domain/geofence'
 import { useWorkspace } from '../../workspace/composables/useWorkspace'
+import { useGeofenceAccess } from './useGeofenceAccess'
+import { isApiError } from '../../core/domain/errors'
 
 export function useGeofenceEditor(initial: GeofenceDraft, id?: string) {
-  const { geofences, vehicles, createGeofence, updateGeofence } = useWorkspace()
-  const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value))
+  const { geofences, vehicles, fleetQuery, createGeofence, updateGeofence } =
+    useWorkspace('geofences')
+  const {
+    source,
+    allowed: writeAllowed,
+    message: permissionMessage,
+    retry: retryPermissions,
+    assertWriteAccess,
+  } = useGeofenceAccess()
+  const saveUnavailable = computed(
+    () =>
+      !source.isPreview &&
+      (!writeAllowed.value || fleetQuery.isPending.value || fleetQuery.isError.value),
+  )
+  // Preserve invalid numeric drafts (NaN) until validation. JSON cloning turns
+  // them into null, which can silently become a zero coordinate in arithmetic.
+  const copy = <T>(value: T): T => {
+    if (Array.isArray(value)) return value.map((entry) => copy(entry)) as T
+    if (value !== null && typeof value === 'object')
+      return Object.fromEntries(
+        Object.entries(value).map(([key, entry]) => [key, copy(entry)]),
+      ) as T
+    return value
+  }
   const draft = reactive<GeofenceDraft>(copy(initial))
   const baseline = JSON.stringify(initial)
   const dirty = computed(() => JSON.stringify(draft) !== baseline)
@@ -20,10 +44,12 @@ export function useGeofenceEditor(initial: GeofenceDraft, id?: string) {
     if (history.value.length > 50) history.value.shift()
   }
   function setGeometry(geometry: Geometry | null) {
+    if (busy.value || !writeAllowed.value) return
     if (!mapDragging.value) remember()
     draft.geometry = copy(geometry)
   }
   function beginMapEdit() {
+    if (busy.value || !writeAllowed.value) return
     remember()
     mapDragging.value = true
   }
@@ -31,6 +57,7 @@ export function useGeofenceEditor(initial: GeofenceDraft, id?: string) {
     mapDragging.value = false
   }
   function undo() {
+    if (busy.value || !writeAllowed.value) return
     if (history.value.length) draft.geometry = history.value.pop()!
   }
   function answerDiscard(leave: boolean) {
@@ -60,12 +87,14 @@ export function useGeofenceEditor(initial: GeofenceDraft, id?: string) {
     decision?.(false)
   })
   async function save() {
-    if (busy.value) return
+    if (busy.value || saveUnavailable.value) return
+    const input = copy(draft)
     errors.value = validateGeofence(
-      draft,
+      input,
       geofences.value,
       vehicles.value.map((v) => v.id),
       id,
+      source.mode,
     )
     if (Object.keys(errors.value).length) {
       await nextTick()
@@ -74,22 +103,36 @@ export function useGeofenceEditor(initial: GeofenceDraft, id?: string) {
     }
     busy.value = true
     try {
-      const target = id || (await createGeofence(copy(draft)))
-      if (id) await updateGeofence(id, copy(draft))
+      await assertWriteAccess()
+      const target = id || (await createGeofence(input))
+      if (id) await updateGeofence(id, input)
       allowed = true
       toast.add({
-        title: id ? 'Geofence updated in preview' : 'Geofence created in preview',
-        description: 'Session only. No monitoring or notification was activated.',
+        title: source.isPreview
+          ? id
+            ? 'Geofence updated in preview'
+            : 'Geofence created in preview'
+          : id
+            ? 'Geofence updated'
+            : 'Geofence created',
+        description: source.isPreview
+          ? 'Session only. No monitoring or notification was activated.'
+          : 'Saved to the live workspace. Alert rules are configured separately.',
         color: 'success',
       })
       busy.value = false
       await navigateTo(`/geofences/${target}`)
     } catch (error) {
+      const uncertain =
+        isApiError(error) && ['network', 'timeout', 'server', 'contract'].includes(error.kind)
       errors.value = {
         save:
-          error instanceof Error
+          (error instanceof Error
             ? error.message
-            : 'Unable to save this preview geofence. Please try again.',
+            : 'Unable to save this geofence. Please try again.') +
+          (uncertain && !source.isPreview
+            ? ' This request may have been saved. Check the geofence list before retrying; requests are not replayed automatically.'
+            : ''),
       }
     } finally {
       busy.value = false
@@ -100,6 +143,12 @@ export function useGeofenceEditor(initial: GeofenceDraft, id?: string) {
     dirty,
     errors,
     busy,
+    source,
+    saveUnavailable,
+    fleetQuery,
+    writeAllowed,
+    permissionMessage,
+    retryPermissions,
     history,
     discardOpen,
     vehicles,

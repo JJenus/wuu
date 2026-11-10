@@ -69,6 +69,7 @@ export function validateGeofence(
   existing: readonly { id: string; name: string }[],
   vehicleIds: readonly string[],
   editingId?: string,
+  mode: 'preview' | 'live' = 'preview',
 ): Record<string, string> {
   const errors: Record<string, string> = {}
   const name = input.name.trim()
@@ -80,22 +81,40 @@ export function validateGeofence(
     errors.name = 'A geofence with this name already exists.'
   if (input.description.length > 500) errors.description = 'Keep the description to 500 characters.'
   if (input.location.length > 100) errors.location = 'Keep the location label to 100 characters.'
-  if (!input.vehicleIds.length || input.vehicleIds.some((id) => !vehicleIds.includes(id)))
-    errors.vehicleIds = 'Choose at least one vehicle from the preview fleet.'
-  if (!eventOptions.includes(input.events))
+  if (
+    (mode === 'preview' && !input.vehicleIds.length) ||
+    input.vehicleIds.some((id) => !vehicleIds.includes(id))
+  )
+    errors.vehicleIds =
+      mode === 'preview'
+        ? 'Choose at least one vehicle from the preview fleet.'
+        : 'Choose only vehicles from the current fleet. Unknown assignments have not been removed.'
+  if (mode === 'preview' && !eventOptions.includes(input.events))
     errors.events = 'Choose a supported preview event setting.'
   const g = input.geometry
   if (!g) errors.geometry = 'Draw a circle or polygon boundary before saving.'
   else if (g.type === 'circle') {
-    if (!validPoint(g.center))
+    if (!(mode === 'preview' ? validPoint(g.center) : validCoordinate(g.center)))
       errors.geometry = 'Use valid longitude and a latitude between −85.0511 and 85.0511.'
-    else if (!Number.isInteger(g.radiusMeters) || g.radiusMeters < 50 || g.radiusMeters > 5000)
-      errors.geometry = 'Use a whole-number radius between 50 and 5,000 meters.'
+    else if (
+      !Number.isInteger(g.radiusMeters) ||
+      g.radiusMeters < (mode === 'preview' ? 50 : 1) ||
+      g.radiusMeters > (mode === 'preview' ? 5000 : 2147483647)
+    )
+      errors.geometry =
+        mode === 'preview'
+          ? 'Use a whole-number radius between 50 and 5,000 meters.'
+          : 'Use a positive whole-number radius within the supported integer range.'
   } else {
-    const v = g.vertices
-    if (v.length < 3 || v.length > 50)
+    const raw = g.vertices
+    const first = raw[0],
+      last = raw.at(-1)
+    const closed =
+      mode === 'live' && raw.length > 1 && first?.lat === last?.lat && first?.lng === last?.lng
+    const v = closed ? raw.slice(0, -1) : raw
+    if (v.length < 3 || raw.length > 50)
       errors.geometry = 'A polygon needs between 3 and 50 vertices.'
-    else if (v.some((p) => !validPoint(p)))
+    else if (v.some((p) => !(mode === 'preview' ? validPoint(p) : validCoordinate(p))))
       errors.geometry = 'Use valid longitude and latitudes between −85.0511 and 85.0511.'
     else if (Math.max(...v.map((p) => p.lng)) - Math.min(...v.map((p) => p.lng)) > 180)
       errors.geometry = 'Boundaries crossing the antimeridian are not supported.'
@@ -108,8 +127,11 @@ export function validateGeofence(
           if (crosses(v[i]!, v[(i + 1) % v.length]!, v[j]!, v[(j + 1) % v.length]!))
             errors.geometry = 'Polygon edges must not cross or touch.'
         }
-      if (!errors.geometry && geometryArea(g) < 25)
-        errors.geometry = 'Draw a polygon with an area of at least 25 square meters.'
+      if (!errors.geometry && geometryArea(g) < (mode === 'preview' ? 25 : Number.EPSILON))
+        errors.geometry =
+          mode === 'preview'
+            ? 'Draw a polygon with an area of at least 25 square meters.'
+            : 'Draw a polygon with a nonzero area.'
     }
   }
   return errors

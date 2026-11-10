@@ -2,6 +2,8 @@
 import { useDataSource } from '~/features/core/composables/useDataSource'
 import { useWorkspace } from '~/features/workspace/composables/useWorkspace'
 import { geometrySummary } from '~/features/geofences/domain/geofence'
+import { useGeofenceAccess } from '~/features/geofences/composables/useGeofenceAccess'
+const { allowed, message } = useGeofenceAccess()
 const source = useDataSource()
 const { geofences, isPending, isError, error, refetch } = useWorkspace('geofences')
 useHead({ title: 'Geofences — Wuu' })
@@ -17,12 +19,8 @@ useHead({ title: 'Geofences — Wuu' })
       <UButton
         to="/geofences/new"
         icon="i-lucide-plus"
-        :disabled="!source.isPreview"
-        :title="
-          source.isPreview
-            ? undefined
-            : 'Live geofence create and edit are disabled until the full geometry contract is verified'
-        "
+        :disabled="!allowed"
+        :title="message || undefined"
         >Create geofence</UButton
       >
     </UiPageHeading>
@@ -33,8 +31,8 @@ useHead({ title: 'Geofences — Wuu' })
         boundary monitoring or notifications are activated.
       </p>
       <p v-else>
-        Geofences are loaded from the live service. Live create and edit remain disabled until the
-        backend contract can preserve polygon geometry and multi-vehicle assignments.
+        Geofences are saved to the live service with their complete geometry and vehicle links.
+        Alert rules and notification delivery are configured separately.
       </p>
     </div>
     <UiAsyncState

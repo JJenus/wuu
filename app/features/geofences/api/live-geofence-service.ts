@@ -1,7 +1,7 @@
 import type { GeofenceService } from '../services/geofence-service'
 import type { GatewayClient } from '../../core/api/gateway-client'
 import { finalListPage } from '../../core/api/list-completeness'
-import { capabilityUnavailable, isApiError } from '../../core/domain/errors'
+import { ApiError, isApiError } from '../../core/domain/errors'
 import { geometrySummary, type GeofenceDraft, type Geometry } from '../domain/geofence'
 import type { Geofence } from '../../workspace/domain/types'
 import { geofenceDtoSchema, geofencePageSchema, type GeofenceDto } from './contracts'
@@ -38,7 +38,7 @@ export function toGeofence(dto: GeofenceDto): Geofence {
   return {
     id: String(dto.geofenceId),
     name: dto.name,
-    description: dto.description?.trim() || 'No description provided.',
+    description: dto.description ?? '',
     icon: 'i-lucide-map-pinned',
     radius: geometrySummary(geometry),
     location: 'Location label not provided',
@@ -49,22 +49,29 @@ export function toGeofence(dto: GeofenceDto): Geofence {
   }
 }
 
-function createRequest(input: GeofenceDraft) {
-  if (!input.geometry) throw capabilityUnavailable('A boundary is required.')
-  if (input.geometry.type === 'polygon')
-    throw capabilityUnavailable(
-      'Polygon creation is not enabled for the live API until its geometry contract is verified.',
-    )
-  if (input.vehicleIds.length !== 1)
-    throw capabilityUnavailable('The current live geofence contract supports exactly one vehicle.')
+function writeRequest(input: GeofenceDraft) {
+  if (!input.geometry)
+    throw new ApiError({ kind: 'validation', message: 'A boundary is required.' })
+  const geometry = input.geometry
   return {
-    vehicleId: input.vehicleIds[0],
     name: input.name.trim(),
-    shapeType: 'CIRCLE',
-    centerLatitude: input.geometry.center.lat,
-    centerLongitude: input.geometry.center.lng,
-    radiusMeters: input.geometry.radiusMeters,
+    description: input.description,
+    vehicleIds: [...input.vehicleIds],
     active: input.active,
+    ...(geometry.type === 'circle'
+      ? {
+          shapeType: 'CIRCLE',
+          centerLatitude: geometry.center.lat,
+          centerLongitude: geometry.center.lng,
+          radiusMeters: geometry.radiusMeters,
+        }
+      : {
+          shapeType: 'POLYGON',
+          points: geometry.vertices.map((point) => ({
+            latitude: point.lat,
+            longitude: point.lng,
+          })),
+        }),
   }
 }
 
@@ -98,14 +105,16 @@ export function createLiveGeofenceService(client: GatewayClient): GeofenceServic
     },
     async create(input) {
       const dto = await client.request('POST', '/geofences', geofenceDtoSchema, {
-        body: createRequest(input),
+        body: writeRequest(input),
       })
       return String(dto.geofenceId)
     },
-    async update() {
-      throw capabilityUnavailable(
-        'Live geofence editing is disabled until the backend update contract preserves geometry and assignments.',
-      )
+    async update(id, input) {
+      if (!/^[1-9][0-9]{0,18}$/.test(id) || BigInt(id) > 9223372036854775807n)
+        throw new ApiError({ kind: 'validation', message: 'Invalid geofence identifier.' })
+      await client.request('PUT', `/geofences/${id}`, geofenceDtoSchema, {
+        body: writeRequest(input),
+      })
     },
   }
 }
