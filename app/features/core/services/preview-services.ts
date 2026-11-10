@@ -29,6 +29,9 @@ export function createPreviewServices(): WorkspaceServices {
       },
     },
     fleet: {
+      registerVehicle: unavailableRegistration,
+      registerTracker: unavailableRegistration,
+      listTrackers: unavailableRegistration,
       async list() {
         return (await service.load()).vehicles
       },
@@ -87,5 +90,12 @@ async function unavailableSubscriptions(): Promise<never> {
   throw new ApiError({
     kind: 'unavailable',
     message: 'Subscriptions require a live signed-in workspace. No preview billing is simulated.',
+  })
+}
+
+async function unavailableRegistration(): Promise<never> {
+  throw new ApiError({
+    kind: 'unavailable',
+    message: 'Tracker registration requires a live signed-in workspace.',
   })
 }

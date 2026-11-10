@@ -66,7 +66,16 @@ test('sign-in preserves safe deep links, hides credentials, verifies identity, g
     headers: { origin: 'http://localhost:3001' },
     data: {},
   })
-  expect(write.status()).toBe(405)
+  // Collection creates are now allowlisted, but an empty registration is invalid.
+  expect(write.status()).toBe(400)
+  expect(
+    (
+      await page.request.put('/api/_wuu/vehicles/live-1', {
+        headers: { origin: 'http://localhost:3001' },
+        data: {},
+      })
+    ).status(),
+  ).toBe(405)
   await page.getByRole('button', { name: 'Sign out all sessions' }).click()
   await expect(page).toHaveURL('/sign-in')
   expect((await page.request.get('/api/_wuu/vehicles')).status()).toBe(401)

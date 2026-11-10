@@ -6,6 +6,7 @@ export interface Vehicle {
   name: string
   plate: string
   type: string
+  vin?: string | null
   driver: string | null
   initials: string | null
   status: VehicleStatus

@@ -1,5 +1,19 @@
 # Backend and live adapter contracts
 
+## Fleet setup — 2026-11-10
+
+Live vehicle creation and assigned-tracker registration are now enabled. Exact
+same-origin collection POSTs expose only the bounded fields in
+`shared/fleet-registration.ts`; organization/actor fields, legacy vehicle device
+IDs, query overrides, update/delete and assignment subroutes remain unavailable.
+Vehicle IDs/tracker IDs must be URL-addressable (no percent escapes, separators,
+controls or consecutive dots). Java remains authoritative for tenant ownership,
+permissions and global device uniqueness. Vehicle creation uses `vehicles.write`,
+tracker registration `vehicles.assign_device`, and tracker reads `devices.read`.
+Registration does not imply hardware connectivity. See [fleet-registration.md](fleet-registration.md)
+for the request fields, checks and remaining limits. This supersedes historical
+read-only/disabled-fleet statements below.
+
 ## GEO-01 complete association reads — 2026-10-31 (accepted)
 
 Final stable clean backend-devicee0eead6/frontendfe7fcc1 passed all8 FULL_START
@@ -85,13 +99,14 @@ The seed runner creates VIEWER and TENANT_ADMIN accounts only when their case-in
 
 The browser calls only same-origin `/api/_wuu/<resource>`. The Nitro gateway resolves the private upstream origin/token at runtime and forwards allowlisted requests:
 
-| Browser resource | Upstream base        | Client service | Methods used     |
-| ---------------- | -------------------- | -------------- | ---------------- |
-| `vehicles`       | `/api/v1/vehicles`   | Fleet          | GET list/detail  |
-| `trips`          | `/api/v1/trips`      | Trips          | GET list/detail  |
-| `alerts`         | `/alerts`            | Alerts         | GET list/detail  |
-| `geofences`      | `/alerts/geofences`  | Geofences      | GET list/detail  |
-| `notifications`  | `/api/notifications` | None yet       | Allowlisted only |
+| Browser resource | Upstream base        | Client service | Methods used                         |
+| ---------------- | -------------------- | -------------- | ------------------------------------ |
+| `vehicles`       | `/api/v1/vehicles`   | Fleet          | GET list/detail; POST create         |
+| `trackers`       | `/api/v1/trackers`   | Fleet          | GET list; POST assigned registration |
+| `trips`          | `/api/v1/trips`      | Trips          | GET list/detail                      |
+| `alerts`         | `/alerts`            | Alerts         | GET list/detail                      |
+| `geofences`      | `/alerts/geofences`  | Geofences      | GET list/detail                      |
+| `notifications`  | `/api/notifications` | None yet       | Allowlisted only                     |
 
 The gateway requires a valid sealed access session and accepts only GETs. Unknown resources, encoded separators, traversal segments, unsafe origins, writes, and redirects fail closed. The upstream timeout is 15 seconds and responses are marked `no-store`.
 

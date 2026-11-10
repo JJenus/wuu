@@ -3,6 +3,7 @@ import { useDataSource } from '~/features/core/composables/useDataSource'
 import { useWorkspace } from '~/features/workspace/composables/useWorkspace'
 import { useWorkspaceRecord } from '~/features/workspace/composables/useWorkspaceRecord'
 import FleetMap from '~/features/fleet/components/FleetMap.vue'
+import AssignedTrackers from '~/features/fleet/components/AssignedTrackers.vue'
 const route = useRoute()
 const source = useDataSource()
 const { alerts, trips, alertsQuery, tripsQuery } = useWorkspace('fleet')
@@ -85,6 +86,10 @@ const sourceLabel = computed(() => (source.isPreview ? 'Sample data' : 'Live dat
                   <dt>Vehicle type</dt>
                   <dd>{{ vehicle.type }}</dd>
                 </div>
+                <div v-if="!source.isPreview">
+                  <dt>VIN</dt>
+                  <dd>{{ vehicle.vin || 'Not provided' }}</dd>
+                </div>
                 <div>
                   <dt>Last known location</dt>
                   <dd>{{ vehicle.location ?? 'Location not provided' }}</dd>
@@ -122,6 +127,7 @@ const sourceLabel = computed(() => (source.isPreview ? 'Sample data' : 'Live dat
             </div>
           </section>
         </div>
+        <AssignedTrackers v-if="!source.isPreview" :key="vehicle.id" :vehicle-id="vehicle.id" />
         <section class="panel mt-6">
           <div class="panel-heading">
             <h2>Recent journeys</h2>

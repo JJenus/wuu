@@ -1,5 +1,16 @@
 # Access matrix and role register
 
+## Fleet setup — 2026-11-10
+
+Current database-derived `vehicles.write` enables the live vehicle form;
+`vehicles.assign_device` enables assigned-tracker registration. Each submission
+refreshes that permission snapshot and Java rechecks authorization. Tracker
+records require `devices.read`; unavailable reads remain errors, not empty data.
+Role names confer no permission. Exact-origin, sealed-session, strict bounded
+collection POSTs are the only fleet writes exposed. Reassignment/unassignment
+remain unavailable. This supersedes disabled-fleet statements below; see
+[fleet-registration.md](fleet-registration.md) for verification limits.
+
 ## Alert transition gateway exception — 2026-10-30
 
 Individual acknowledge/resolve POSTs are narrowly exposed through the BFF;

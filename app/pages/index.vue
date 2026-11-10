@@ -5,6 +5,8 @@ import { useWorkspace } from '~/features/workspace/composables/useWorkspace'
 import FleetMap from '~/features/fleet/components/FleetMap.vue'
 import VehicleTable from '~/features/fleet/components/VehicleTable.vue'
 import AddVehicleModal from '~/features/fleet/components/AddVehicleModal.vue'
+import { useFleetSetup } from '~/features/fleet/composables/useFleetSetup'
+const { canCreate } = useFleetSetup()
 import MetricCard from '~/features/workspace/components/MetricCard.vue'
 const source = useDataSource()
 const { vehicles, alerts, summary, isPending, isError, error, refetch, alertsQuery } =
@@ -54,11 +56,9 @@ const tabs = computed(() => [
         ></UPopover
       ><UButton
         icon="i-lucide-plus"
-        :disabled="!source.isPreview"
+        :disabled="!canCreate"
         :title="
-          source.isPreview
-            ? undefined
-            : 'Vehicle creation is not enabled for the current live contract'
+          canCreate ? undefined : 'Vehicle creation requires current vehicle-write permission'
         "
         @click="addOpen = true"
         >Add vehicle</UButton

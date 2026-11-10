@@ -30,6 +30,17 @@ export const vehicleDtoSchema = z.object({
 
 export const vehiclePageSchema = pagedResponseSchema(vehicleDtoSchema)
 
+export const trackerDtoSchema = z.object({
+  trackerId: z.string().min(1),
+  deviceId: z.string().nullable(),
+  vehicleId: z.string().nullable(),
+  model: z.string().nullable().optional(),
+  protocol: z.string().nullable().optional(),
+  firmwareVersion: z.string().nullable().optional(),
+  simNumber: z.string().nullable().optional(),
+})
+export const trackerPageSchema = pagedResponseSchema(trackerDtoSchema)
+
 export type VehicleDto = z.infer<typeof vehicleDtoSchema>
 
 export function toVehicle(dto: VehicleDto, now: number = Date.now()): Vehicle {
@@ -42,6 +53,7 @@ export function toVehicle(dto: VehicleDto, now: number = Date.now()): Vehicle {
     name: plate === 'Not provided' ? dto.vehicleId : plate,
     plate,
     type: dto.model?.trim() || 'Vehicle type not provided',
+    vin: dto.vin ?? null,
     driver: null,
     initials: null,
     status: vehicleStatusFromTelemetry({

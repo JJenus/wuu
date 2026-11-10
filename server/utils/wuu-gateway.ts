@@ -1,5 +1,6 @@
 export const allowedBases: Record<string, string> = {
   vehicles: '/api/v1/vehicles',
+  trackers: '/api/v1/trackers',
   trips: '/api/v1/trips',
   alerts: '/alerts',
   geofences: '/alerts/geofences',

@@ -3,6 +3,7 @@ import { errorMessage, isApiError } from '~/features/core/domain/errors'
 import { useDataSource } from '~/features/core/composables/useDataSource'
 import { validateVehicleFields, type NewVehicle } from '../domain/fleet'
 import { useWorkspace } from '../../workspace/composables/useWorkspace'
+import RegisterVehicleModal from './RegisterVehicleModal.vue'
 
 const open = defineModel<boolean>('open', { default: false })
 const name = ref('')
@@ -61,7 +62,9 @@ async function submit() {
 </script>
 
 <template>
+  <RegisterVehicleModal v-if="!source.isPreview" v-model:open="open" />
   <UModal
+    v-else
     v-model:open="open"
     title="A new addition to your fleet"
     :description="

@@ -4,6 +4,7 @@ import { originIsSafe, upstreamPath, subscriptionRequestAllowed } from '../../ut
 import { assertSameOrigin, currentSession, ensureFreshSession } from '../../utils/wuu-session'
 import { z } from 'zod'
 import { alertTransitionAllowed, alertTransitionBody } from '../../utils/alert-transition'
+import { fleetRegistrationAllowed, fleetRegistrationBody } from '../../utils/fleet-registration'
 
 const methods = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])
 
@@ -37,11 +38,12 @@ export default defineEventHandler(async (event) => {
   const target = upstreamPath(getRouterParam(event, 'path'))
   const subscription = target?.startsWith('/api/v1/subscriptions') ?? false
   const alertTransition = !!target && alertTransitionAllowed(method, target)
+  const fleetRegistration = !!target && fleetRegistrationAllowed(method, target)
   if (
     !methods.has(method) ||
     (subscription
       ? !subscriptionRequestAllowed(method, target!)
-      : method !== 'GET' && !alertTransition)
+      : method !== 'GET' && !alertTransition && !fleetRegistration)
   )
     return jsonError(event, 405, 'This request method is not allowed.', requestId)
 
@@ -51,6 +53,8 @@ export default defineEventHandler(async (event) => {
   const query = getQuery(event)
   if (alertTransition && Object.keys(query).length)
     return jsonError(event, 400, 'Alert transitions do not accept query parameters.', requestId)
+  if (fleetRegistration && Object.keys(query).length)
+    return jsonError(event, 400, 'Fleet registration does not accept query parameters.', requestId)
   const params = new URLSearchParams()
   for (const [key, value] of Object.entries(query)) {
     if (Array.isArray(value)) {
@@ -106,13 +110,21 @@ export default defineEventHandler(async (event) => {
           : z.object({}).strict()
       const parsed = JSON.parse(body || '{}')
       body = JSON.stringify(
-        alertTransition ? alertTransitionBody(target, parsed) : schema.parse(parsed),
+        fleetRegistration
+          ? fleetRegistrationBody(target, parsed)
+          : alertTransition
+            ? alertTransitionBody(target, parsed)
+            : schema.parse(parsed),
       )
     } catch {
       return jsonError(
         event,
         400,
-        alertTransition ? 'Invalid alert transition request.' : 'Invalid subscription request.',
+        fleetRegistration
+          ? 'Invalid fleet registration request.'
+          : alertTransition
+            ? 'Invalid alert transition request.'
+            : 'Invalid subscription request.',
         requestId,
       )
     }

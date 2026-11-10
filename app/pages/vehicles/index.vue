@@ -4,6 +4,8 @@ import { useWorkspace } from '~/features/workspace/composables/useWorkspace'
 import { filterVehicles } from '~/features/fleet/domain/fleet'
 import VehicleTable from '~/features/fleet/components/VehicleTable.vue'
 import AddVehicleModal from '~/features/fleet/components/AddVehicleModal.vue'
+import { useFleetSetup } from '~/features/fleet/composables/useFleetSetup'
+const { canCreate, accessError, retryAccess } = useFleetSetup()
 const source = useDataSource()
 const { vehicles, isPending, isError, error, refetch } = useWorkspace('fleet')
 const search = ref('')
@@ -25,14 +27,18 @@ useHead({ title: 'Vehicles — Wuu' })
       eyebrow="YOUR FLEET"
       ><UButton
         icon="i-lucide-plus"
-        :disabled="!source.isPreview"
+        :disabled="!canCreate"
         :title="
-          source.isPreview ? undefined : 'Vehicle creation is not enabled for this live contract'
+          canCreate ? undefined : 'Vehicle creation requires current vehicle-write permission'
         "
         @click="addOpen = true"
         >Add vehicle</UButton
       ></UiPageHeading
     >
+    <p v-if="accessError && !source.isPreview" role="alert" class="form-error">
+      Fleet permissions could not be checked.
+      <UButton variant="link" @click="retryAccess">Retry permissions</UButton>
+    </p>
     <UiAsyncState
       :pending="isPending"
       :error="isError ? error : null"

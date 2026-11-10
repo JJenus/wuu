@@ -1,11 +1,15 @@
 import { defineConfig } from 'vitest/config'
 import { createRequire } from 'node:module'
+import { fileURLToPath } from 'node:url'
 
 const require = createRequire(import.meta.url)
 
 export default defineConfig({
   resolve: {
-    alias: { h3: require.resolve('h3', { paths: [require.resolve('nuxt/package.json')] }) },
+    alias: {
+      h3: require.resolve('h3', { paths: [require.resolve('nuxt/package.json')] }),
+      '#shared': fileURLToPath(new URL('./shared', import.meta.url)),
+    },
   },
   test: {
     include: ['tests/unit/**/*.test.ts'],
@@ -36,6 +40,8 @@ export default defineConfig({
         'app/features/maps/api/preview-search.ts',
         'app/features/maps/composables/useMapSearch.ts',
         'server/utils/wuu-gateway.ts',
+        'shared/fleet-registration.ts',
+        'server/utils/fleet-registration.ts',
         'server/utils/alert-transition.ts',
         'server/utils/wuu-auth.ts',
         'server/utils/wuu-session.ts',

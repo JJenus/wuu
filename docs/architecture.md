@@ -1,5 +1,17 @@
 # Architecture contract
 
+## Fleet setup — 2026-11-10
+
+Live fleet setup follows the existing service/adapter/gateway path.
+`useFleetSetup` owns permission refresh, mutation state and fleet-cache invalidation;
+`useAssignedTrackers` owns context/vehicle-scoped queries. Preview creation is
+unchanged and tracker registration is not simulated. Shared Zod schemas define
+strict collection-create payloads; the BFF enforces exact origin and bounded JSON.
+Backend tenant/permission/uniqueness enforcement remains authoritative. Requests
+are never automatically replayed; uncertain results retain drafts and tell the
+user to check persisted IDs before retrying. Historical disabled-fleet statements
+below are superseded only for these two creates and tracker reads.
+
 ## Subscription integration exception — 2026-10-29
 
 Subscription state follows the same service-container → adapter → gateway path
