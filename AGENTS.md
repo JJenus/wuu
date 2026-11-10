@@ -1,5 +1,13 @@
 # Tracking Engine
 
+## Type discipline
+
+Use concrete DTOs/classes for known request, response and domain shapes, including
+tests. Avoid `Map<String, Object>`, raw maps and `Object` unless a genuinely dynamic
+boundary makes them necessary; explain that exception. Apply this strictly to
+new/changed work. Do not retrofit unrelated legacy usages now. When the rest of
+the app is complete, flag remaining usages for the owner's decision.
+
 ## Build and focused verification
 
 - Run commands from this directory, not its parent workspace. Use `./mvnw`: this custom wrapper selects an **installed Java 21** and downloads Maven 3.9.9 (first run needs network, curl/wget, and unzip). It does not install Java.
