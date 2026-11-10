@@ -4,13 +4,13 @@ This directory is an **independent Git repository** on `frontend-app`. Run front
 
 ## Before each slice
 
-1. Read `docs/scope.md` and `docs/progress.md`; choose one acceptance-sized slice.
+1. Follow workspace `../AGENTS.md` and `../DELIVERY_PLAN.md`; complete one requested user-visible outcome. Read `docs/scope.md` when scope is unclear, and relevant progress history only to recover existing work.
 2. For integration/access changes, read `docs/api-contracts.md` and `docs/access-matrix.md` and verify the current backend contract read-only.
 3. For UI/structure changes, read `docs/design-system.md` and `docs/architecture.md`.
 
 ## Fixed boundaries
 
-- Keep the active `../sidie/` checkout and `../sidie-snapshot-*` untouched. Backend fixes need separately approved isolation.
+- Preserve unrelated backend edits and `../sidie-snapshot-*`. For cross-stack tasks, read backend instructions and isolate conflicting work as needed.
 - Use pnpm, Nuxt/Vue, and Nuxt UI v4. Keep UI HTTP-free; adapters own contracts and composables own workflows.
 - Preview remains public sample data. Live reads require the implemented sealed-session sign-in boundary; preserve explicit preview labels, backend-authoritative access, and fail-closed unsupported actions. Read `docs/api-contracts.md` before changing authentication; contract-server tests are not actual-deployment verification.
 - Production access is enforced on the server, never inferred from client role templates or hidden navigation.
@@ -18,4 +18,14 @@ This directory is an **independent Git repository** on `frontend-app`. Run front
 
 ## Completion gate
 
-Run the appropriate package scripts for typecheck, coverage, boundaries, formatting, browser tests, and build. Browser tests accept a system/cached Chromium; see `README.md` for overrides. Capture actual outcomes in `docs/verification.md` and update progress. Coverage currently measures pure domain/policy/adapter files, not the entire UI.
+Run focused tests and the package checks relevant to changed files. For live
+integration changes, verify the real affected browser/API workflow; use full-stack
+checks for cross-stack changes or release candidates, not every small edit.
+Browser tests accept a system/cached Chromium; see `README.md` for overrides.
+Report exact outcomes and limits in one short task note; routine changes do not
+require separate progress and verification log entries. Coverage currently
+measures pure domain/policy/adapter files, not the entire UI. Stop after the task;
+legacy delivery/coordination documents do not authorize automatic continuation.
+
+Commit and push verified task changes when finished; exclude unrelated local edits.
+Deployment and production operations remain separately authorized.

@@ -1,4 +1,9 @@
-# Progress and next slice
+# Historical progress and slice notes
+
+> Policy update 2026-11-10: workspace `DELIVERY_PLAN.md` owns current priorities.
+> Earlier scheduling, parallel-agent and mandatory per-feature FULL_START
+> instructions below are retired. Keep these notes as implementation evidence;
+> they are not a current audit of the app or an instruction to start more tasks.
 
 ## GEO-01 accepted — 2026-10-31
 
