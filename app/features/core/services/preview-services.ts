@@ -60,6 +60,9 @@ export function createPreviewServices(): WorkspaceServices {
       },
     },
     trips: {
+      async history() {
+        throw new Error('Preview paths are illustrative, not recorded GPS history.')
+      },
       async list() {
         return (await service.load()).trips
       },

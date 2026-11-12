@@ -4,7 +4,7 @@ import { finalListPage } from '../../core/api/list-completeness'
 import { isApiError } from '../../core/domain/errors'
 import { formatDateTime, formatDuration } from '../../core/domain/time'
 import type { Trip } from '../../workspace/domain/types'
-import { tripDtoSchema, tripPageSchema, type TripDto } from './contracts'
+import { tripDtoSchema, tripPageSchema, tripHistorySchema, type TripDto } from './contracts'
 import type { ServiceRequestOptions } from '../../fleet/services/fleet-service'
 
 const PAGE_SIZE = 100
@@ -30,6 +30,11 @@ export function toTrip(dto: TripDto, now: number = Date.now()): Trip {
 
 export function createLiveTripService(client: GatewayClient): TripService {
   return {
+    history(id, options) {
+      return client.request('GET', `/trips/${encodeURIComponent(id)}/history`, tripHistorySchema, {
+        signal: options?.signal,
+      })
+    },
     async list(options?: ServiceRequestOptions) {
       const trips: Trip[] = []
       for (let page = 0; page < MAX_PAGES; page++) {
