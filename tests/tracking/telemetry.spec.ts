@@ -39,6 +39,8 @@ test('real TCP telemetry crosses Artemis into persisted positions and automatic 
     return `*HQ,${device},V1,${time},A,${latitude},N,00006.0000,W,012.96,000,${date},FBFBBFF,460,00,10342,4283,10,25,128#`
   }
   await page.goto('/sign-in?next=/map')
+  // The cold production page can show SSR inputs before hydration attaches v-model.
+  await page.waitForLoadState('networkidle')
   await page.getByLabel('Email', { exact: true }).fill(process.env.TRACKING_TEST_EMAIL!)
   await page.getByLabel('Password', { exact: true }).fill(process.env.TRACKING_TEST_PASSWORD!)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()

@@ -18,6 +18,15 @@ manual recovery and stale/missing GPS). Six preview/map/replay regressions passe
 All 208 units passed; configured pure-code line coverage was 94.73%, not whole-UI
 coverage. Production build, typecheck and boundary checks passed.
 
+Subsequent transport acceptance also passed: valid packets sent over the standalone
+device gateway crossed real authenticated Artemis into PostgreSQL and appeared on
+the automatically refreshed live map, including after an owned broker outage and
+fresh TCP connection. Malformed/unregistered devices did not create locations;
+foreign tracker updates stayed tenant-isolated. See backend
+`tools/verify-telemetry.py` and `docs/telemetry-ordering.md` for the executable check,
+failure/replay limits and prerequisites. This supersedes the transport-unverified
+limit of the original direct-database snapshot fixture below.
+
 One real Java/PostgreSQL browser case passed: two committed database GPS fixtures
 were read through Java and the sealed-session gateway, automatically refreshed and
 retained after reload. That fixture seeds PostgreSQL directly; it does **not** prove
