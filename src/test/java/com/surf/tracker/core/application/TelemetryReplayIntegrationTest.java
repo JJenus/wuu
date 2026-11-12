@@ -32,12 +32,14 @@ import static org.mockito.Mockito.*;
 @SpringBootTest(classes = TrackingEngineApplication.class, properties = {
         "spring.datasource.url=jdbc:h2:mem:telemetry-replay;DB_CLOSE_DELAY=-1;MODE=PostgreSQL",
         "spring.jms.listener.auto-startup=false", "tracking.alert-outbox.poll-delay-ms=3600000",
+        "tracking.telemetry-outbox.poll-delay-ms=3600000", "tracking.telemetry-outbox.initial-delay-ms=3600000",
         "userauth.jwt.secret=telemetry-test-only-secret-at-least-thirty-two-bytes"})
 class TelemetryReplayIntegrationTest {
     @Autowired EntityManager entities;
     @Autowired PlatformTransactionManager transactions;
     @Autowired VehicleEventHandler handler;
     @Autowired JdbcTemplate jdbc;
+    @Autowired TelemetryReceiptStore receipts;
     @MockitoBean EventPublisher publisher;
     @MockitoBean VehicleActivityTracker activity;
     private static final AtomicInteger IDS = new AtomicInteger();
@@ -75,6 +77,16 @@ class TelemetryReplayIntegrationTest {
         handler.handleLocationUpdate(source);
         assertThat(locationCount(device)).isEqualTo(1);
         verify(publisher, times(2)).publish(any());
+    }
+
+    @Test
+    void receive_brokerUnavailable_commitsLocationAndIntentBeforeRelay() {
+        String device = assignedDevice();
+        doThrow(new IllegalStateException("test broker unavailable")).when(publisher).publish(any());
+        assertThatCode(() -> handler.handleLocationUpdate(event(device, 0, 51.5))).doesNotThrowAnyException();
+        assertThat(locationCount(device)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select count(*) from telemetry_receipts where device_id=? and update_payload is not null "
+                + "and published_at is null", Integer.class, device)).isEqualTo(1);
     }
 
     @Test
