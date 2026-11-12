@@ -35,7 +35,7 @@ class TripControllerTest {
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(new TripController(tripQueryService)).build();
+        mockMvc = com.surf.tracker.main.api.ApiMockMvc.standaloneSetup(new TripController(tripQueryService)).build();
     }
 
     private Trip aTrip() {

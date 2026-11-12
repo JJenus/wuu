@@ -48,7 +48,7 @@ class UserControllerTest {
         TenantContext.setCurrentOrgId(10L);
         TenantContext.setCurrentUserId(1L);
         objectMapper = new ObjectMapper();
-        mockMvc = MockMvcBuilders.standaloneSetup(new UserController(authService)).build();
+        mockMvc = com.surf.tracker.main.api.ApiMockMvc.standaloneSetup(new UserController(authService)).build();
     }
 
     @AfterEach

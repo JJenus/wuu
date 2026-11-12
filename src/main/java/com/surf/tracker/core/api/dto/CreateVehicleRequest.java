@@ -3,12 +3,14 @@ package com.surf.tracker.core.api.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
+@io.swagger.v3.oas.annotations.media.Schema(description = "Fleet registration. Organization is assigned from the session; no caller-selected tenant is accepted.", example = "{\"vehicle_id\":\"VAN-01\",\"model\":\"Transit\",\"license_plate\":\"AB12 CDE\"}")
 public class CreateVehicleRequest {
     @NotBlank(message = "Vehicle ID is required")
     @Size(max = 50, message = "Vehicle ID cannot exceed 50 characters")
     private String vehicleId;
 
     @Size(max = 50, message = "Device ID cannot exceed 50 characters")
+    @io.swagger.v3.oas.annotations.media.Schema(description = "Legacy input; use tracker registration for device assignment. Unsupported nonempty registration data may be rejected by the service.")
     private String deviceId;
 
     @Size(max = 100, message = "Model cannot exceed 100 characters")

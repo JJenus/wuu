@@ -77,7 +77,7 @@ class CreateIsolationIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        mvc = MockMvcBuilders.standaloneSetup(new VehicleController(null, vehicleService),
+        mvc = com.surf.tracker.main.api.ApiMockMvc.standaloneSetup(new VehicleController(null, vehicleService),
                 new TrackerController(trackerService, Clock.fixed(NOW, ZoneOffset.UTC))).build();
         new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
             Vehicle original = vehicle("original", "vehicle-device", 1L);

@@ -233,7 +233,7 @@ def main() -> None:
             post("/api/v1/vehicles", VehicleInput(vehicle, "LIVE MAP 01" if label == "owner" else "FOREIGN MAP"), account.access_token)
             post("/api/v1/trackers", TrackerInput("tracker-" + label, device, vehicle), account.access_token)
             if label == "owner":
-                post("/alerts/rules/templates/overspeed", OverspeedRule(
+                post("/api/v1/alerts/rules/templates/overspeed", OverspeedRule(
                     "durable-speed", "Durable telemetry speed", 10, [vehicle], True), account.access_token)
         wait_until("initial durable intake consumer", has_consumer)
         # Both backend and broker go offline. Capture must depend on neither.

@@ -50,7 +50,7 @@ class AlertControllerTest {
     @BeforeEach
     void setUp() {
         objectMapper = new ObjectMapper();
-        mockMvc = MockMvcBuilders.standaloneSetup(new AlertController(alertService, FIXED_CLOCK)).build();
+        mockMvc = com.surf.tracker.main.api.ApiMockMvc.standaloneSetup(new AlertController(alertService, FIXED_CLOCK)).build();
     }
 
     @Test
@@ -67,7 +67,7 @@ class AlertControllerTest {
         String body = objectMapper.writeValueAsString(request);
 
         // when & then
-        mockMvc.perform(post("/alerts")
+        mockMvc.perform(post("/api/v1/alerts")
             .contentType(MediaType.APPLICATION_JSON)
             .content(body))
             .andExpect(status().isCreated())
@@ -80,7 +80,7 @@ class AlertControllerTest {
         when(alertService.getAlertById(1L)).thenReturn(alertResponse());
 
         // when & then
-        mockMvc.perform(get("/alerts/1"))
+        mockMvc.perform(get("/api/v1/alerts/1"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.alertId").value(1L))
             .andExpect(jsonPath("$.vehicleId").value("vehicle-001"));
@@ -95,7 +95,7 @@ class AlertControllerTest {
         when(alertService.searchAlerts(any(AlertSearchRequest.class))).thenReturn(paged);
 
         // when & then
-        mockMvc.perform(get("/alerts"))
+        mockMvc.perform(get("/api/v1/alerts"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.content[0].alertId").value(1L))
             .andExpect(jsonPath("$.totalElements").value(1));
@@ -113,7 +113,7 @@ class AlertControllerTest {
         String body = objectMapper.writeValueAsString(request);
 
         // when & then
-        mockMvc.perform(put("/alerts/1")
+        mockMvc.perform(put("/api/v1/alerts/1")
             .contentType(MediaType.APPLICATION_JSON)
             .content(body))
             .andExpect(status().isOk())
@@ -125,7 +125,7 @@ class AlertControllerTest {
     @Test
     void deleteAlert_existingAlert_returnsNoContent() throws Exception {
         // when & then
-        mockMvc.perform(delete("/alerts/1"))
+        mockMvc.perform(delete("/api/v1/alerts/1"))
             .andExpect(status().isNoContent());
 
         verify(alertService).deleteAlert(1L);

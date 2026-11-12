@@ -42,7 +42,7 @@ class DeviceCommandControllerTest {
     @BeforeEach
     void setUp() {
         com.surf.tracker.shared.security.TenantContext.setCurrentUserId(42L);
-        mockMvc = MockMvcBuilders.standaloneSetup(new DeviceCommandController(deviceCommandService)).build();
+        mockMvc = com.surf.tracker.main.api.ApiMockMvc.standaloneSetup(new DeviceCommandController(deviceCommandService)).build();
     }
 
     @org.junit.jupiter.api.AfterEach

@@ -45,7 +45,7 @@ class SubscriptionControllerIntegrationTest {
     @Configuration
     @EnableAutoConfiguration(exclude = PersistenceExceptionTranslationAutoConfiguration.class)
     @EnableJpaRepositories(basePackageClasses = PlanVersionRepository.class)
-    @Import({SubscriptionController.class, SubscriptionService.class, SecurityConfig.class,
+    @Import({com.surf.tracker.main.api.ApiVersionConfig.class, SubscriptionController.class, SubscriptionService.class, SecurityConfig.class,
         JwtAuthFilter.class, AuthIdentityService.class, AuthRateLimitFilter.class, GlobalExceptionHandler.class})
     static class Config {
         @Bean PersistenceManagedTypes types() {

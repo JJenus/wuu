@@ -1,5 +1,10 @@
 package com.surf.tracker.userauth.api;
 
+import com.surf.tracker.main.api.ApiV1;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import com.surf.tracker.userauth.api.dto.PagedResponse;
 import com.surf.tracker.userauth.application.dto.*;
 import com.surf.tracker.userauth.application.service.AuthService;
@@ -15,7 +20,9 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import com.surf.tracker.userauth.infrastructure.security.AuthPrincipal;
 
 @RestController
-@RequestMapping("/api/v1/users")
+@ApiV1
+@RequestMapping("/users")
+@Tag(name = "Users", description = "Current identity and tenant-scoped user administration. Tenant and actor are derived server-side.")
 public class UserController {
 
     private final AuthService authService;
@@ -25,12 +32,14 @@ public class UserController {
     }
 
     @GetMapping("/me")
+    @Operation(operationId = "usersMe", summary = "Get the authenticated user", description = "Any valid active bearer session may read its own profile; users.read is not required. The user ID is derived from the session, not from query parameters.")
     public ResponseEntity<UserResponse> me() {
         Long userId = TenantContext.getCurrentUserId();
         return ResponseEntity.ok(authService.getCurrentUser(userId));
     }
 
     @GetMapping("/me/access")
+    @Operation(operationId = "usersCurrentAccess", summary = "Get current effective permissions", description = "Returns user_id, organization_id, sorted current database permissions and access expiry. Requires an authenticated AuthPrincipal, not users.read. Cache-Control is private, no-store. Role claims are not treated as permissions; this is not an authorization decision for a later request.")
     public ResponseEntity<CurrentAccessResponse> currentAccess(@AuthenticationPrincipal AuthPrincipal principal) {
         if (principal == null) {
             throw new org.springframework.security.access.AccessDeniedException("Authenticated identity required");
@@ -43,6 +52,7 @@ public class UserController {
     }
 
     @GetMapping
+    @Operation(operationId = "usersList", summary = "List tenant users", description = "Requires users.read. Zero-based page defaults to 0, size to 50; results are sorted by createdAt descending. A session without an active tenant receives an empty page. Other tenants' users are not included.")
     public ResponseEntity<PagedResponse<UserResponse>> list(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
@@ -57,6 +67,8 @@ public class UserController {
     }
 
     @PostMapping
+    @Operation(operationId = "usersCreate", summary = "Create a user in the active tenant", description = "Requires users.write and an active tenant. Validates email/password/profile fields and derives organization from the session. This operation is not public self-registration or arbitrary tenant/role assignment.")
+    @ApiResponse(responseCode = "201", description = "Tenant user created")
     public ResponseEntity<UserResponse> create(@Valid @RequestBody CreateUserRequest request) {
         Long orgId = TenantContext.getCurrentOrgId();
         UserResponse created = authService.createUser(
@@ -68,12 +80,14 @@ public class UserController {
     }
 
     @GetMapping("/{id}")
+    @Operation(operationId = "usersGet", summary = "Get a tenant user", description = "Requires users.read. Numeric user ID is resolved within the current tenant through the auth service; caller-supplied tenant overrides are not accepted.")
     public ResponseEntity<UserResponse> getById(@PathVariable Long id) {
         Long orgId = TenantContext.getCurrentOrgId();
         return ResponseEntity.ok(authService.getUserById(id, orgId));
     }
 
     @PutMapping("/{id}")
+    @Operation(operationId = "usersUpdate", summary = "Update a tenant user's profile", description = "Requires users.write. Updates first name, last name and email for the numeric user ID within the current tenant. Does not change password, organization or assigned roles.")
     public ResponseEntity<UserResponse> updateUser(@PathVariable Long id,
                                                    @Valid @RequestBody UpdateUserRequest request) {
         Long orgId = TenantContext.getCurrentOrgId();
@@ -83,6 +97,7 @@ public class UserController {
     }
 
     @DeleteMapping("/{id}")
+    @Operation(operationId = "usersDelete", summary = "Delete a tenant user", description = "Requires users.delete. Deletes through the tenant-scoped auth service using the numeric user ID. Success returns 204 without a body.")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Long id) {
         Long orgId = TenantContext.getCurrentOrgId();
@@ -90,6 +105,7 @@ public class UserController {
     }
 
     @PutMapping("/{id}/roles")
+    @Operation(operationId = "usersAssignRoles", summary = "Assign tenant roles", description = "Requires users.assign_roles and an active tenant. Accepts role_ids, not client permission claims. The auth service validates the target user and role assignments in the current tenant.")
     public ResponseEntity<UserResponse> assignRoles(@PathVariable Long id,
                                                     @Valid @RequestBody AssignRolesRequest request) {
         Long orgId = TenantContext.getCurrentOrgId();

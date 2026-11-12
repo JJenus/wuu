@@ -17,6 +17,8 @@ import org.springframework.security.authorization.AuthorizationDecision;
 
 import java.util.List;
 
+import static com.surf.tracker.main.api.ApiVersionConfig.V1;
+
 @Configuration
 @EnableMethodSecurity
 @org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
@@ -41,37 +43,37 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/v1/auth/register").access((authn, request) -> new AuthorizationDecision(registrationEnabled))
-                .requestMatchers(HttpMethod.POST, "/api/v1/auth/logout", "/api/v1/auth/change-password").authenticated()
+                .requestMatchers(HttpMethod.POST, V1 + "/auth/login", V1 + "/auth/refresh").permitAll()
+                .requestMatchers(HttpMethod.POST, V1 + "/auth/register").access((authn, request) -> new AuthorizationDecision(registrationEnabled))
+                .requestMatchers(HttpMethod.POST, V1 + "/auth/logout", V1 + "/auth/change-password").authenticated()
                 .requestMatchers("/actuator/health").permitAll()
-                .requestMatchers("/h2-console/**", "/api/notifications/webhooks/**",
-                    "/api/v1/commands/*/send", "/api/v1/commands/*/deliver", "/api/v1/commands/*/fail").denyAll()
+                .requestMatchers("/h2-console/**", V1 + "/notifications/webhooks/**",
+                    V1 + "/commands/*/send", V1 + "/commands/*/deliver", V1 + "/commands/*/fail").denyAll()
                 .requestMatchers("/actuator/**", "/v3/api-docs/**", "/swagger-ui/**").hasAuthority("system.admin")
-                .requestMatchers(HttpMethod.GET, "/api/v1/users/me", "/api/v1/users/me/access").authenticated()
-                .requestMatchers(HttpMethod.GET, "/api/v1/roles").hasAuthority("roles.read")
-                .requestMatchers("/api/v1/users/*/roles").hasAuthority("users.assign_roles")
-                .requestMatchers(HttpMethod.GET, "/api/v1/users/**").hasAuthority("users.read")
-                .requestMatchers(HttpMethod.DELETE, "/api/v1/users/**").hasAuthority("users.delete")
-                .requestMatchers("/api/v1/users/**").hasAuthority("users.write")
-                .requestMatchers("/api/v1/organizations/**").authenticated()
-                .requestMatchers(HttpMethod.POST, "/api/v1/subscriptions/catalog").hasAuthority("system.admin")
-                .requestMatchers(HttpMethod.POST, "/api/v1/subscriptions/*/grants",
-                    "/api/v1/subscriptions/*/consumptions").hasAuthority("system.admin")
-                .requestMatchers(HttpMethod.GET, "/api/v1/subscriptions/catalog/**").authenticated()
-                .requestMatchers("/api/v1/subscriptions/**").authenticated()
-                .requestMatchers("/api/notifications/templates/**").hasAuthority("system.admin")
-                .requestMatchers("/api/notifications/**", "/ws/notifications/**").authenticated()
-                .requestMatchers(HttpMethod.GET, "/api/v1/trips/export").hasAuthority("trips.export")
-                .requestMatchers(HttpMethod.GET, "/api/v1/trips/**").hasAuthority("trips.read")
-                .requestMatchers(HttpMethod.GET, "/api/v1/vehicles/**").hasAuthority("vehicles.read")
-                .requestMatchers("/api/v1/vehicles/**").hasAuthority("vehicles.write")
-                .requestMatchers(HttpMethod.GET, "/api/v1/trackers/**", "/api/v1/commands/**").hasAuthority("devices.read")
-                .requestMatchers("/api/v1/trackers/**").hasAuthority("vehicles.assign_device")
-                .requestMatchers(HttpMethod.POST, "/api/v1/commands").hasAuthority("devices.command")
-                .requestMatchers("/alerts/cleanup", "/alerts/automated").denyAll()
-                .requestMatchers(HttpMethod.GET, "/alerts/**").hasAuthority("alerts.read")
-                .requestMatchers("/alerts/**").hasAuthority("alerts.write")
+                .requestMatchers(HttpMethod.GET, V1 + "/users/me", V1 + "/users/me/access").authenticated()
+                .requestMatchers(HttpMethod.GET, V1 + "/roles").hasAuthority("roles.read")
+                .requestMatchers(V1 + "/users/*/roles").hasAuthority("users.assign_roles")
+                .requestMatchers(HttpMethod.GET, V1 + "/users/**").hasAuthority("users.read")
+                .requestMatchers(HttpMethod.DELETE, V1 + "/users/**").hasAuthority("users.delete")
+                .requestMatchers(V1 + "/users/**").hasAuthority("users.write")
+                .requestMatchers(V1 + "/organizations/**").authenticated()
+                .requestMatchers(HttpMethod.POST, V1 + "/subscriptions/catalog").hasAuthority("system.admin")
+                .requestMatchers(HttpMethod.POST, V1 + "/subscriptions/*/grants",
+                    V1 + "/subscriptions/*/consumptions").hasAuthority("system.admin")
+                .requestMatchers(HttpMethod.GET, V1 + "/subscriptions/catalog/**").authenticated()
+                .requestMatchers(V1 + "/subscriptions/**").authenticated()
+                .requestMatchers(V1 + "/notifications/templates/**").hasAuthority("system.admin")
+                .requestMatchers(V1 + "/notifications/**", "/ws/notifications/**").authenticated()
+                .requestMatchers(HttpMethod.GET, V1 + "/trips/export").hasAuthority("trips.export")
+                .requestMatchers(HttpMethod.GET, V1 + "/trips/**").hasAuthority("trips.read")
+                .requestMatchers(HttpMethod.GET, V1 + "/vehicles/**").hasAuthority("vehicles.read")
+                .requestMatchers(V1 + "/vehicles/**").hasAuthority("vehicles.write")
+                .requestMatchers(HttpMethod.GET, V1 + "/trackers/**", V1 + "/commands/**").hasAuthority("devices.read")
+                .requestMatchers(V1 + "/trackers/**").hasAuthority("vehicles.assign_device")
+                .requestMatchers(HttpMethod.POST, V1 + "/commands").hasAuthority("devices.command")
+                .requestMatchers(V1 + "/alerts/cleanup", V1 + "/alerts/automated").denyAll()
+                .requestMatchers(HttpMethod.GET, V1 + "/alerts/**").hasAuthority("alerts.read")
+                .requestMatchers(V1 + "/alerts/**").hasAuthority("alerts.write")
                 .anyRequest().denyAll()
             )
             .exceptionHandling(errors -> errors

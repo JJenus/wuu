@@ -98,11 +98,11 @@ class GeofenceLifecycleIT {
         data.put("active", false);
 
         // when
-        ResponseEntity<Map> created = request(owner, HttpMethod.POST, "/alerts/geofences", data);
+        ResponseEntity<Map> created = request(owner, HttpMethod.POST, "/api/v1/alerts/geofences", data);
 
         // then
         assertThat(created.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-        String path = "/alerts/geofences/" + created.getBody().get("geofence_id");
+        String path = "/api/v1/alerts/geofences/" + created.getBody().get("geofence_id");
         Map saved = read(owner, path);
         assertThat(saved).containsEntry("description", "Gate and loading yard")
                 .containsEntry("points", triangle(10)).containsEntry("active", false);
@@ -117,11 +117,11 @@ class GeofenceLifecycleIT {
         legacy.put("description", "Legacy caller description");
 
         // when / then
-        ResponseEntity<Map> created = request(owner, HttpMethod.POST, "/alerts/geofences", legacy);
+        ResponseEntity<Map> created = request(owner, HttpMethod.POST, "/api/v1/alerts/geofences", legacy);
         assertThat(created.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(created.getBody()).containsEntry("description", "Legacy caller description");
         legacy.put("vehicle_ids", List.of());
-        ResponseEntity<Map> unlinked = request(owner, HttpMethod.POST, "/alerts/geofences", legacy);
+        ResponseEntity<Map> unlinked = request(owner, HttpMethod.POST, "/api/v1/alerts/geofences", legacy);
         assertThat(unlinked.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat((List<?>) unlinked.getBody().get("vehicle_ids")).isEmpty();
     }
@@ -137,7 +137,7 @@ class GeofenceLifecycleIT {
         long before = jdbc.queryForObject("select count(*) from geofences", Long.class);
 
         // when / then
-        assertThat(request(owner, HttpMethod.POST, "/alerts/geofences", data).getStatusCode())
+        assertThat(request(owner, HttpMethod.POST, "/api/v1/alerts/geofences", data).getStatusCode())
                 .isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(jdbc.queryForObject("select count(*) from geofences", Long.class)).isEqualTo(before);
     }
@@ -152,7 +152,7 @@ class GeofenceLifecycleIT {
         data.put("created_by", "spoofed actor");
 
         // when
-        ResponseEntity<Map> created = request(owner, HttpMethod.POST, "/alerts/geofences", data);
+        ResponseEntity<Map> created = request(owner, HttpMethod.POST, "/api/v1/alerts/geofences", data);
 
         // then
         assertThat(created.getStatusCode()).isEqualTo(HttpStatus.CREATED);
@@ -254,7 +254,7 @@ class GeofenceLifecycleIT {
         assertThat(saved).containsEntry("name", "Renamed polygon").containsEntry("active", false)
                 .containsEntry("description", "Keep me").containsEntry("points", triangle(10));
         assertThat((List<String>) saved.get("vehicle_ids")).containsExactlyInAnyOrder(first, second);
-        Map page = read(owner, "/alerts/geofences");
+        Map page = read(owner, "/api/v1/alerts/geofences");
         assertThat((List<Map>) page.get("content")).singleElement().satisfies(row ->
                 assertThat((List<String>) row.get("vehicle_ids")).containsExactlyInAnyOrder(first, second));
     }
@@ -265,7 +265,7 @@ class GeofenceLifecycleIT {
         HttpHeaders owner = tenantHeaders();
         String vehicle = createVehicle(owner);
         String path = createPolygon(owner, vehicle);
-        assertThat(http.exchange("/alerts/geofences/vehicle/" + vehicle + "/list", HttpMethod.GET,
+        assertThat(http.exchange("/api/v1/alerts/geofences/vehicle/" + vehicle + "/list", HttpMethod.GET,
                 new HttpEntity<>(owner), List.class).getStatusCode()).isEqualTo(HttpStatus.OK);
 
         // when
@@ -275,7 +275,7 @@ class GeofenceLifecycleIT {
         // then: replacement order survives DB reload, and old vehicle-list cache is invalidated.
         assertThat(read(owner, path)).containsEntry("points", triangle(20))
                 .containsEntry("vehicle_ids", List.of());
-        ResponseEntity<List> oldList = http.exchange("/alerts/geofences/vehicle/" + vehicle + "/list",
+        ResponseEntity<List> oldList = http.exchange("/api/v1/alerts/geofences/vehicle/" + vehicle + "/list",
                 HttpMethod.GET, new HttpEntity<>(owner), List.class);
         assertThat(oldList.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(oldList.getBody()).isEmpty();
@@ -327,10 +327,10 @@ class GeofenceLifecycleIT {
         String vehicle = createVehicle(owner);
 
         // when / then
-        assertThat(request(owner, HttpMethod.POST, "/alerts/geofences",
+        assertThat(request(owner, HttpMethod.POST, "/api/v1/alerts/geofences",
                 Map.of("vehicle_id", vehicle, "name", "Invalid circle", "shape_type", "CIRCLE", "radius_meters", -1))
                 .getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat((List<?>) read(owner, "/alerts/geofences").get("content")).isEmpty();
+        assertThat((List<?>) read(owner, "/api/v1/alerts/geofences").get("content")).isEmpty();
     }
 
     @Test
@@ -340,9 +340,9 @@ class GeofenceLifecycleIT {
         String foreignVehicle = createVehicle(tenantHeaders());
 
         // when / then
-        assertThat(request(owner, HttpMethod.POST, "/alerts/geofences", circle(foreignVehicle))
+        assertThat(request(owner, HttpMethod.POST, "/api/v1/alerts/geofences", circle(foreignVehicle))
                 .getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat((List<?>) read(owner, "/alerts/geofences").get("content")).isEmpty();
+        assertThat((List<?>) read(owner, "/api/v1/alerts/geofences").get("content")).isEmpty();
     }
 
     @Test
@@ -360,16 +360,16 @@ class GeofenceLifecycleIT {
     }
 
     private String createPolygon(HttpHeaders owner, String vehicle) {
-        ResponseEntity<Map> created = request(owner, HttpMethod.POST, "/alerts/geofences",
+        ResponseEntity<Map> created = request(owner, HttpMethod.POST, "/api/v1/alerts/geofences",
                 Map.of("vehicle_id", vehicle, "name", "Polygon", "shape_type", "POLYGON", "points", triangle(10)));
         assertThat(created.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-        return "/alerts/geofences/" + created.getBody().get("geofence_id");
+        return "/api/v1/alerts/geofences/" + created.getBody().get("geofence_id");
     }
 
     private String createCircle(HttpHeaders owner, String vehicle) {
-        ResponseEntity<Map> created = request(owner, HttpMethod.POST, "/alerts/geofences", circle(vehicle));
+        ResponseEntity<Map> created = request(owner, HttpMethod.POST, "/api/v1/alerts/geofences", circle(vehicle));
         assertThat(created.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-        return "/alerts/geofences/" + created.getBody().get("geofence_id");
+        return "/api/v1/alerts/geofences/" + created.getBody().get("geofence_id");
     }
 
     private Map<String, Object> circle(String vehicle) {

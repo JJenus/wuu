@@ -1,9 +1,13 @@
 package com.surf.tracker.notification.api;
 
+import com.surf.tracker.main.api.ApiV1;
+
 import com.surf.tracker.notification.api.dto.*;
 import com.surf.tracker.notification.application.NotificationQueryService;
 import com.surf.tracker.notification.application.NotificationCommandService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import org.springdoc.core.annotations.ParameterObject;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -15,7 +19,8 @@ import jakarta.validation.Valid;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/notifications")
+@ApiV1
+@RequestMapping("/notifications")
 @Tag(name = "Notifications", description = "Notification management endpoints")
 public class NotificationController {
 
@@ -31,13 +36,13 @@ public class NotificationController {
     }
 
     @GetMapping
-    @Operation(summary = "Get notifications with filtering")
+    @Operation(operationId = "notificationsSearch", summary = "Search notifications", description = "Requires an authenticated bearer session and active tenant. userId must be omitted or equal to the authenticated database user ID; other recipients are denied. status and channel use exact enum names; alertId is optional. Uses Spring Pageable page/size/sort and returns Spring Page, not the project's PagedResponse.")
     public ResponseEntity<Page<NotificationResponse>> getNotifications(
             @RequestParam(required = false) String userId,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String channel,
             @RequestParam(required = false) String alertId,
-            Pageable pageable) {
+            @ParameterObject Pageable pageable) {
 
         Page<NotificationResponse> notifications = queryService.findNotifications(
             userId, status, channel, alertId, pageable
@@ -46,7 +51,7 @@ public class NotificationController {
     }
 
     @GetMapping("/{deliveryId}")
-    @Operation(summary = "Get notification by ID")
+    @Operation(operationId = "notificationsGet", summary = "Get a notification delivery", description = "Requires an authenticated bearer session. deliveryId is the string delivery identifier. Service-level access checks remain authoritative; this operation reads persisted delivery state, not provider status directly.")
     public ResponseEntity<NotificationResponse> getNotificationById(
             @PathVariable String deliveryId) {
 
@@ -55,11 +60,11 @@ public class NotificationController {
     }
 
     @GetMapping("/user/{userId}")
-    @Operation(summary = "Get notifications for a specific user")
+    @Operation(operationId = "notificationsUserPage", summary = "Get user notifications", description = "Requires an authenticated bearer session and active tenant; userId must equal the authenticated database user ID. Uses Spring Pageable and returns Spring Page. Known implementation limitation: unreadOnly is accepted (default false) but currently ignored by the query service, so true does not filter read deliveries.")
     public ResponseEntity<Page<NotificationResponse>> getUserNotifications(
             @PathVariable String userId,
             @RequestParam(defaultValue = "false") boolean unreadOnly,
-            Pageable pageable) {
+            @ParameterObject Pageable pageable) {
 
         Page<NotificationResponse> notifications = queryService.getUserNotifications(
             userId, unreadOnly, pageable
@@ -68,21 +73,21 @@ public class NotificationController {
     }
 
     @PostMapping("/{deliveryId}/read")
-    @Operation(summary = "Mark notification as read")
+    @Operation(operationId = "notificationsMarkRead", summary = "Mark a notification as read", description = "Requires an authenticated bearer session and service-authorized access to deliveryId. Does not require a JSON body. Success returns HTTP 200 without a response body; it does not acknowledge an underlying alert.")
     public ResponseEntity<Void> markAsRead(@PathVariable String deliveryId) {
         commandService.markAsRead(deliveryId);
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/user/{userId}/read-all")
-    @Operation(summary = "Mark all user notifications as read")
+    @Operation(operationId = "notificationsMarkAllRead", summary = "Mark user notifications as read", description = "Requires an authenticated bearer session and service-authorized access to userId. Marks notifications read through the command service; success is HTTP 200 with no body. Alert acknowledgement/resolution is separate.")
     public ResponseEntity<Void> markAllAsRead(@PathVariable String userId) {
         commandService.markAllAsRead(userId);
         return ResponseEntity.ok().build();
     }
 
     @DeleteMapping("/{deliveryId}")
-    @Operation(summary = "Delete notification")
+    @Operation(operationId = "notificationsDelete", summary = "Delete a notification delivery", description = "Requires an authenticated bearer session and service-authorized access to deliveryId. Deletes the delivery through the command service. Success is 204 with no body.")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public ResponseEntity<Void> deleteNotification(@PathVariable String deliveryId) {
         commandService.deleteDelivery(deliveryId);
@@ -90,7 +95,7 @@ public class NotificationController {
     }
 
     @GetMapping("/preferences/{userId}")
-    @Operation(summary = "Get notification preferences for user")
+    @Operation(operationId = "notificationsPreferencesGet", summary = "Get user notification preferences", description = "Requires an authenticated bearer session and active tenant. userId must equal the authenticated database user ID. Returns a JSON array, not a paginated envelope. This does not imply that every provider channel is configured.")
     public ResponseEntity<List<NotificationPreferenceResponse>> getUserPreferences(
             @PathVariable String userId) {
 
@@ -100,7 +105,7 @@ public class NotificationController {
     }
 
     @PutMapping("/preferences/{userId}")
-    @Operation(summary = "Update notification preferences")
+    @Operation(operationId = "notificationsPreferencesUpdate", summary = "Update notification preferences", description = "Requires an authenticated bearer session. Validates UpdatePreferencesRequest and applies preferences through the command service for authorized userId. Returns the updated preference array; this is not provider provisioning or proof of message delivery.")
     public ResponseEntity<List<NotificationPreferenceResponse>> updatePreferences(
             @PathVariable String userId,
             @Valid @RequestBody UpdatePreferencesRequest request) {
@@ -111,11 +116,11 @@ public class NotificationController {
     }
 
     @GetMapping("/templates")
-    @Operation(summary = "Get notification templates")
+    @Operation(operationId = "notificationsTemplatesSearch", summary = "Search notification templates", description = "Requires system.admin, not merely an authenticated user. Optional templateType and channel filters use Spring Pageable page/size/sort parameters. Returns Spring Page of template responses.")
     public ResponseEntity<Page<NotificationTemplateResponse>> getTemplates(
             @RequestParam(required = false) String templateType,
             @RequestParam(required = false) String channel,
-            Pageable pageable) {
+            @ParameterObject Pageable pageable) {
 
         Page<NotificationTemplateResponse> templates =
             queryService.getTemplates(templateType, channel, pageable);
@@ -123,7 +128,8 @@ public class NotificationController {
     }
 
     @PostMapping("/templates")
-    @Operation(summary = "Create notification template")
+    @Operation(operationId = "notificationsTemplatesCreate", summary = "Create a notification template", description = "Requires system.admin. Validates CreateTemplateRequest and persists a template. Template creation does not send a notification or verify provider credentials.")
+    @ApiResponse(responseCode = "201", description = "Notification template created")
     public ResponseEntity<NotificationTemplateResponse> createTemplate(
             @Valid @RequestBody CreateTemplateRequest request) {
 
@@ -132,7 +138,7 @@ public class NotificationController {
     }
 
     @PutMapping("/templates/{templateId}")
-    @Operation(summary = "Update notification template")
+    @Operation(operationId = "notificationsTemplatesUpdate", summary = "Update a notification template", description = "Requires system.admin. Uses string templateId and validated UpdateTemplateRequest fields. Returns the saved template; does not resend previously created deliveries.")
     public ResponseEntity<NotificationTemplateResponse> updateTemplate(
             @PathVariable String templateId,
             @Valid @RequestBody UpdateTemplateRequest request) {
@@ -143,7 +149,7 @@ public class NotificationController {
     }
 
     @DeleteMapping("/templates/{templateId}")
-    @Operation(summary = "Delete notification template")
+    @Operation(operationId = "notificationsTemplatesDelete", summary = "Delete a notification template", description = "Requires system.admin. Deletes by string templateId through the command service. Success is 204 without a response body.")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public ResponseEntity<Void> deleteTemplate(@PathVariable String templateId) {
         commandService.deleteTemplate(templateId);

@@ -3,6 +3,7 @@ package com.surf.tracker.core.api.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
+@io.swagger.v3.oas.annotations.media.Schema(description = "Tracker registration and assignment to a tenant-owned vehicle.", example = "{\"tracker_id\":\"TRK-01\",\"device_id\":\"123456789012345\",\"vehicle_id\":\"VAN-01\",\"protocol\":\"GT06\"}")
 public class CreateTrackerRequest {
     @NotBlank(message = "Tracker ID is required")
     @Size(max = 50, message = "Tracker ID cannot exceed 50 characters")

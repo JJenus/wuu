@@ -1,5 +1,13 @@
 package com.surf.tracker.core.api;
 
+import com.surf.tracker.main.api.ApiV1;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.headers.Header;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import com.surf.tracker.core.application.TripExportService;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -19,7 +27,9 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 
 @RestController
-@RequestMapping("/api/v1/trips")
+@ApiV1
+@RequestMapping("/trips")
+@Tag(name = "Trips")
 public class TripExportController {
 
     private static final DateTimeFormatter FILENAME_TS =
@@ -34,6 +44,8 @@ public class TripExportController {
     }
 
     @GetMapping("/export")
+    @Operation(operationId = "tripsExport", summary = "Download trip summaries as CSV", description = "Requires trips.export (separately from trips.read). Optional vehicleId, start and end filter the tenant-authorized export. Dates are ISO-8601 instants. Returns text/csv with an attachment filename trips-yyyyMMdd-HHmmss.csv in UTC; no JSON pagination envelope. The controller buffers the export before returning it.")
+    @ApiResponse(responseCode = "200", description = "CSV attachment", headers = @Header(name = "Content-Disposition", description = "attachment; filename=\"trips-yyyyMMdd-HHmmss.csv\"", schema = @Schema(type = "string")), content = @Content(mediaType = "text/csv", schema = @Schema(type = "string", format = "binary")))
     public ResponseEntity<InputStreamResource> exportTrips(
             @RequestParam(value = "vehicleId", required = false) String vehicleId,
             @RequestParam(value = "start", required = false)

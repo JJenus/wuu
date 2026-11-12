@@ -36,7 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class RoleControllerIntegrationTest {
     @Configuration
     @EnableWebMvc
-    @Import({SecurityConfig.class, JwtAuthFilter.class, AuthIdentityService.class,
+    @Import({com.surf.tracker.main.api.ApiVersionConfig.class, SecurityConfig.class, JwtAuthFilter.class, AuthIdentityService.class,
         AuthRateLimitFilter.class, RoleController.class,
         GlobalExceptionHandler.class})
     static class Config {

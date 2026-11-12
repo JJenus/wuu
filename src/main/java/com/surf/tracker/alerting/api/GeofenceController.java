@@ -1,9 +1,12 @@
 package com.surf.tracker.alerting.api;
 
+import com.surf.tracker.main.api.ApiV1;
+
 import com.surf.tracker.alerting.api.dto.*;
 import com.surf.tracker.alerting.application.service.GeofenceService;
 import com.surf.tracker.alerting.domain.entity.Geofence;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.data.domain.Sort;
@@ -18,6 +21,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @RestController
+@ApiV1
 @RequestMapping("/alerts/geofences")
 @Tag(name = "Geofences", description = "Geofence management endpoints")
 public class GeofenceController {
@@ -29,7 +33,9 @@ public class GeofenceController {
     }
 
     @PostMapping
-    @Operation(summary = "Create a new geofence")
+    @Operation(operationId = "geofencesCreate", summary = "Create a geofence", description = "Requires alerts.write and an authenticated actor. Creates geometry and vehicle associations atomically. vehicle_ids is authoritative when supplied; otherwise vehicle_id is the legacy singular input. CIRCLE uses center/radius; POLYGON uses ordered points. Creator comes from the principal, not created_by. Active defaults to true.")
+    @ApiResponse(responseCode = "201", description = "Geofence and associations created")
+    @ApiResponse(responseCode = "400", description = "Invalid geometry or vehicle associations")
     public ResponseEntity<GeofenceResponse> createGeofence(@Valid @RequestBody CreateGeofenceRequest request,
                                                           Principal principal) {
         if (principal == null || principal.getName() == null || principal.getName().isBlank()) {
@@ -43,7 +49,7 @@ public class GeofenceController {
     }
 
     @GetMapping
-    @Operation(summary = "Search geofences with pagination and filtering")
+    @Operation(operationId = "geofencesSearch", summary = "Search geofences", description = "Requires alerts.read. Combines optional name search, vehicleId and active filters within the current tenant. Defaults: page=0, size=20, sortBy=createdAt, sortDirection=DESC. Returns PagedResponse with complete vehicle_ids associations.")
     public ResponseEntity<PagedResponse<GeofenceResponse>> searchGeofences(
             @Parameter(description = "Page number (0-based)")
             @RequestParam(defaultValue = "0") int page,
@@ -79,7 +85,7 @@ public class GeofenceController {
     }
 
     @GetMapping("/vehicle/{vehicleId}")
-    @Operation(summary = "Get all geofences for a vehicle with pagination")
+    @Operation(operationId = "geofencesVehiclePage", summary = "Get a vehicle's geofences", description = "Requires alerts.read. Returns tenant-authorized vehicle associations in PagedResponse. Defaults: page=0, size=20, sortBy=name, sortDirection=ASC. Includes active and inactive boundaries; /list returns an unpaginated array instead.")
     public ResponseEntity<PagedResponse<GeofenceResponse>> getVehicleGeofences(
             @PathVariable String vehicleId,
             @Parameter(description = "Page number (0-based)")
@@ -104,7 +110,7 @@ public class GeofenceController {
     }
 
     @GetMapping("/vehicle/{vehicleId}/list")
-    @Operation(summary = "Get all geofences for a vehicle (without pagination)")
+    @Operation(operationId = "geofencesVehicleList", summary = "Get a vehicle's geofences without pagination", description = "Requires alerts.read. Returns an unpaginated JSON array of tenant-visible boundaries associated with the string vehicleId. This is not the response shape of the paginated vehicle route.")
     public ResponseEntity<List<GeofenceResponse>> getVehicleGeofencesList(@PathVariable String vehicleId) {
         List<Geofence> geofences = geofenceService.getVehicleGeofences(vehicleId);
         return ResponseEntity.ok(geofences.stream()
@@ -113,7 +119,7 @@ public class GeofenceController {
     }
 
     @GetMapping("/vehicle/{vehicleId}/active")
-    @Operation(summary = "Get active geofences for a vehicle with pagination")
+    @Operation(operationId = "geofencesVehicleActivePage", summary = "Get active vehicle geofences", description = "Requires alerts.read. Returns only active tenant-visible boundaries for the string vehicleId in PagedResponse. Defaults: page=0, size=20, sortBy=name, sortDirection=ASC.")
     public ResponseEntity<PagedResponse<GeofenceResponse>> getActiveVehicleGeofences(
             @PathVariable String vehicleId,
             @Parameter(description = "Page number (0-based)")
@@ -138,7 +144,7 @@ public class GeofenceController {
     }
 
     @GetMapping("/vehicle/{vehicleId}/active/list")
-    @Operation(summary = "Get active geofences for a vehicle (without pagination)")
+    @Operation(operationId = "geofencesVehicleActiveList", summary = "Get active vehicle geofences without pagination", description = "Requires alerts.read. Returns an unpaginated array of active tenant-visible boundaries associated with vehicleId. Reading boundaries does not run rule evaluation.")
     public ResponseEntity<List<GeofenceResponse>> getActiveVehicleGeofencesList(@PathVariable String vehicleId) {
         List<Geofence> geofences = geofenceService.getActiveGeofences(vehicleId);
         return ResponseEntity.ok(geofences.stream()
@@ -147,14 +153,19 @@ public class GeofenceController {
     }
 
     @GetMapping("/{geofenceId}")
-    @Operation(summary = "Get geofence by ID")
+    @Operation(operationId = "geofencesGet", summary = "Get a geofence", description = "Requires alerts.read. Numeric geofenceId is resolved in the current tenant. vehicle_ids contains the complete sorted association set; singular vehicle_id is only the first associated vehicle when available.")
+    @ApiResponse(responseCode = "404", description = "Geofence not found in the active tenant")
+    @ApiResponse(responseCode = "200", description = "Geofence with complete vehicle associations")
     public ResponseEntity<GeofenceResponse> getGeofenceById(@PathVariable Long geofenceId) {
         Geofence geofence = geofenceService.getGeofenceById(geofenceId);
         return ResponseEntity.ok(toResponse(geofence));
     }
 
     @PutMapping("/{geofenceId}")
-    @Operation(summary = "Update a geofence")
+    @Operation(operationId = "geofencesUpdate", summary = "Update a geofence", description = "Requires alerts.write. Omitted vehicle_ids preserves existing associations; an empty array explicitly unlinks every vehicle. Omitted geometry fields are passed to service merge rules, not zero-filled by the controller. Geometry and associations are validated before persistence; creator remains server-owned.")
+    @ApiResponse(responseCode = "400", description = "Invalid geometry or associations")
+    @ApiResponse(responseCode = "404", description = "Geofence not found in the active tenant")
+    @ApiResponse(responseCode = "200", description = "Updated geometry and associations")
     public ResponseEntity<GeofenceResponse> updateGeofence(
             @PathVariable Long geofenceId,
             @Valid @RequestBody UpdateGeofenceRequest request) {
@@ -164,14 +175,14 @@ public class GeofenceController {
     }
 
     @DeleteMapping("/{geofenceId}")
-    @Operation(summary = "Delete a geofence")
+    @Operation(operationId = "geofencesDelete", summary = "Delete a geofence", description = "Requires alerts.write. Deletes the numeric tenant-authorized boundary through the service. Success is 204 without a response body.")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteGeofence(@PathVariable Long geofenceId) {
         geofenceService.deleteGeofence(geofenceId);
     }
 
     @PostMapping("/check-violations")
-    @Operation(summary = "Check for geofence violations (for testing)")
+    @Operation(operationId = "geofencesCheckViolations", summary = "Evaluate a supplied vehicle position", description = "Requires alerts.write. Accepts vehicleId, latitude and longitude as query parameters and invokes geofence violation checking. This is a mutating diagnostic/evaluation action, not a read-only geometry lookup or proof of device telemetry ingestion. Success is HTTP 200 without a body.")
     public ResponseEntity<Void> checkGeofenceViolations(
             @RequestParam String vehicleId,
             @RequestParam Double latitude,
