@@ -46,7 +46,9 @@ test('real TCP telemetry crosses Artemis into persisted positions and automatic 
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
   await expect(page).toHaveURL('/map')
   const card = page.locator('.tracking-vehicle-card').filter({ hasText: 'LIVE MAP 01' })
-  await expect(card).toContainText('No GPS location')
+  await expect(card).toContainText(
+    process.env.TRACKING_TEST_INITIAL_COORDINATES ?? 'No GPS location',
+  )
   const before = countLocations()
   const socket = createConnection({ host: '127.0.0.1', port: Number(tcpPort) })
   try {
@@ -58,6 +60,7 @@ test('real TCP telemetry crosses Artemis into persisted positions and automatic 
     // Fragmentation crosses the real TCP framing boundary; no database fixture writes.
     socket.write(first.slice(0, 22))
     socket.write(first.slice(22))
+    if (process.env.TRACKING_TEST_DURABILITY) socket.write(first)
     await expect.poll(countLocations, { timeout: 20000 }).toBe(before + 1)
     await expect(card).toContainText('51.50000, -0.10000', { timeout: 15000 })
     socket.write(packet('8168000008', '5130.6000'))

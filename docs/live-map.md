@@ -1,5 +1,13 @@
 # Live fleet snapshots — 2026-11-12
 
+Durable intake update: the gateway now retains parsed GPS fixes on disk, replays
+them through persistent work queues and uses transactional fix receipts/outbox
+intents. Native acceptance includes gateway crash, broker/backend/database outage,
+duplicate replay, late history and automatic map refresh. See backend
+`docs/telemetry-ordering.md` for storage/broker requirements and the physical-device
+boundary. This supersedes the failed-packet/non-durable transport limits below;
+recorded GPS replay UI and actual hardware resend behavior remain separate work.
+
 The live `/map` now renders saved backend coordinates without simulated movement,
 invented paths or trails. A map-local Vue Query polls the existing authenticated
 fleet adapter every ten seconds, pauses in hidden tabs/on demand, refreshes on
