@@ -126,7 +126,11 @@ public class ReactiveTcpServer {
                         return inbound.receive()
                                 .asByteArray()
                                 .transform(this::frameWithDelimiter)
-                                .doOnNext(message -> processRawMessage(message, connectionId, clientIp[0]))
+                                // Complete each blocking parse/publication before the next frame on
+                                // this connection. Detached workers can publish GPS fixes out of order.
+                                .concatMap(message -> Mono.fromRunnable(() ->
+                                                processRawMessage(message, connectionId, clientIp[0]))
+                                        .subscribeOn(Schedulers.boundedElastic()), 1)
                                 .doOnError(error -> handleConnectionError(error, connectionId))
                                 .doFinally(signal -> cleanupConnection(connectionId))
                                 .then();
@@ -247,26 +251,13 @@ public class ReactiveTcpServer {
                     clientIp
             );
 
-            // Process asynchronously
-            Mono.fromRunnable(() -> {
-                        try {
-                            deviceDataProcessor.processDeviceData(packet);
-                            // Only successfully parsed/published packets may claim device routing/activity.
-                            if (!"unknown".equals(deviceId)) {
-                                connectionTracker.updateConnectionDevice(connectionId, deviceId);
-                            }
-                            connectionTracker.updateLastSeen(connectionId);
-                        } catch (Exception e) {
-                            logger.error("Error in device data processor for connection {}",
-                                    connectionId, e);
-                        }
-                    })
-                    .subscribeOn(Schedulers.boundedElastic())
-                    .subscribe(
-                            null,
-                            error -> logger.error("Subscription error for connection {}",
-                                    connectionId, error)
-                    );
+            // The connection pipeline owns scheduling and completion; do not detach here.
+            deviceDataProcessor.processDeviceData(packet);
+            // Only successfully parsed/published packets may claim device routing/activity.
+            if (!"unknown".equals(deviceId)) {
+                connectionTracker.updateConnectionDevice(connectionId, deviceId);
+            }
+            connectionTracker.updateLastSeen(connectionId);
 
         } catch (Exception e) {
             logger.error("Error processing message from connection {}: {}",

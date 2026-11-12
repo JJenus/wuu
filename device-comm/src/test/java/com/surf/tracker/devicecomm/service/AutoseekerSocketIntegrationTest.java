@@ -47,7 +47,7 @@ class AutoseekerSocketIntegrationTest {
             if (event.getLocation().timestamp().equals(Instant.parse("2015-07-10T04:36:02Z"))) {
                 firstEntered.countDown();
                 if (!releaseFirst.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("Test release timed out");
-            } else secondEntered.countDown();
+            } else if ("8168000008".equals(event.getDeviceId())) secondEntered.countDown();
             completed.add(event);
             return null;
         }).when(publisher).publish(any(LocationDataEvent.class));
@@ -74,6 +74,15 @@ class AutoseekerSocketIntegrationTest {
                     socket.getOutputStream().flush();
                     // then: no parallel worker may overtake the first fix.
                     assertThat(secondEntered.await(500, TimeUnit.MILLISECONDS)).isFalse();
+                    // An unrelated connection is not serialized behind this device's slow broker call.
+                    try (var other = new Socket("127.0.0.1", bound.port())) {
+                        other.getOutputStream().write(VALID.replace("8168000008", "8168000009")
+                                .replace("043602", "043604").getBytes(StandardCharsets.US_ASCII));
+                        other.getOutputStream().flush();
+                        var independent = completed.poll(5, TimeUnit.SECONDS);
+                        assertThat(independent).isNotNull();
+                        assertThat(independent.getDeviceId()).isEqualTo("8168000009");
+                    }
                     releaseFirst.countDown();
                     assertValid(completed.poll(5, TimeUnit.SECONDS));
                     var second = completed.poll(5, TimeUnit.SECONDS);
