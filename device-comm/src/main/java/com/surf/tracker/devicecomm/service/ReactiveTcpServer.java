@@ -259,9 +259,15 @@ public class ReactiveTcpServer {
             }
             connectionTracker.updateLastSeen(connectionId);
 
-        } catch (Exception e) {
-            logger.error("Error processing message from connection {}: {}",
-                    connectionId, e.getMessage());
+        } catch (com.surf.tracker.devicecomm.exception.ProtocolException
+                 | com.surf.tracker.devicecomm.exception.DeviceException rejected) {
+            // Invalid frames are isolated; a later valid fix can still use this connection.
+            logger.warn("Rejected device packet on connection {}: {}", connectionId, rejected.getMessage());
+        } catch (RuntimeException failure) {
+            // Publication/storage failure must reach Reactor/Netty so this connection
+            // closes. Keeping it open silently drops subsequent device data.
+            logger.error("Device intake failed on connection {}; closing connection", connectionId, failure);
+            throw failure;
         }
     }
 

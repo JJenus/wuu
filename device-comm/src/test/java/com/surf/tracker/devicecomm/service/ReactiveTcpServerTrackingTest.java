@@ -55,9 +55,15 @@ class ReactiveTcpServerTrackingTest {
         var gateway = new ReactiveTcpServer(processor, connections);
         ReflectionTestUtils.setField(gateway, "messageDelimiter", "#");
         // when
-        ReflectionTestUtils.invokeMethod(gateway, "processRawMessage",
-                outcome == Outcome.MALFORMED ? valid.replace("2234.9273", "NaN") : valid,
-                "connection", "127.0.0.1");
+        if (outcome == Outcome.PUBLICATION_FAILURE) {
+            org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                    ReflectionTestUtils.invokeMethod(gateway, "processRawMessage", valid, "connection", "127.0.0.1"))
+                    .isInstanceOf(com.surf.tracker.shared.exception.InfrastructureException.class);
+        } else {
+            ReflectionTestUtils.invokeMethod(gateway, "processRawMessage",
+                    outcome == Outcome.MALFORMED ? valid.replace("2234.9273", "NaN") : valid,
+                    "connection", "127.0.0.1");
+        }
         assertThat(completed.await(5, TimeUnit.SECONDS)).isTrue();
         // then: no fixed sleep is used to infer worker completion.
         if (outcome == Outcome.SUCCESS) {

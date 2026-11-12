@@ -42,6 +42,10 @@ public class DeviceDataProcessor {
 
         } catch (ProtocolException | DeviceException e) {
             throw e;
+        } catch (com.surf.tracker.devicecomm.exception.ProtocolParseException rejected) {
+            // Malformed GPS is not a broker outage; preserve the classification so
+            // the socket can reject one frame without dropping later valid fixes.
+            throw new ProtocolException("PROTOCOL_PARSE_ERROR", "Device packet could not be parsed", rejected);
         } catch (Exception e) {
             throw new com.surf.tracker.shared.exception.InfrastructureException(
                 "DEVICE_DATA_PROCESS_ERROR",
