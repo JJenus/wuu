@@ -152,14 +152,14 @@ class VehicleEventHandlerTest {
     }
 
     @Test
-    void handleLocationUpdate_distinctSourceIdentities_produceDistinctUpdateIdentities() {
+    void handleLocationUpdate_distinctFixes_produceDistinctUpdateIdentities() {
         // given
         when(trackerRepository.findForTelemetryByDeviceId("device-1")).thenReturn(Optional.of(assignedTracker()));
         var location = new LocationPoint(1, 2, 0, clock.instant());
         var first = new LocationDataEvent(clock, java.util.UUID.fromString("00000000-0000-0000-0000-000000000061"),
             "device-1", location, "GT06", java.util.Map.of());
         var second = new LocationDataEvent(clock, java.util.UUID.fromString("00000000-0000-0000-0000-000000000062"),
-            "device-1", location, "GT06", java.util.Map.of());
+            "device-1", new LocationPoint(1, 2, 0, clock.instant().plusSeconds(1)), "GT06", java.util.Map.of());
         // when
         handler.handleLocationUpdate(first);
         handler.handleLocationUpdate(second);
@@ -167,6 +167,28 @@ class VehicleEventHandlerTest {
         var updates = org.mockito.ArgumentCaptor.forClass(VehicleUpdatedEvent.class);
         verify(publisher, times(2)).publish(updates.capture());
         assertThat(updates.getAllValues()).extracting(VehicleUpdatedEvent::getEventId).doesNotHaveDuplicates();
+    }
+
+    @Test
+    void handleLocationUpdate_retransmittedFix_preservesDerivedIdentityAcrossNewSourceIds() {
+        when(trackerRepository.findForTelemetryByDeviceId("device-1")).thenReturn(Optional.of(assignedTracker()));
+        handler.handleLocationUpdate(event());
+        handler.handleLocationUpdate(event());
+        var updates = org.mockito.ArgumentCaptor.forClass(VehicleUpdatedEvent.class);
+        verify(publisher, times(2)).publish(updates.capture());
+        assertThat(updates.getAllValues().get(1).getEventId()).isEqualTo(updates.getAllValues().getFirst().getEventId());
+    }
+
+    @Test
+    void handleLocationUpdate_lateFix_recordsHistoryWithoutHistoricalAlertPublication() {
+        var tracker = assignedTracker();
+        tracker.getVehicle().setCurrentLocation(new com.surf.tracker.core.domain.entity.TrackerLocation(
+                2d, 3d, 10f, clock.instant().plusSeconds(10)));
+        when(trackerRepository.findForTelemetryByDeviceId("device-1")).thenReturn(Optional.of(tracker));
+        var source = event();
+        handler.handleLocationUpdate(source);
+        verify(vehicleService).updateVehicleLocation("vehicle-1", "device-1", source.getLocation());
+        verifyNoInteractions(publisher, activityTracker);
     }
 
     private Tracker assignedTracker() {
