@@ -33,8 +33,9 @@ import static org.mockito.ArgumentMatchers.eq;
 class AutoseekerSocketIntegrationTest {
     private static final String VALID = "*HQ,8168000008,V1,043602,A,2234.9273,N,11354.3980,E,000.06,000,100715,FBFBBFF,460,00,10342,4283,10,25,128#";
 
-    @Test
-    void receive_peerClosesAfterCompleteFrames_finishesOrderedCaptureWithoutInterruptingWorker() throws Exception {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void receive_terminatedInput_finishesStartedCaptureWithoutInterruptingWorker(boolean overflow) throws Exception {
         var entered = new CountDownLatch(1);
         var release = new CountDownLatch(1);
         var disconnected = new CountDownLatch(1);
@@ -53,7 +54,8 @@ class AutoseekerSocketIntegrationTest {
         }).when(publisher).publish(any(LocationDataEvent.class));
         try (var context = new AnnotationConfigApplicationContext()) {
             org.springframework.boot.test.util.TestPropertyValues.of(
-                    "tracking.tcp.server.port=0", "tracking.tcp.server.host=127.0.0.1").applyTo(context);
+                    "tracking.tcp.server.port=0", "tracking.tcp.server.host=127.0.0.1",
+                    "tracking.tcp.server.max-pending-frames=1").applyTo(context);
             context.registerBean(EventPublisher.class, () -> publisher);
             context.registerBean(RedisConnectionTracker.class, () -> connections);
             context.registerBean(ParserFactory.class, () -> new ParserFactory(List.of(new AutoseekerProtocolParser())));
@@ -66,17 +68,30 @@ class AutoseekerSocketIntegrationTest {
             try {
                 var bound = (DisposableServer) ReflectionTestUtils.getField(gateway, "server");
                 try (var socket = new Socket("127.0.0.1", bound.port())) {
-                    socket.getOutputStream().write((VALID + VALID.replace("043602", "043603")).getBytes(StandardCharsets.US_ASCII));
+                    socket.getOutputStream().write((overflow ? VALID : VALID + VALID.replace("043602", "043603")).getBytes(StandardCharsets.US_ASCII));
                     socket.getOutputStream().flush();
                     assertThat(entered.await(5, TimeUnit.SECONDS)).isTrue();
+                    if (overflow) {
+                        socket.getOutputStream().write(VALID.repeat(5).getBytes(StandardCharsets.US_ASCII));
+                        socket.getOutputStream().flush();
+                        socket.setSoTimeout(200);
+                        org.assertj.core.api.Assertions.assertThatThrownBy(() -> socket.getInputStream().read())
+                                .isInstanceOf(java.net.SocketTimeoutException.class);
+                        release.countDown();
+                        assertValid(captured.poll(5, TimeUnit.SECONDS));
+                        socket.setSoTimeout(5000);
+                        assertThat(socket.getInputStream().read()).isEqualTo(-1);
+                    }
                 }
                 assertThat(disconnected.await(5, TimeUnit.SECONDS)).isTrue();
-                assertThat(captured.poll(200, TimeUnit.MILLISECONDS)).isNull();
-                release.countDown();
-                assertValid(captured.poll(5, TimeUnit.SECONDS));
-                var second = captured.poll(5, TimeUnit.SECONDS);
-                assertThat(second).isNotNull();
-                assertThat(second.getLocation().timestamp()).isEqualTo(Instant.parse("2015-07-10T04:36:03Z"));
+                if (!overflow) {
+                    assertThat(captured.poll(200, TimeUnit.MILLISECONDS)).isNull();
+                    release.countDown();
+                    assertValid(captured.poll(5, TimeUnit.SECONDS));
+                    var second = captured.poll(5, TimeUnit.SECONDS);
+                    assertThat(second).isNotNull();
+                    assertThat(second.getLocation().timestamp()).isEqualTo(Instant.parse("2015-07-10T04:36:03Z"));
+                }
             } finally { release.countDown(); gateway.stop(); }
         }
     }
