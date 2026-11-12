@@ -12,6 +12,7 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(classes = TrackingEngineApplication.class, properties = {
@@ -32,6 +33,7 @@ class ApiContractIntegrationTest {
             .toList();
 
         assertThat(applicationMappings).isNotEmpty();
+        assertThat(applicationMappings).hasSize(104);
         var operationIds = new java.util.HashSet<String>();
         for (var entry : applicationMappings) {
             assertThat(entry.getValue().getBeanType().getAnnotations())
@@ -55,6 +57,7 @@ class ApiContractIntegrationTest {
             .andExpect(status().isOk()).andReturn().getResponse();
         // OpenAPI is a genuinely dynamic schema document, inspected as a JSON tree.
         var document = mapper.readTree(response.getContentAsString());
+        java.nio.file.Files.writeString(java.nio.file.Path.of("target/api-v1.json"), document.toPrettyString());
         assertThat(document.path("paths").has("/api/v1/alerts")).isTrue();
         assertThat(document.path("paths").has("/api/v1/vehicles")).isTrue();
         assertThat(document.path("components").path("securitySchemes").path("bearerAuth").path("scheme").asText())
@@ -64,6 +67,27 @@ class ApiContractIntegrationTest {
         var disabled = document.path("paths").path("/api/v1/notifications/webhooks/push/{provider}").path("post");
         assertThat(disabled.path("responses").has("403")).isTrue();
         assertThat(disabled.path("responses").has("200")).isFalse();
+    }
+
+    @Test void documentation_anonymousCaller_isDenied() throws Exception {
+        mvc.perform(get("/v3/api-docs/api-v1")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/swagger-ui/index.html")).andExpect(status().isUnauthorized());
+    }
+
+    @Test @WithMockUser(authorities = "trips.read")
+    void documentation_nonAdministrator_isDenied() throws Exception {
+        mvc.perform(get("/v3/api-docs/api-v1")).andExpect(status().isForbidden());
+        mvc.perform(get("/swagger-ui/index.html")).andExpect(status().isForbidden());
+    }
+
+    @Test @WithMockUser(authorities = "system.admin")
+    void routing_disabledHandlers_cannotBeInvokedEvenByAdministrator() throws Exception {
+        for (String path : java.util.List.of("/api/v1/commands/1/send", "/api/v1/commands/1/deliver",
+                "/api/v1/commands/1/fail", "/api/v1/alerts/cleanup", "/api/v1/alerts/automated",
+                "/api/v1/notifications/webhooks/push/test", "/api/v1/notifications/webhooks/email/test")) {
+            mvc.perform(post(path).contentType("application/json").content("{}"))
+                .andExpect(status().isForbidden());
+        }
     }
 
     @Test @WithMockUser(authorities = {"alerts.read", "alerts.write", "system.admin"})
