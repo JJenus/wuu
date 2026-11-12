@@ -48,6 +48,19 @@ class AlertEventHandlerTest {
         verifyNoInteractions(engine);
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(longs = {-3600, 3600})
+    void handleVehicleUpdate_delayedOrFutureQueuedFix_doesNotCreateLiveAlert(long offsetSeconds) {
+        TenantContext.setCurrentOrgId(99L);
+        TenantContext.setCurrentUserId(88L);
+        var source = new VehicleUpdatedEvent(clock, UUID.fromString("00000000-0000-0000-0000-000000000002"),
+                "vehicle-1", 11L, new LocationPoint(1, 2, 24, clock.instant().plusSeconds(offsetSeconds)), null);
+        handler.handleVehicleUpdate(source);
+        verifyNoInteractions(engine);
+        assertThat(TenantContext.getCurrentOrgId()).isEqualTo(99L);
+        assertThat(TenantContext.getCurrentUserId()).isEqualTo(88L);
+    }
+
     private VehicleUpdatedEvent event(Long org) {
         return new VehicleUpdatedEvent(clock, UUID.fromString("00000000-0000-0000-0000-000000000001"),
                 "vehicle-1", org, new LocationPoint(1, 2, 0, clock.instant()), Map.of());
