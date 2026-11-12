@@ -117,4 +117,21 @@ class TripHistoryIntegrationTest {
             mvc.perform(get("/api/v1/trips/journey/history").param("limit", limit))
                     .andExpect(status().isBadRequest());
     }
+
+    @Test void history_foreignVehicleAndInvalidCoordinates_areNeverReturned() throws Exception {
+        Vehicle foreign = new Vehicle();
+        foreign.setVehicleId("foreign");
+        foreign.setOrganizationId(2L);
+        em.persist(foreign);
+        Tracker tracker = new Tracker();
+        tracker.setTrackerId("foreign-gps");
+        tracker.setVehicle(foreign);
+        em.persist(tracker);
+        point(tracker, NOW.minusSeconds(10), 55.0);
+        point(em.find(Tracker.class, "gps"), NOW.minusSeconds(5), 91.0);
+        em.flush();
+        em.clear();
+        mvc.perform(get("/api/v1/trips/journey/history"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.points.length()").value(2));
+    }
 }

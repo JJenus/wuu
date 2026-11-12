@@ -295,10 +295,20 @@ def main() -> None:
         pg_started = True
         wait_until("location after database recovery", lambda: sql("SELECT count(*) FROM tracker_location_data") == "3")
         print("PASS: disk capture, abrupt gateway restart, backend/database outages, broker journal restart, deduplication and late-fix handling", flush=True)
+        # Only trip metadata is provisioned out of band: every GPS fix still came
+        # through the real TCP pipeline. Automatic trip creation is not claimed.
+        sql("""INSERT INTO trips (trip_id, vehicle_id, start_time, end_time, is_active)
+               SELECT 'recorded-native', 'tracking-map-vehicle', min(recorded_at), max(recorded_at), false
+               FROM tracker_location_data WHERE tracker_id='tracker-owner';
+               INSERT INTO trips (trip_id, vehicle_id, start_time, end_time, is_active)
+               VALUES ('empty-native', 'tracking-map-vehicle', '2020-01-01T00:00:00Z', '2020-01-01T01:00:00Z', false),
+                      ('foreign-native', 'telemetry-foreign', '2020-01-01T00:00:00Z', '2020-01-01T01:00:00Z', false)""")
+        stop(backend)
+        backend = start("backend-history-restarted", backend_command, "Started TrackingEngineApplication", env)
         test_env = {**env, "TRACKING_TEST_JAVA_ORIGIN": origin, "TRACKING_TEST_EMAIL": "owner@telemetry-test.example",
                     "TRACKING_TEST_PASSWORD": "eight123", "TRACKING_TEST_POSTGRES_PORT": str(pg_port),
                     "TRACKING_TEST_TCP_PORT": str(tcp_port), "TRACKING_TEST_DURABILITY": "true",
-                    "TRACKING_TEST_INITIAL_COORDINATES": "51.50500, -0.10000"}
+                    "TRACKING_TEST_INITIAL_COORDINATES": "51.50500, -0.10000", "TRACKING_TEST_HISTORY": "true"}
         with (base / "browser.log").open("w") as output:
             subprocess.run(["pnpm", "exec", "playwright", "test", "--config", "playwright.tracking.config.ts"],
                            cwd=args.frontend, env=test_env, stdout=output, stderr=subprocess.STDOUT, check=True, timeout=180)
