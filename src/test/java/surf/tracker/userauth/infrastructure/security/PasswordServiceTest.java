@@ -81,7 +81,39 @@ class PasswordServiceTest {
     void validateStrength_minLength_passes() {
         PasswordService service = new PasswordService(10);
 
-        assertThatCode(() -> service.validateStrength("123456789012")).doesNotThrowAnyException();
+        assertThatCode(() -> service.validateStrength("12345678")).doesNotThrowAnyException();
+    }
+
+    @Test
+    void hash_eightCharacters_matchesWithoutChangingBcryptLimit() {
+        var service = new PasswordService(4);
+        String hash = service.hash("eight123");
+        assertThat(service.matches("eight123", hash)).isTrue();
+        assertThatThrownBy(() -> service.hash("é".repeat(37)))
+                .isInstanceOf(com.surf.tracker.shared.exception.ValidationException.class)
+                .hasMessageContaining("72 UTF-8 bytes");
+    }
+
+    @Test
+    void validateRequestPasswords_eightAcceptedSevenRejected_acrossAllCreationBoundaries() {
+        try (var factory = jakarta.validation.Validation.buildDefaultValidatorFactory()) {
+            var validator = factory.getValidator();
+            var registration = new com.surf.tracker.userauth.application.dto.RegisterRequest();
+            registration.setPassword("eight123");
+            var creation = new com.surf.tracker.userauth.application.dto.CreateUserRequest();
+            creation.setPassword("eight123");
+            var change = new com.surf.tracker.userauth.api.AuthController.ChangePasswordRequest();
+            change.setNewPassword("eight123");
+            assertThat(validator.validateProperty(registration, "password")).isEmpty();
+            assertThat(validator.validateProperty(creation, "password")).isEmpty();
+            assertThat(validator.validateProperty(change, "newPassword")).isEmpty();
+            registration.setPassword("seven12");
+            creation.setPassword("seven12");
+            change.setNewPassword("seven12");
+            assertThat(validator.validateProperty(registration, "password")).isNotEmpty();
+            assertThat(validator.validateProperty(creation, "password")).isNotEmpty();
+            assertThat(validator.validateProperty(change, "newPassword")).isNotEmpty();
+        }
     }
 
     @Test
