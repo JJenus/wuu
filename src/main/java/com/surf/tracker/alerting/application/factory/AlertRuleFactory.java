@@ -87,7 +87,7 @@ public class AlertRuleFactory {
         String actionStr = params.action();
 
         Geofence geofence = getGeofenceById(geofenceId);
-        if (geofence == null) {
+        if (geofence == null || !Boolean.TRUE.equals(geofence.getIsActive())) {
             logger.warn("Geofence not found: {} for rule {}", geofenceId, entity.getRuleKey());
             return null;
         }

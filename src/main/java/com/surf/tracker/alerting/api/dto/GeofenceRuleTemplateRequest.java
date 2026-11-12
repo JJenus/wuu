@@ -4,20 +4,21 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.NotBlank;
 
 import java.util.Set;
 
 public class GeofenceRuleTemplateRequest {
 
-    @NotEmpty(message = "Rule key is required")
+    @NotBlank(message = "Rule key is required")
     @Size(min = 3, max = 100, message = "Rule key must be between 3 and 100 characters")
     private String ruleKey;
 
-    @NotEmpty(message = "Rule name is required")
+    @NotBlank(message = "Rule name is required")
     @Size(min = 3, max = 200, message = "Rule name must be between 3 and 200 characters")
     private String ruleName;
 
-    @NotEmpty(message = "Geofence ID is required")
+    @NotBlank(message = "Geofence ID is required")
     private String geofenceId;
 
     @NotNull(message = "Action is required")
@@ -25,7 +26,7 @@ public class GeofenceRuleTemplateRequest {
 
     @NotNull(message = "Vehicle IDs are required")
     @NotEmpty(message = "At least one vehicle ID is required")
-    private Set<String> vehicleIds;
+    private Set<@NotBlank @Size(max = 50) String> vehicleIds;
 
     @Positive(message = "Priority must be positive")
     private Integer priority = 2;

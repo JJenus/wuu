@@ -413,6 +413,16 @@ public class AlertRuleService {
                 .orElseThrow(() -> AlertException.ruleNotFound(ruleKey));
 
         if (!Boolean.TRUE.equals(rule.isEnabled())) {
+            if (rule.getRuleType() == AlertRuleType.GEOFENCE) {
+                GeofenceRuleParameters parameters = (GeofenceRuleParameters) ruleParametersMapper
+                        .fromMap(AlertRuleType.GEOFENCE, rule.getParameters());
+                GeofenceRuleTemplateRequest references = new GeofenceRuleTemplateRequest();
+                references.setGeofenceId(parameters.geofenceId());
+                references.setVehicleIds(rule.getVehicleIds());
+                geofenceRuleValidator.validateGeofenceRuleRequest(references);
+                validateVehicleGeofenceAssociation(
+                        geofenceRuleValidator.getValidatedGeofence(parameters.geofenceId()), rule.getVehicleIds());
+            }
             rule.setIsEnabled(true);
             rule.setUpdatedAt(clock.instant());
             ruleRepository.save(rule);

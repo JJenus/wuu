@@ -20,11 +20,12 @@ class GeofenceRuleValidatorTest {
         var vehicles = mock(VehicleRepository.class);
         TenantContext.setCurrentOrgId(12L);
         when(geofences.existsAndActive(1L)).thenReturn(true);
+        when(vehicles.findByIdAndOrganizationId("foreign", 12L)).thenReturn(Optional.empty());
         var request = new GeofenceRuleTemplateRequest();
         request.setGeofenceId("1");
         request.setVehicleIds(Set.of("foreign"));
         // when / then
-        assertThatThrownBy(() -> new GeofenceRuleValidator(geofences)
+        assertThatThrownBy(() -> new GeofenceRuleValidator(geofences, vehicles)
                 .validateGeofenceRuleRequest(request)).isInstanceOf(IllegalArgumentException.class);
     }
 }

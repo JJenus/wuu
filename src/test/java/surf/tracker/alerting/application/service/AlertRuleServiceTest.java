@@ -133,6 +133,25 @@ class AlertRuleServiceTest {
     }
 
     @Test
+    void enableRule_invalidGeofenceReferences_preservesDisabledRule() {
+        // given
+        testRule.setRuleType(AlertRuleType.GEOFENCE);
+        // Existing polymorphic JSON storage boundary; construct its known shape through the typed mapper.
+        testRule.setParameters(new RuleParametersMapper(new ObjectMapper()).toMap(
+                new com.surf.tracker.alerting.domain.parameters.GeofenceRuleParameters(
+                        "1", "Boundary", "BOTH", "WARNING", List.of("vehicle-001"), "CIRCLE", 10d, 10d, 500, 0)));
+        testRule.setIsEnabled(false);
+        when(ruleRepository.findByRuleKeyAndOrganizationId("test-rule", 1L)).thenReturn(Optional.of(testRule));
+        org.mockito.Mockito.doThrow(new IllegalArgumentException("Vehicle is no longer available"))
+                .when(geofenceRuleValidator).validateGeofenceRuleRequest(any());
+        // when / then
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> alertRuleService.enableRule("test-rule"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(testRule.isEnabled()).isFalse();
+        verify(ruleRepository, never()).save(any());
+    }
+
+    @Test
     void getAllRules_multiplePages_readsOnlyCurrentOrganization() {
         // given
         var first = PageRequest.of(0, 500);
