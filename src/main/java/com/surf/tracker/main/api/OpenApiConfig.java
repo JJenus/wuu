@@ -20,6 +20,12 @@ import java.util.List;
 
 @Configuration(proxyBeanMethods = false)
 public class OpenApiConfig {
+    @Bean
+    public io.swagger.v3.core.jackson.ModelResolver apiModelResolver(com.fasterxml.jackson.databind.ObjectMapper mapper) {
+        // Match the application's actual JSON naming/modules, not Swagger's default camelCase mapper.
+        return new io.swagger.v3.core.jackson.ModelResolver(mapper);
+    }
+
     private static final java.util.Set<String> DISABLED_HTTP_OPERATIONS = java.util.Set.of(
         "commandsMarkSent", "commandsMarkDelivered", "commandsMarkFailed", "alertsCleanup",
         "alertsAutomated", "webhooksPush", "webhooksEmail");
