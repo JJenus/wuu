@@ -26,25 +26,25 @@ const json = (data: unknown, status = 200) =>
 
 describe('geofence rule boundary', () => {
   it('admits only collection reads, geofence template creation and exact transitions', () => {
-    expect(ruleRequestAllowed('GET', '/alerts/rules')).toBe(true)
-    expect(ruleRequestAllowed('POST', '/alerts/rules/templates/geofence')).toBe(true)
-    expect(ruleRequestAllowed('PATCH', '/alerts/rules/depot_rule/disable')).toBe(true)
+    expect(ruleRequestAllowed('GET', '/api/v1/alerts/rules')).toBe(true)
+    expect(ruleRequestAllowed('POST', '/api/v1/alerts/rules/templates/geofence')).toBe(true)
+    expect(ruleRequestAllowed('PATCH', '/api/v1/alerts/rules/depot_rule/disable')).toBe(true)
     for (const path of [
-      '/alerts/rules',
-      '/alerts/rules/batch',
-      '/alerts/rules/templates/overspeed',
+      '/api/v1/alerts/rules',
+      '/api/v1/alerts/rules/batch',
+      '/api/v1/alerts/rules/templates/overspeed',
     ])
       expect(ruleRequestAllowed('POST', path)).toBe(false)
     for (const path of [
-      '/alerts/rules/key',
-      '/alerts/rules/key/enable/extra',
-      '/alerts/rules/key/reset',
+      '/api/v1/alerts/rules/key',
+      '/api/v1/alerts/rules/key/enable/extra',
+      '/api/v1/alerts/rules/key/reset',
     ])
       expect(ruleRequestAllowed('PATCH', path)).toBe(false)
-    expect(ruleRequestAllowed('DELETE', '/alerts/rules/key')).toBe(false)
+    expect(ruleRequestAllowed('DELETE', '/api/v1/alerts/rules/key')).toBe(false)
   })
   it('maps strict fields without accepting actors, arbitrary parameters or tenant overrides', () => {
-    expect(ruleRequestBody('/alerts/rules/templates/geofence', input)).toEqual({
+    expect(ruleRequestBody('/api/v1/alerts/rules/templates/geofence', input)).toEqual({
       rule_key: 'depot_rule',
       rule_name: 'Depot entry',
       geofence_id: '9',
@@ -60,10 +60,12 @@ describe('geofence rule boundary', () => {
       { geofence_id: '8' },
     ])
       expect(() =>
-        ruleRequestBody('/alerts/rules/templates/geofence', { ...input, ...extra }),
+        ruleRequestBody('/api/v1/alerts/rules/templates/geofence', { ...input, ...extra }),
       ).toThrow()
-    expect(ruleRequestBody('/alerts/rules/depot_rule/disable', {})).toEqual({})
-    expect(() => ruleRequestBody('/alerts/rules/depot_rule/enable', { enabled: true })).toThrow()
+    expect(ruleRequestBody('/api/v1/alerts/rules/depot_rule/disable', {})).toEqual({})
+    expect(() =>
+      ruleRequestBody('/api/v1/alerts/rules/depot_rule/enable', { enabled: true }),
+    ).toThrow()
   })
   it.each([
     { geofenceId: '0' },
@@ -75,7 +77,7 @@ describe('geofence rule boundary', () => {
     { priority: 0 },
   ])('rejects unsupported input %j', (fields) => {
     expect(() =>
-      ruleRequestBody('/alerts/rules/templates/geofence', { ...input, ...fields }),
+      ruleRequestBody('/api/v1/alerts/rules/templates/geofence', { ...input, ...fields }),
     ).toThrow()
   })
 })

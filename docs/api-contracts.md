@@ -12,6 +12,22 @@ Empty/error/partial states remain explicit; preview alone uses invented paths.
 See backend `../sidie/docs/recorded-history.md` for the contract, checks and limits.
 This supersedes historical statements that all live replay is disabled.
 
+## Canonical Java paths — 2026-11-12
+
+Upstream alerting and notification URLs now use `/api/v1/alerts`,
+`/api/v1/alerts/rules`, `/api/v1/alerts/geofences` and `/api/v1/notifications`.
+This replaces the older unversioned upstream URLs mentioned in historical
+sections below. There are no dual mappings, redirects or legacy fallback.
+
+The single server-only registry is `server/utils/upstream-api.ts`. All gateway,
+auth and write-policy code uses its route definitions; browser resource aliases
+and UI page URLs are unchanged. Permissions, self-service/tenant checks, strict
+payload validation and denied operations are unchanged. This change does not
+enable previously unsupported actions or provider webhooks.
+
+Only static/boundary checks are being run for this cutover, at the owner's
+resource constraint. Updated unit/integration/browser tests have not been run.
+
 ## Live map snapshots — 2026-11-12
 
 Live `/map` polls the existing tenant-authorized GET `/api/v1/vehicles` through

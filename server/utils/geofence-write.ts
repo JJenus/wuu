@@ -1,11 +1,14 @@
 import { z } from 'zod'
 
-const base = '/alerts/geofences'
+import { upstreamApi, upstreamSuffix } from './upstream-api'
+
+const base = upstreamApi.geofences
 
 /** Only atomic collection create and individual edits; no delete/rule side paths. */
 export function geofenceWriteAllowed(method: string, target: string): boolean {
   if (method === 'POST') return target === base
-  const match = /^\/alerts\/geofences\/([1-9][0-9]{0,18})$/.exec(target)
+  const suffix = upstreamSuffix(target, base)
+  const match = suffix === null ? null : /^\/([1-9][0-9]{0,18})$/.exec(suffix)
   return method === 'PUT' && !!match && BigInt(match[1]!) <= 9223372036854775807n
 }
 

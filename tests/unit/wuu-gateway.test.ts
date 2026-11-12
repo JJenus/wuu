@@ -5,8 +5,8 @@ describe('BFF allowlist', () => {
   it('maps only known resources and encodes each path segment', () => {
     expect(upstreamPath('vehicles')).toBe('/api/v1/vehicles')
     expect(upstreamPath('vehicles/VH%201')).toBe('/api/v1/vehicles/VH%201')
-    expect(upstreamPath('alerts/geofences/GF-1')).toBe('/alerts/geofences/GF-1')
-    expect(upstreamPath('notifications')).toBe('/api/notifications')
+    expect(upstreamPath('alerts/geofences/GF-1')).toBe('/api/v1/alerts/geofences/GF-1')
+    expect(upstreamPath('notifications')).toBe('/api/v1/notifications')
   })
 
   it('rejects unknown resources, traversal, encoded separators, and control bytes', () => {

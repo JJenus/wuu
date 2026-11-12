@@ -96,14 +96,25 @@ createServer(async (request, response) => {
   const email = sessions.get(token)
   if (!email) return send(401, { code: 'UNAUTHENTICATED' })
   if (email.startsWith('alert-ui-') && !alertStates.has(email))
-    alertStates.set(email, { alert_id: 1, alert_type: 'OVERSPEED', message: 'Review depot speed event', severity: 'WARNING', acknowledged: false, resolved: false })
+    alertStates.set(email, {
+      alert_id: 1,
+      alert_type: 'OVERSPEED',
+      message: 'Review depot speed event',
+      severity: 'WARNING',
+      acknowledged: false,
+      resolved: false,
+    })
   if (email.startsWith('alert-ui-') && request.method === 'GET') {
-    if (path === '/alerts') return send(200, page([alertStates.get(email)]))
-    if (path === '/alerts/1') return send(200, alertStates.get(email))
+    if (path === '/api/v1/alerts') return send(200, page([alertStates.get(email)]))
+    if (path === '/api/v1/alerts/1') return send(200, alertStates.get(email))
   }
-  if (/^\/alerts\/[0-9]+\/(acknowledge|resolve)$/.test(path) && request.method === 'POST') {
-    if (email === 'alert-denied@example.com' || email.startsWith('alert-ui-denied-')) return send(403, { code: 'FORBIDDEN' })
-    if (!path.startsWith('/alerts/1/')) return send(404, { code: 'NOT_FOUND' })
+  if (
+    /^\/api\/v1\/alerts\/[0-9]+\/(acknowledge|resolve)$/.test(path) &&
+    request.method === 'POST'
+  ) {
+    if (email === 'alert-denied@example.com' || email.startsWith('alert-ui-denied-'))
+      return send(403, { code: 'FORBIDDEN' })
+    if (!path.startsWith('/api/v1/alerts/1/')) return send(404, { code: 'NOT_FOUND' })
     const input = JSON.parse(body)
     const result = {
       alert_id: 1,
@@ -169,8 +180,11 @@ createServer(async (request, response) => {
     return send(200, {
       user_id: email === 'forbidden@example.com' ? 8 : 7,
       organization_id: 12,
-      permissions:
-        email.startsWith('alert-ui-write-') ? ['vehicles.read', 'alerts.read', 'alerts.write'] : email === 'roles@example.com' ? ['vehicles.read', 'roles.read'] : ['vehicles.read'],
+      permissions: email.startsWith('alert-ui-write-')
+        ? ['vehicles.read', 'alerts.read', 'alerts.write']
+        : email === 'roles@example.com'
+          ? ['vehicles.read', 'roles.read']
+          : ['vehicles.read'],
       access_expires_at: '2099-01-01T00:00:00Z',
     })
   if (path === '/api/v1/roles') {
@@ -232,6 +246,7 @@ createServer(async (request, response) => {
   }
   if (path === '/api/v1/trips' && email === 'fleet-only@example.com')
     return send(403, { code: 'FORBIDDEN' })
-  if (['/api/v1/trips', '/alerts', '/alerts/geofences'].includes(path)) return send(200, page([]))
+  if (['/api/v1/trips', '/api/v1/alerts', '/api/v1/alerts/geofences'].includes(path))
+    return send(200, page([]))
   return send(404, { code: 'NOT_FOUND' })
 }).listen(18080, '127.0.0.1')

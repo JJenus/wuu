@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { upstreamApi, upstreamSuffix } from '../../utils/upstream-api'
 import type { H3Event } from 'h3'
 import { originIsSafe, upstreamPath, subscriptionRequestAllowed } from '../../utils/wuu-gateway'
 import { assertSameOrigin, currentSession, ensureFreshSession } from '../../utils/wuu-session'
@@ -38,7 +39,7 @@ export default defineEventHandler(async (event) => {
 
   const method = (event.method || 'GET').toUpperCase()
   const target = upstreamPath(getRouterParam(event, 'path'))
-  const subscription = target?.startsWith('/api/v1/subscriptions') ?? false
+  const subscription = target !== null && upstreamSuffix(target, upstreamApi.subscriptions) !== null
   const alertTransition = !!target && alertTransitionAllowed(method, target)
   const fleetRegistration = !!target && fleetRegistrationAllowed(method, target)
   const geofenceWrite = !!target && geofenceWriteAllowed(method, target)
@@ -104,7 +105,7 @@ export default defineEventHandler(async (event) => {
     body = Buffer.concat(chunks).toString('utf8')
     try {
       const schema =
-        target === '/api/v1/subscriptions'
+        target === upstreamApi.subscriptions
           ? z
               .object({
                 plan_id: z.string().uuid(),

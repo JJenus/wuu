@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { upstreamApi } from './upstream-api'
 import {
   localAccountSchema,
   type LocalAccount,
@@ -45,7 +46,7 @@ export async function loadLocalAccounts(origin: string, fetcher: typeof fetch = 
   const accounts: LocalAccount[] = []
   try {
     for (let page = 0; page < 50; page++) {
-      const response = await fetcher(`${origin}/api/v1/auth/local-accounts?page=${page}`, {
+      const response = await fetcher(`${origin}${upstreamApi.localAccounts}?page=${page}`, {
         method: 'GET',
         headers: { accept: 'application/json' },
         cache: 'no-store',

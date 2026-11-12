@@ -78,6 +78,7 @@ createServer(async (request, response) => {
     const vehicle = fleet.vehicles.get(decodeURIComponent(path.slice('/api/v1/vehicles/'.length)))
     return vehicle ? send(200, vehicle) : send(404, {})
   }
-  if (['/api/v1/trips', '/alerts', '/alerts/geofences'].includes(path)) return send(200, page([]))
+  if (['/api/v1/trips', '/api/v1/alerts', '/api/v1/alerts/geofences'].includes(path))
+    return send(200, page([]))
   return send(404, {})
 }).listen(18081, '127.0.0.1')
