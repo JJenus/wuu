@@ -34,6 +34,54 @@ class AutoseekerSocketIntegrationTest {
     private static final String VALID = "*HQ,8168000008,V1,043602,A,2234.9273,N,11354.3980,E,000.06,000,100715,FBFBBFF,460,00,10342,4283,10,25,128#";
 
     @Test
+    void receive_peerClosesAfterCompleteFrames_finishesOrderedCaptureWithoutInterruptingWorker() throws Exception {
+        var entered = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        var disconnected = new CountDownLatch(1);
+        var captured = new LinkedBlockingQueue<LocationDataEvent>();
+        var publisher = mock(EventPublisher.class);
+        var connections = mock(RedisConnectionTracker.class);
+        doAnswer(invocation -> {
+            invocation.getArgument(3, reactor.netty.Connection.class).onDispose(disconnected::countDown);
+            return null;
+        }).when(connections).registerConnection(anyString(), anyString(), anyString(), any());
+        doAnswer(invocation -> {
+            entered.countDown();
+            if (!release.await(5, TimeUnit.SECONDS)) throw new IllegalStateException("Test capture gate timed out");
+            captured.add(invocation.getArgument(0, LocationDataEvent.class));
+            return null;
+        }).when(publisher).publish(any(LocationDataEvent.class));
+        try (var context = new AnnotationConfigApplicationContext()) {
+            org.springframework.boot.test.util.TestPropertyValues.of(
+                    "tracking.tcp.server.port=0", "tracking.tcp.server.host=127.0.0.1").applyTo(context);
+            context.registerBean(EventPublisher.class, () -> publisher);
+            context.registerBean(RedisConnectionTracker.class, () -> connections);
+            context.registerBean(ParserFactory.class, () -> new ParserFactory(List.of(new AutoseekerProtocolParser())));
+            context.registerBean(Clock.class, () -> Clock.fixed(Instant.parse("2026-11-12T00:00:00Z"), ZoneOffset.UTC));
+            context.registerBean(DeviceDataProcessor.class);
+            context.registerBean(ReactiveTcpServer.class);
+            context.refresh();
+            var gateway = context.getBean(ReactiveTcpServer.class);
+            gateway.start();
+            try {
+                var bound = (DisposableServer) ReflectionTestUtils.getField(gateway, "server");
+                try (var socket = new Socket("127.0.0.1", bound.port())) {
+                    socket.getOutputStream().write((VALID + VALID.replace("043602", "043603")).getBytes(StandardCharsets.US_ASCII));
+                    socket.getOutputStream().flush();
+                    assertThat(entered.await(5, TimeUnit.SECONDS)).isTrue();
+                }
+                assertThat(disconnected.await(5, TimeUnit.SECONDS)).isTrue();
+                assertThat(captured.poll(200, TimeUnit.MILLISECONDS)).isNull();
+                release.countDown();
+                assertValid(captured.poll(5, TimeUnit.SECONDS));
+                var second = captured.poll(5, TimeUnit.SECONDS);
+                assertThat(second).isNotNull();
+                assertThat(second.getLocation().timestamp()).isEqualTo(Instant.parse("2015-07-10T04:36:03Z"));
+            } finally { release.countDown(); gateway.stop(); }
+        }
+    }
+
+    @Test
     void receive_publicationFails_closesConnectionAndAcceptsFreshConnectionAfterRecovery() throws Exception {
         // given: actual parser/socket; the external broker fails once, then recovers.
         var publisher = mock(EventPublisher.class);
