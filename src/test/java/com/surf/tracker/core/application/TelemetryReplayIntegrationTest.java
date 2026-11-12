@@ -34,7 +34,14 @@ import static org.mockito.Mockito.*;
         "spring.jms.listener.auto-startup=false", "tracking.alert-outbox.poll-delay-ms=3600000",
         "tracking.telemetry-outbox.poll-delay-ms=3600000", "tracking.telemetry-outbox.initial-delay-ms=3600000",
         "userauth.jwt.secret=telemetry-test-only-secret-at-least-thirty-two-bytes"})
+@org.springframework.context.annotation.Import(TelemetryReplayIntegrationTest.TimeConfig.class)
 class TelemetryReplayIntegrationTest {
+    @org.springframework.boot.test.context.TestConfiguration
+    static class TimeConfig {
+        @org.springframework.context.annotation.Bean
+        @org.springframework.context.annotation.Primary
+        Clock fixtureClock() { return Clock.fixed(Instant.parse("2026-11-12T12:00:00Z"), ZoneOffset.UTC); }
+    }
     @Autowired EntityManager entities;
     @Autowired PlatformTransactionManager transactions;
     @Autowired VehicleEventHandler handler;
@@ -45,12 +52,19 @@ class TelemetryReplayIntegrationTest {
     private static final AtomicInteger IDS = new AtomicInteger();
     private final Clock clock = Clock.fixed(Instant.parse("2026-11-12T12:00:00Z"), ZoneOffset.UTC);
 
+    @org.junit.jupiter.api.BeforeEach
+    void clearOwnedFixtureOutbox() {
+        // This class owns the isolated telemetry-replay H2 database; no scheduled relay runs here.
+        jdbc.update("delete from telemetry_receipts");
+    }
+
     @Test
     void receive_sameGpsFixWithNewSourceId_persistsAndPublishesOnlyOnce() {
         String device = assignedDevice();
         handler.handleLocationUpdate(event(device, 0, 51.5));
         handler.handleLocationUpdate(event(device, 0, 51.5));
         assertThat(locationCount(device)).isEqualTo(1);
+        receipts.relayPending();
         verify(publisher, times(1)).publish(any());
     }
 
@@ -63,17 +77,20 @@ class TelemetryReplayIntegrationTest {
         assertThat(jdbc.queryForObject("select l.latitude from vehicles v join trackers t on t.vehicle_id=v.vehicle_id "
                 + "join tracker_location_data l on l.location_id=v.current_location_id where t.device_id=?",
                 Double.class, device)).isEqualTo(51.51);
+        receipts.relayPending();
         verify(publisher, times(1)).publish(any());
     }
 
     @Test
-    void receive_publicationFailure_rollsBackReceiptAndLocationSoRetryCanComplete() {
+    void receive_publicationFailure_retainsIntentAndRetriesWithoutDuplicatingLocation() {
         String device = assignedDevice();
         doThrow(new IllegalStateException("test publication failure")).doNothing().when(publisher).publish(any());
         var source = event(device, 0, 51.5);
-        assertThatThrownBy(() -> handler.handleLocationUpdate(source)).isInstanceOf(IllegalStateException.class);
-        assertThat(locationCount(device)).isZero();
         handler.handleLocationUpdate(source);
+        receipts.relayPending();
+        assertThat(locationCount(device)).isEqualTo(1);
+        jdbc.update("update telemetry_receipts set next_attempt_at=received_at where device_id=?", device);
+        receipts.relayPending();
         handler.handleLocationUpdate(source);
         assertThat(locationCount(device)).isEqualTo(1);
         verify(publisher, times(2)).publish(any());
@@ -90,6 +107,28 @@ class TelemetryReplayIntegrationTest {
     }
 
     @Test
+    void receive_futureFix_retainsHistoryWithoutPoisoningLivePositionOrAlerts() {
+        String device = assignedDevice();
+        handler.handleLocationUpdate(event(device, 0, 51.5));
+        handler.handleLocationUpdate(event(device, 3600, 55));
+        assertThat(locationCount(device)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("select l.latitude from vehicles v join trackers t on t.vehicle_id=v.vehicle_id "
+                + "join tracker_location_data l on l.location_id=v.current_location_id where t.device_id=?",
+                Double.class, device)).isEqualTo(51.5);
+        receipts.relayPending();
+        verify(publisher, times(1)).publish(any());
+    }
+
+    @Test
+    void receive_oldFirstFix_retainsLastKnownPositionWithoutHistoricalAlertIntent() {
+        String device = assignedDevice();
+        handler.handleLocationUpdate(event(device, -3600, 51.5));
+        assertThat(locationCount(device)).isEqualTo(1);
+        receipts.relayPending();
+        verifyNoInteractions(publisher, activity);
+    }
+
+    @Test
     void receive_concurrentDuplicateFixes_serializesReceiptAndCreatesOneLocation() throws Exception {
         String device = assignedDevice();
         var start = new CountDownLatch(1);
@@ -101,6 +140,7 @@ class TelemetryReplayIntegrationTest {
             assertThat(second.get(10, TimeUnit.SECONDS)).isTrue();
         }
         assertThat(locationCount(device)).isEqualTo(1);
+        receipts.relayPending();
         verify(publisher, times(1)).publish(any());
     }
 
