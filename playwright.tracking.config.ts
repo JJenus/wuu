@@ -7,7 +7,11 @@ if (java && !/^http:\/\/127\.0\.0\.1:\d+$/.test(java))
 export default defineConfig({
   ...auth,
   testDir: './tests/tracking',
-  testMatch: java ? '**/java.spec.ts' : '**/live-map.spec.ts',
+  testMatch: java
+    ? process.env.TRACKING_TEST_TCP_PORT
+      ? '**/telemetry.spec.ts'
+      : '**/java.spec.ts'
+    : '**/live-map.spec.ts',
   webServer: java
     ? [
         {
