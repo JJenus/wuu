@@ -34,6 +34,52 @@ class AutoseekerSocketIntegrationTest {
     private static final String VALID = "*HQ,8168000008,V1,043602,A,2234.9273,N,11354.3980,E,000.06,000,100715,FBFBBFF,460,00,10342,4283,10,25,128#";
 
     @Test
+    void receive_publicationFails_closesConnectionAndAcceptsFreshConnectionAfterRecovery() throws Exception {
+        // given: actual parser/socket; the external broker fails once, then recovers.
+        var publisher = mock(EventPublisher.class);
+        var connections = mock(RedisConnectionTracker.class);
+        var published = new LinkedBlockingQueue<LocationDataEvent>();
+        org.mockito.Mockito.doThrow(new IllegalStateException("Test broker unavailable"))
+                .doAnswer(invocation -> {
+                    published.add(invocation.getArgument(0, LocationDataEvent.class));
+                    return null;
+                }).when(publisher).publish(any(LocationDataEvent.class));
+        try (var context = new AnnotationConfigApplicationContext()) {
+            org.springframework.boot.test.util.TestPropertyValues.of(
+                    "tracking.tcp.server.port=0", "tracking.tcp.server.host=127.0.0.1").applyTo(context);
+            context.registerBean(EventPublisher.class, () -> publisher);
+            context.registerBean(RedisConnectionTracker.class, () -> connections);
+            context.registerBean(ParserFactory.class, () -> new ParserFactory(List.of(new AutoseekerProtocolParser())));
+            context.registerBean(Clock.class, () -> Clock.fixed(Instant.parse("2026-11-12T00:00:00Z"), ZoneOffset.UTC));
+            context.registerBean(DeviceDataProcessor.class);
+            context.registerBean(ReactiveTcpServer.class);
+            context.refresh();
+            var gateway = context.getBean(ReactiveTcpServer.class);
+            gateway.start();
+            try {
+                var bound = (DisposableServer) ReflectionTestUtils.getField(gateway, "server");
+                try (var socket = new Socket("127.0.0.1", bound.port())) {
+                    // when: a valid GPS fix cannot be published, do not silently keep accepting data.
+                    socket.setSoTimeout(2000);
+                    socket.getOutputStream().write(VALID.getBytes(StandardCharsets.US_ASCII));
+                    socket.getOutputStream().flush();
+                    // then: transport failure is observable; it is not a protocol ACK/retry promise.
+                    assertThat(socket.getInputStream().read()).isEqualTo(-1);
+                    verify(connections, never()).updateConnectionDevice(anyString(), anyString());
+                    verify(connections, never()).updateLastSeen(anyString());
+                }
+                try (var socket = new Socket("127.0.0.1", bound.port())) {
+                    socket.getOutputStream().write(VALID.getBytes(StandardCharsets.US_ASCII));
+                    socket.getOutputStream().flush();
+                    assertValid(published.poll(5, TimeUnit.SECONDS));
+                }
+            } finally {
+                gateway.stop();
+            }
+        }
+    }
+
+    @Test
     void receive_slowFirstPublication_preservesPerConnectionGpsOrder() throws Exception {
         // given: real socket/framer/parser/processor; block the first external publication.
         var firstEntered = new CountDownLatch(1);
