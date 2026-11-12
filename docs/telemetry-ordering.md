@@ -35,11 +35,15 @@ minutes ahead of the server remain historical and cannot poison current position
 or alerts. Configure `tracking.telemetry.max-alert-age-seconds` and
 `tracking.telemetry.max-future-skew-seconds` deliberately; device timestamp-zone and
 server clock configuration still matter.
+The time window is rechecked at evaluation too, so a vehicle update delayed in its
+work queue cannot recreate stale live effects. Already-detected alerts retain their
+original event times; notification-delivery policy remains separate.
 
 ## Bounds and failure behavior
 
 - `TELEMETRY_SPOOL_DIRECTORY` defaults to `./data/telemetry-spool`. Use a dedicated
-  persistent Linux/POSIX volume with working file locks, atomic rename and fsync.
+  persistent Linux/POSIX volume and an absolute configured production path, with
+  working file locks, atomic rename and fsync.
   One gateway owns a directory at a time; replicas require separate directories.
   Newly created directories/files use owner-only permissions. Encrypt and back up
   the volume because it contains GPS data; an ephemeral container layer is unsafe.
@@ -82,13 +86,15 @@ Never drop a populated ledger/outbox as an expedient rollback. Device reassignme
 remains unsupported; drain/quarantine old work before changing ownership mappings.
 This acceptance covers one backend consumer per work queue, not multi-consumer
 ordering certification. Production rollout still requires separate authorization.
+The default in-memory H2 profile is development-only: use the PostgreSQL profile
+and durable database storage for restart guarantees.
 
 ## Verification
 
 RED regressions reproduced missing retention, duplicate fixes, live-position rewind,
 historical/future alert effects, broker-dependent location persistence, and disconnect
 or overflow interrupting a capture. Focused checks are green. Backend
-`./mvnw -B verify` passed **691 tests**; independent device
+`./mvnw -B verify` passed **693 tests**; independent device
 `./mvnw -B -f device-comm/pom.xml verify` passed **107 tests** and executable packaging.
 No Java coverage percentage is claimed: these builds do not instrument JaCoCo.
 
@@ -114,7 +120,8 @@ no Docker. No production service was changed.
 Server-side tests do not prove what a physical Autoseeker or GT06 firmware does.
 To investigate on a staging endpoint with an authorized test device:
 
-1. Record packet arrival times and the device's original GPS timestamps privately.
+1. Record packet arrival times and the device's original GPS timestamps privately
+   using a staging packet capture (for example Wireshark/tcpdump), not map timestamps alone.
 2. Interrupt **device-to-gateway connectivity**, not merely the broker; this
    distinguishes device buffering from the server spool. Test both a closed TCP
    connection and a stalled link, without changing production connectivity.

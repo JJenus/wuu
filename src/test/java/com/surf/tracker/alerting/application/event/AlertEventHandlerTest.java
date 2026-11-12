@@ -16,8 +16,8 @@ import static org.mockito.Mockito.*;
 
 class AlertEventHandlerTest {
     private final AlertingEngine engine = mock(AlertingEngine.class);
-    private final AlertEventHandler handler = new AlertEventHandler(engine);
     private final Clock clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC);
+    private final AlertEventHandler handler = new AlertEventHandler(engine, clock);
 
     @AfterEach
     void clear_context() { TenantContext.clear(); }

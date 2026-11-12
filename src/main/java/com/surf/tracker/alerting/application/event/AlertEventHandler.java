@@ -14,9 +14,15 @@ public class AlertEventHandler {
     private static final Logger logger = LoggerFactory.getLogger(AlertEventHandler.class);
 
     private final AlertingEngine alertingEngine;
+    private final java.time.Clock clock;
+    @org.springframework.beans.factory.annotation.Value("${tracking.telemetry.max-alert-age-seconds:300}")
+    private int maxAlertAgeSeconds = 300;
+    @org.springframework.beans.factory.annotation.Value("${tracking.telemetry.max-future-skew-seconds:300}")
+    private int maxFutureSkewSeconds = 300;
 
-    public AlertEventHandler(AlertingEngine alertingEngine) {
+    public AlertEventHandler(AlertingEngine alertingEngine, java.time.Clock clock) {
         this.alertingEngine = alertingEngine;
+        this.clock = clock;
     }
 
     @org.springframework.jms.annotation.JmsListeners({
@@ -28,6 +34,14 @@ public class AlertEventHandler {
     public void handleVehicleUpdate(@Payload VehicleUpdatedEvent event) {
         if (event.getOrganizationId() == null || event.getOrganizationId() <= 0) {
             throw new IllegalArgumentException("Vehicle update requires organization identity");
+        }
+        if (event.getNewLocation() == null || !event.getNewLocation().isValid())
+            throw new IllegalArgumentException("Vehicle update requires a valid GPS fix");
+        var observed = event.getNewLocation().timestamp();
+        if (observed.isBefore(clock.instant().minusSeconds(maxAlertAgeSeconds))
+                || observed.isAfter(clock.instant().plusSeconds(maxFutureSkewSeconds))) {
+            logger.info("Skipping out-of-window queued update for vehicle {}", event.getVehicleId());
+            return; // Location history is already committed; do not recreate stale live effects.
         }
         Long previousOrg = TenantContext.getCurrentOrgId();
         Long previousUser = TenantContext.getCurrentUserId();
