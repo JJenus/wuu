@@ -11,7 +11,7 @@ import com.surf.tracker.shared.exception.ValidationException;
 @Service
 public class PasswordService {
 
-    public static final int MIN_PASSWORD_LENGTH = 12;
+    public static final int MIN_PASSWORD_LENGTH = 8;
 
     private final BCryptPasswordEncoder encoder;
     private final String dummyHash;

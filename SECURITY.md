@@ -30,7 +30,7 @@
   consumed token revokes its session and refresh family. Clients must serialize
   refresh requests; parallel refresh attempts intentionally trigger revocation.
 - Logout revokes **all** sessions for the user. Password changes also revoke all
-  sessions. New passwords require at least 12 characters and at most 72 UTF-8
+  sessions. New passwords require at least 8 characters and at most 72 UTF-8
   bytes (BCrypt's limit); existing shorter passwords can still be verified.
 - The API still uses bearer tokens, not authentication cookies. Keep tokens out
   of URLs and logs, and protect frontend token storage from XSS. JSON uses

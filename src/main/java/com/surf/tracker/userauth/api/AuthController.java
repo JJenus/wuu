@@ -77,7 +77,7 @@ public class AuthController {
         @jakarta.validation.constraints.Size(max = 128)
         private String oldPassword;
         @jakarta.validation.constraints.NotBlank
-        @jakarta.validation.constraints.Size(min = 12, max = 72)
+        @jakarta.validation.constraints.Size(min = com.surf.tracker.userauth.infrastructure.security.PasswordService.MIN_PASSWORD_LENGTH, max = 72)
         private String newPassword;
         public String getOldPassword() { return oldPassword; }
         public void setOldPassword(String oldPassword) { this.oldPassword = oldPassword; }

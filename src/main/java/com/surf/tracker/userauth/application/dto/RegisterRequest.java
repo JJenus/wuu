@@ -8,7 +8,7 @@ public class RegisterRequest {
     @NotBlank @Email
     private String email;
 
-    @NotBlank @Size(min = 12, max = 72)
+    @NotBlank @Size(min = com.surf.tracker.userauth.infrastructure.security.PasswordService.MIN_PASSWORD_LENGTH, max = 72)
     private String password;
 
     @NotBlank
