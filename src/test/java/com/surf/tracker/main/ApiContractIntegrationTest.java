@@ -74,6 +74,33 @@ class ApiContractIntegrationTest {
         mvc.perform(get("/swagger-ui/index.html")).andExpect(status().isUnauthorized());
     }
 
+    @Test @WithMockUser(authorities = "system.admin")
+    void openApi_schemas_matchJacksonWireNamesAndResponseContracts() throws Exception {
+        var response = mvc.perform(get("/v3/api-docs/api-v1")).andExpect(status().isOk()).andReturn().getResponse();
+        var document = mapper.readTree(response.getContentAsString());
+        var schemas = document.path("components").path("schemas");
+        var vehicle = schemas.path("CreateVehicleRequest");
+        assertThat(vehicle.path("properties").has("vehicle_id")).isTrue();
+        assertThat(vehicle.path("properties").has("vehicleId")).isFalse();
+        assertThat(vehicle.path("required").toString()).contains("vehicle_id").doesNotContain("vehicleId");
+        for (Class<?> type : java.util.List.of(com.surf.tracker.core.api.dto.VehicleResponse.class,
+                com.surf.tracker.core.api.dto.TripHistoryResponse.class,
+                com.surf.tracker.subscription.api.dto.EnrollmentResponse.class,
+                com.surf.tracker.userauth.application.dto.ErrorResponse.class)) {
+            var properties = schemas.path(type.getSimpleName()).path("properties");
+            mapper.getSerializationConfig().introspect(mapper.constructType(type)).findProperties().forEach(property ->
+                assertThat(properties.has(property.getName())).as(type.getSimpleName() + "." + property.getName()).isTrue());
+        }
+        var paths = document.path("paths");
+        var csv = paths.path("/api/v1/trips/export").path("get").path("responses").path("200");
+        assertThat(csv.path("content").has("text/csv")).isTrue();
+        assertThat(csv.path("headers").has("Content-Disposition")).isTrue();
+        var enroll = paths.path("/api/v1/subscriptions").path("post").path("responses");
+        assertThat(enroll.has("200") && enroll.has("201") && enroll.has("409")).isTrue();
+        assertThat(paths.path("/api/v1/auth/logout").path("post").path("responses").path("204").has("content")).isFalse();
+        assertThat(schemas.path("ChangePasswordRequest").path("properties").path("new_password").path("minLength").asInt()).isEqualTo(8);
+    }
+
     @Test @WithMockUser(authorities = "trips.read")
     void documentation_nonAdministrator_isDenied() throws Exception {
         mvc.perform(get("/v3/api-docs/api-v1")).andExpect(status().isForbidden());
