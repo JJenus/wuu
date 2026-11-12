@@ -43,6 +43,8 @@ export default defineConfig({
         'shared/fleet-registration.ts',
         'server/utils/fleet-registration.ts',
         'server/utils/geofence-write.ts',
+        'server/utils/geofence-rule.ts',
+        'shared/geofence-rule.ts',
         'server/utils/alert-transition.ts',
         'server/utils/wuu-auth.ts',
         'server/utils/wuu-session.ts',

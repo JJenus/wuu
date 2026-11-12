@@ -1,6 +1,31 @@
 import { expect, test, request as requestFactory } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
 
+test('rule configured through UI persists and can be disabled @java', async ({ page }) => {
+  const id = process.env.GEOFENCE_RULE_TEST_ZONE!
+  await page.goto(`/sign-in?next=/geofences/${id}`)
+  await page.getByLabel('Email', { exact: true }).fill(process.env.GEOFENCE_TEST_EMAIL!)
+  await page.getByLabel('Password', { exact: true }).fill(process.env.GEOFENCE_TEST_PASSWORD!)
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+  await expect(page).toHaveURL(`/geofences/${id}`)
+  await page.getByRole('button', { name: 'Add geofence rule', exact: true }).click()
+  const key = 'ui_rule_' + randomUUID().slice(0, 8)
+  await page.getByLabel('Rule key', { exact: true }).fill(key)
+  await page.getByLabel('Rule name', { exact: true }).fill('Persisted entry and exit rule')
+  await page.getByRole('button', { name: 'Save rule', exact: true }).click()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await page.reload()
+  const saved = page.getByRole('article', { name: `Rule ${key}`, exact: true })
+  await expect(saved).toContainText('BOTH')
+  await expect(saved).toContainText('Enabled')
+  await saved
+    .getByRole('button', { name: 'Disable Persisted entry and exit rule', exact: true })
+    .click()
+  await expect(saved).toContainText('Disabled')
+  await page.reload()
+  await expect(saved).toContainText('Disabled')
+})
+
 test('real Java circle creation, polygon edit, unlink-all and tenant rollback @java', async ({
   page,
 }) => {

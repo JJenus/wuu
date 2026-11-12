@@ -6,6 +6,7 @@ import { geometrySummary, type GeofenceDraft, type Geometry } from '../domain/ge
 import type { Geofence } from '../../workspace/domain/types'
 import { geofenceDtoSchema, geofencePageSchema, type GeofenceDto } from './contracts'
 import type { ServiceRequestOptions } from '../../fleet/services/fleet-service'
+import { createGeofenceRuleService } from './geofence-rule-service'
 
 const PAGE_SIZE = 100
 const MAX_PAGES = 50
@@ -91,6 +92,7 @@ export function createLiveGeofenceService(client: GatewayClient): GeofenceServic
 
   return {
     list,
+    rules: createGeofenceRuleService(client),
     async get(id: string, options?: ServiceRequestOptions) {
       if (!/^\d+$/.test(id)) return null
       try {

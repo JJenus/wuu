@@ -5,6 +5,7 @@ import { useWorkspaceRecord } from '~/features/workspace/composables/useWorkspac
 import GeofenceMap from '~/features/geofences/components/GeofenceMap.vue'
 import { geometryArea, geometrySummary } from '~/features/geofences/domain/geofence'
 import { useGeofenceAccess } from '~/features/geofences/composables/useGeofenceAccess'
+import GeofenceRulesPanel from '~/features/geofences/components/GeofenceRulesPanel.vue'
 const { allowed, message } = useGeofenceAccess()
 const route = useRoute()
 const source = useDataSource()
@@ -210,6 +211,7 @@ useHead(() => ({ title: `${zone.value?.name || 'Geofence not found'} — Wuu` })
             </div>
           </section>
         </div>
+        <GeofenceRulesPanel v-if="!source.isPreview" :key="zone.id" :zone="zone" />
       </template>
       <UiEmptyState
         v-else

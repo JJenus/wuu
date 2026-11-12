@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { alertTransitionAllowed, alertTransitionBody } from '../../utils/alert-transition'
 import { fleetRegistrationAllowed, fleetRegistrationBody } from '../../utils/fleet-registration'
 import { geofenceWriteAllowed, geofenceWriteBody } from '../../utils/geofence-write'
+import { ruleRequestAllowed, ruleRequestBody } from '../../utils/geofence-rule'
 
 const methods = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])
 
@@ -41,11 +42,13 @@ export default defineEventHandler(async (event) => {
   const alertTransition = !!target && alertTransitionAllowed(method, target)
   const fleetRegistration = !!target && fleetRegistrationAllowed(method, target)
   const geofenceWrite = !!target && geofenceWriteAllowed(method, target)
+  const ruleRequest = !!target && ruleRequestAllowed(method, target)
+  const ruleWrite = ruleRequest && method !== 'GET'
   if (
     !methods.has(method) ||
     (subscription
       ? !subscriptionRequestAllowed(method, target!)
-      : method !== 'GET' && !alertTransition && !fleetRegistration && !geofenceWrite)
+      : method !== 'GET' && !alertTransition && !fleetRegistration && !geofenceWrite && !ruleWrite)
   )
     return jsonError(event, 405, 'This request method is not allowed.', requestId)
 
@@ -59,6 +62,8 @@ export default defineEventHandler(async (event) => {
     return jsonError(event, 400, 'Fleet registration does not accept query parameters.', requestId)
   if (geofenceWrite && Object.keys(query).length)
     return jsonError(event, 400, 'Geofence writes do not accept query parameters.', requestId)
+  if (ruleWrite && Object.keys(query).length)
+    return jsonError(event, 400, 'Rule writes do not accept query parameters.', requestId)
   const params = new URLSearchParams()
   for (const [key, value] of Object.entries(query)) {
     if (Array.isArray(value)) {
@@ -90,7 +95,7 @@ export default defineEventHandler(async (event) => {
     for await (const chunk of event.node.req.iterator({ destroyOnReturn: false })) {
       const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
       size += bytes.length
-      if (size > (geofenceWrite ? 16384 : 4096)) {
+      if (size > (geofenceWrite || ruleWrite ? 16384 : 4096)) {
         event.node.req.resume()
         return jsonError(event, 413, 'Request body is too large.', requestId)
       }
@@ -120,7 +125,9 @@ export default defineEventHandler(async (event) => {
             ? alertTransitionBody(target, parsed)
             : geofenceWrite
               ? geofenceWriteBody(target, parsed)
-              : schema.parse(parsed),
+              : ruleWrite
+                ? ruleRequestBody(target, parsed)
+                : schema.parse(parsed),
       )
     } catch {
       return jsonError(
@@ -132,7 +139,9 @@ export default defineEventHandler(async (event) => {
             ? 'Invalid alert transition request.'
             : geofenceWrite
               ? 'Invalid geofence edit request.'
-              : 'Invalid subscription request.',
+              : ruleWrite
+                ? 'Invalid geofence rule request.'
+                : 'Invalid subscription request.',
         requestId,
       )
     }

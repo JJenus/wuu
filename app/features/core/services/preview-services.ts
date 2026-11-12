@@ -68,6 +68,7 @@ export function createPreviewServices(): WorkspaceServices {
       },
     },
     geofences: {
+      rules: { list: unavailableRules, create: unavailableRules, setEnabled: unavailableRules },
       async list() {
         return (await service.load()).geofences
       },
@@ -97,5 +98,12 @@ async function unavailableRegistration(): Promise<never> {
   throw new ApiError({
     kind: 'unavailable',
     message: 'Tracker registration requires a live signed-in workspace.',
+  })
+}
+
+async function unavailableRules(): Promise<never> {
+  throw new ApiError({
+    kind: 'unavailable',
+    message: 'Alert rules require a live workspace; preview monitoring is not simulated.',
   })
 }

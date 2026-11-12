@@ -4,6 +4,7 @@ export const allowedBases: Record<string, string> = {
   trips: '/api/v1/trips',
   alerts: '/alerts',
   geofences: '/alerts/geofences',
+  'geofence-rules': '/alerts/rules',
   notifications: '/api/notifications',
   subscriptions: '/api/v1/subscriptions',
   access: '/api/v1/users/me/access',
@@ -56,6 +57,17 @@ export function upstreamPath(raw: string | undefined): string | null {
   if (resource === 'access' && rest.length) return null
   // The catalog is a tenant-selected collection; no client can address another org.
   if (resource === 'roles' && rest.length) return null
+  if (
+    resource === 'geofence-rules' &&
+    rest.length &&
+    !(
+      (rest.length === 2 && rest[0] === 'templates' && rest[1] === 'geofence') ||
+      (rest.length === 2 &&
+        /^[A-Za-z0-9_-]{1,100}$/.test(rest[0]!) &&
+        ['enable', 'disable'].includes(rest[1]!))
+    )
+  )
+    return null
   const base =
     resource && Object.hasOwn(allowedBases, resource) ? allowedBases[resource] : undefined
   if (!base) return null

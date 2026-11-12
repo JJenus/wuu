@@ -3,6 +3,10 @@ import { createServer } from 'node:http'
 import { randomUUID } from 'node:crypto'
 const sessions = new Map()
 const geofences = new Map()
+/** @typedef {{rule_key: string, rule_name: string, rule_type: string, enabled: boolean, priority: number, parameters: {geofenceId: string, action: string, vehicleIds: string[]}}} FixtureRule */
+// Keyed fixture state genuinely needs dictionaries; payloads have a defined shape.
+/** @type {Map<string, Map<string, FixtureRule>>} */
+const rules = new Map()
 const page = (content) => ({ content, last: true, empty: !content.length })
 createServer(async (request, response) => {
   const send = (status, body) => {
@@ -47,6 +51,37 @@ createServer(async (request, response) => {
       permissions: ['vehicles.read', 'alerts.read', ...(writer ? ['alerts.write'] : [])],
       access_expires_at: '2099-01-01T00:00:00Z',
     })
+  if (!rules.has(email)) rules.set(email, new Map())
+  const ownedRules = rules.get(email)
+  if (path === '/alerts/rules' && request.method === 'GET')
+    return send(200, page([...ownedRules.values()]))
+  if (path === '/alerts/rules/templates/geofence' && request.method === 'POST') {
+    if (!writer) return send(403, {})
+    if (ownedRules.has(body.rule_key)) return send(409, { message: 'Rule key already exists' })
+    /** @type {FixtureRule} */
+    const saved = {
+      rule_key: body.rule_key,
+      rule_name: body.rule_name,
+      rule_type: 'GEOFENCE',
+      enabled: body.enabled,
+      priority: body.priority,
+      parameters: {
+        geofenceId: body.geofence_id,
+        action: body.action,
+        vehicleIds: body.vehicle_ids,
+      },
+    }
+    ownedRules.set(body.rule_key, saved)
+    return send(201, saved)
+  }
+  const transition = /^\/alerts\/rules\/([A-Za-z0-9_-]+)\/(enable|disable)$/.exec(path)
+  if (transition && request.method === 'PATCH') {
+    if (!writer) return send(403, {})
+    const saved = ownedRules.get(transition[1])
+    if (!saved) return send(404, {})
+    saved.enabled = transition[2] === 'enable'
+    return send(200, null)
+  }
   if (!geofences.has(email))
     geofences.set(email, {
       geofence_id: 9,

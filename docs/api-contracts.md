@@ -1,5 +1,22 @@
 # Backend and live adapter contracts
 
+## Geofence alert rules — 2026-11-12
+
+Live geofence details now list rules and allow template creation and enable/disable
+with current `alerts.read`/`alerts.write` access. The gateway exposes GET
+`geofence-rules`, POST `geofence-rules/templates/geofence`, and PATCH
+`geofence-rules/{key}/enable|disable`, mapping to `/alerts/rules` upstream.
+Creation uses the strict typed camelCase schema in `shared/geofence-rule.ts`;
+toggle bodies are empty JSON objects. Same-origin, session, body-size and query
+override protections apply. Java validates tenant-owned vehicles, active boundaries
+and linked assignments, including when re-enabling a rule. Generic edits, deletion
+and bulk creation remain blocked. This supersedes earlier blocked-rule statements.
+
+ENTRY, EXIT and BOTH evaluate received locations. The existing five-minute cooldown
+is per rule/vehicle, so it suppresses rapid opposite-direction publications too.
+Inactive boundaries do not evaluate. See [geofence-rules.md](geofence-rules.md) for
+verification scope; configuration is not proof of device or notification transport.
+
 ## Live geofence editing — 2026-11-10
 
 Exact collection POST and positive signed-Long individual PUT routes now expose
