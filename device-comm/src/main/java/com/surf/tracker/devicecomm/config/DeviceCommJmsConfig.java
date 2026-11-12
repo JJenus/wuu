@@ -34,6 +34,9 @@ public class DeviceCommJmsConfig {
         JmsTemplate template = new JmsTemplate(connectionFactory);
         template.setMessageConverter(messageConverter);
         template.setPubSubDomain(false);
+        template.setDeliveryPersistent(true);
+        template.setExplicitQosEnabled(true);
+        template.setSessionTransacted(true);
         return template;
     }
 }

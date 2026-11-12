@@ -62,6 +62,9 @@ public class ReactiveTcpServer {
     @Value("${tracking.tcp.server.wiretap-enabled:false}")
     private boolean wiretapEnabled;
 
+    @Value("${tracking.tcp.server.max-pending-frames:256}")
+    private int maxPendingFrames = 256;
+
     private DisposableServer server;
     private volatile boolean running = false;
 
@@ -79,6 +82,8 @@ public class ReactiveTcpServer {
         }
 
         logger.info("Starting Reactive TCP Server on port {}", tcpPort);
+        if (maxPendingFrames < 1 || maxPendingFrames > 4096)
+            throw new IllegalArgumentException("TCP pending-frame bound must be between 1 and 4096");
 
         try {
             TcpServer tcp = TcpServer.create()
@@ -126,14 +131,18 @@ public class ReactiveTcpServer {
                         return inbound.receive()
                                 .asByteArray()
                                 .transform(this::frameWithDelimiter)
+                                .onBackpressureBuffer(maxPendingFrames)
                                 // Complete each blocking parse/publication before the next frame on
                                 // this connection. Detached workers can publish GPS fixes out of order.
-                                .concatMap(message -> Mono.fromRunnable(() ->
+                                .concatMapDelayError(message -> Mono.fromRunnable(() ->
                                                 processRawMessage(message, connectionId, clientIp[0]))
-                                        .subscribeOn(Schedulers.boundedElastic()), 1)
+                                        .subscribeOn(Schedulers.boundedElastic()), false, 1)
                                 .doOnError(error -> handleConnectionError(error, connectionId))
                                 .doFinally(signal -> cleanupConnection(connectionId))
-                                .then();
+                                .then()
+                                // Once started, complete accepted frames even if the peer closes.
+                                // Cancellation must not interrupt FileChannel fsync during capture.
+                                .cache();
                     })
                     .bindNow();
 

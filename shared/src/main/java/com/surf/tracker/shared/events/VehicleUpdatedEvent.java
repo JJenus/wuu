@@ -10,7 +10,7 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
-public class VehicleUpdatedEvent extends DomainEvent {
+public class VehicleUpdatedEvent extends DomainEvent implements com.surf.tracker.shared.pubsub.DurableWorkEvent {
     private final String vehicleId;
     private final Long organizationId;
     private final LocationPoint newLocation;

@@ -37,11 +37,13 @@ public class AlertCreationEventHandler {
         this.clock = clock;
     }
 
+    @org.springframework.jms.annotation.JmsListeners({
+    @JmsListener(destination = "tracking.work.alertdetectedevent", containerFactory = "queueJmsListenerContainerFactory", concurrency = "1"),
     @JmsListener(
             destination = "tracking.events.alertdetectedevent",
             containerFactory = "topicJmsListenerContainerFactory",
             concurrency = "1"
-    )
+    )})
     @org.springframework.transaction.annotation.Transactional
     public void handleAlertEvent(@Payload AlertDetectedEvent event) {
         Long previousOrg = TenantContext.getCurrentOrgId();

@@ -40,7 +40,8 @@ import static org.assertj.core.api.Assertions.*;
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = {"userauth.jwt.secret=deployment-test-only-secret-at-least-thirty-two-bytes",
         "userauth.registration-enabled=false", "userauth.password.bcrypt-strength=4",
-        "tracking.alert-outbox.poll-delay-ms=3600000"})
+        "tracking.alert-outbox.poll-delay-ms=3600000",
+        "tracking.telemetry.max-alert-age-seconds=315360000"})
 @ActiveProfiles("postgres")
 @DirtiesContext
 class PostgresDeploymentIT {
@@ -457,20 +458,26 @@ class PostgresDeploymentIT {
         String secondTracker = createTracker(second, secondVehicle);
         java.time.Instant timestamp = java.time.Instant.parse("2026-01-01T12:00:00Z");
         Map<String, String> assignments = Map.of(firstVehicle, firstTracker, secondVehicle, secondTracker);
-        try (var connection = messaging.createConnection();
-             var session = connection.createSession(false, jakarta.jms.Session.AUTO_ACKNOWLEDGE);
-             var updates = session.createConsumer(session.createTopic("tracking.events.vehicleupdatedevent"))) {
-            connection.start();
+        // Vehicle updates now use a durable work queue. Observe the real publisher
+        // rather than stealing messages from the actual evaluation consumer.
+        var updates = new java.util.concurrent.CopyOnWriteArrayList<com.surf.tracker.shared.events.VehicleUpdatedEvent>();
+        org.mockito.Mockito.doAnswer(invocation -> {
+            updates.add(invocation.getArgument(0, com.surf.tracker.shared.events.VehicleUpdatedEvent.class));
+            return invocation.callRealMethod();
+        }).when(publisherSpy).publish(org.mockito.ArgumentMatchers.argThat(event ->
+                event instanceof com.surf.tracker.shared.events.VehicleUpdatedEvent update
+                        && assignments.containsKey(update.getVehicleId())));
+        {
             // when: real broker consumers run without an HTTP TenantContext.
             assignments.forEach((vehicle, tracker) -> topic.convertAndSend("tracking.events.locationdataevent",
                 new com.surf.tracker.shared.events.LocationDataEvent(java.time.Clock.systemUTC(),
                     "device-" + tracker, new com.surf.tracker.shared.domain.LocationPoint(1, 2, 20, timestamp), "GT06")));
             // then: each update identifies the persisted owner and the original physical tracker.
+            org.awaitility.Awaitility.await().atMost(Duration.ofSeconds(20)).untilAsserted(() ->
+                    assertThat(updates).extracting(com.surf.tracker.shared.events.VehicleUpdatedEvent::getVehicleId)
+                            .containsAll(assignments.keySet()));
             java.util.Set<String> received = new java.util.HashSet<>();
-            for (int index = 0; index < assignments.size(); index++) {
-                var message = updates.receive(15000);
-                assertThat(message).as("telemetry must reach the actual update listener and publisher").isNotNull();
-                var update = (com.surf.tracker.shared.events.VehicleUpdatedEvent) converter.fromMessage(message);
+            for (var update : updates) {
                 assertThat(assignments).containsKey(update.getVehicleId());
                 var owner = vehicles.findById(update.getVehicleId()).orElseThrow();
                 assertThat(update.getOrganizationId()).isEqualTo(owner.getOrganizationId());
@@ -478,7 +485,7 @@ class PostgresDeploymentIT {
                 received.add(update.getVehicleId());
             }
             assertThat(received).containsExactlyInAnyOrderElementsOf(assignments.keySet());
-            // The outgoing event can precede DB commit; take the row lock to wait for completion.
+            // The publication intent and source location are now committed atomically.
             var transaction = new TransactionTemplate(transactions);
             assignments.forEach((vehicle, tracker) -> transaction.executeWithoutResult(status -> {
                 var stored = entityManager.find(com.surf.tracker.core.domain.entity.Vehicle.class,

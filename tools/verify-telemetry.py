@@ -2,11 +2,10 @@
 """Owned loopback TCP/Artemis/PostgreSQL/Redis/browser acceptance. Never deploys."""
 import argparse
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 import os
 from pathlib import Path
-import re
 import signal
 import socket
 import subprocess
@@ -14,7 +13,9 @@ import tempfile
 import threading
 import time
 from types import FrameType
+from typing import Callable
 import urllib.request
+import xml.etree.ElementTree as XML
 
 
 @dataclass(frozen=True)
@@ -42,6 +43,22 @@ class TrackerInput:
 @dataclass(frozen=True)
 class TokenResponse:
     access_token: str
+
+
+@dataclass(frozen=True)
+class OverspeedRule:
+    rule_key: str
+    rule_name: str
+    speed_limit: int
+    vehicle_ids: list[str]
+    enabled: bool
+
+
+@dataclass(frozen=True)
+class QueueSnapshot:
+    durable: bool
+    consumers: int
+    messages: int
 
 
 def free_port() -> int:
@@ -88,6 +105,7 @@ def main() -> None:
 
     def start(label: str, command: list[str], marker: str, env: dict[str, str]) -> subprocess.Popen[str]:
         ready = threading.Event()
+        matched = threading.Event()
         process = subprocess.Popen(command, env=env, stdout=subprocess.PIPE,
                                    stderr=subprocess.STDOUT, text=True)
         processes.append(process)
@@ -99,11 +117,12 @@ def main() -> None:
                     output.write(line)
                     output.flush()
                     if marker in line:
+                        matched.set()
                         ready.set()
             ready.set()  # Fail immediately on early process exit, not after the timeout.
 
         threading.Thread(target=record, daemon=True).start()
-        if not ready.wait(100) or process.poll() is not None:
+        if not ready.wait(100) or not matched.is_set() or process.poll() is not None:
             raise RuntimeError(f"{label} did not start; see {base}")
         return process
 
@@ -120,19 +139,39 @@ def main() -> None:
            "ARTEMIS_USER": "telemetry_test", "ARTEMIS_PASSWORD": "test-only-broker-password",
            "REDIS_HOST": "127.0.0.1", "REDIS_PORT": str(redis_port)}
 
-    def wait_for_intake_subscription(label: str) -> None:
-        deadline = time.monotonic() + 60
+    def wait_until(label: str, predicate: Callable[[], bool], timeout: int = 60) -> None:
+        deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
-            result = subprocess.run([str(artemis), "queue", "stat", "--json", "--silent", "--url", broker_url,
-                                     "--user", env["ARTEMIS_USER"], "--password", env["ARTEMIS_PASSWORD"],
-                                     "--field", "ADDRESS", "--operation", "EQUALS", "--value",
-                                     "tracking.events.locationdataevent"], capture_output=True, text=True, timeout=15)
-            (base / f"{label}-subscription.log").write_text(result.stdout + result.stderr)
-            # CLI JSON is an external reporting boundary, not an application DTO.
-            if result.returncode == 0 and re.search(r'"consumerCount"\s*:\s*"?[1-9][0-9]*"?', result.stdout):
+            if predicate():
                 return
-            threading.Event().wait(0.5)
-        raise RuntimeError(f"No live location-event subscription; see {base}")
+            threading.Event().wait(0.2)
+        raise RuntimeError(f"Timed out waiting for {label}; see {base}")
+
+    def queue_snapshot(label: str) -> QueueSnapshot | None:
+        result = subprocess.run([str(artemis), "queue", "stat", "--json", "--silent", "--url", broker_url,
+                                 "--user", env["ARTEMIS_USER"], "--password", env["ARTEMIS_PASSWORD"],
+                                 "--field", "ADDRESS", "--operation", "EQUALS", "--value",
+                                 "tracking.telemetry.locations"], capture_output=True, text=True, timeout=15)
+        (base / f"{label}-queue.log").write_text(result.stdout + result.stderr)
+        if result.returncode != 0:
+            return None
+        # Validate the external CLI reporting boundary and retain only its typed contract.
+        report = json.loads(result.stdout)
+        for row in report["data"]:
+            if row["address"] == "tracking.telemetry.locations":
+                return QueueSnapshot(row["durable"] == "true", int(row["consumerCount"]), int(row["messageCount"]))
+        return None
+
+    def has_consumer() -> bool:
+        snapshot = queue_snapshot("consumer")
+        return snapshot is not None and snapshot.durable and snapshot.consumers > 0
+
+    def queue_retains_fixes() -> bool:
+        snapshot = queue_snapshot("retained")
+        return snapshot is not None and snapshot.durable and snapshot.consumers == 0 and snapshot.messages == 2
+
+    def packet(when: datetime, latitude: str) -> str:
+        return f"*HQ,8168000008,V1,{when:%H%M%S},A,{latitude},N,00006.0000,W,012.96,000,{when:%d%m%y},FBFBBFF,460,00,10342,4283,10,25,128#"
 
     try:
         with (base / "init.log").open("w") as output:
@@ -153,15 +192,29 @@ def main() -> None:
                             "--no-mqtt-acceptor", "--no-stomp-acceptor", "--no-hornetq-acceptor",
                             "--java-memory", "512M", str(base / "broker")], check=True,
                            stdout=output, stderr=subprocess.STDOUT)
+        # Apply only the checked-in telemetry policies to this owned broker instance.
+        config_path = base / "broker/etc/broker.xml"
+        config_text = config_path.read_text()
+        if config_text.count("</address-settings>") != 1:
+            raise RuntimeError("Owned broker has no address-settings section")
+        # Keep Artemis' original unprefixed core/bootstrap elements: its boot parser
+        # is sensitive to ElementTree's otherwise-equivalent ns0/ns1 rewriting.
+        XML.register_namespace("", "urn:activemq:core")
+        policies = "".join(XML.tostring(policy, encoding="unicode") for policy in
+                           XML.parse(root / "docs/telemetry-broker-address-settings.xml").getroot())
+        merged = config_text.replace("</address-settings>", policies + "</address-settings>")
+        XML.fromstring(merged)
+        config_path.write_text(merged)
         broker_command = [str(base / "broker/bin/artemis"), "run"]
         broker = start("broker", broker_command, "AMQ221007", env)
-        start("backend", ["java", "-Xmx384m", "-jar", str(jars[0]), "--spring.profiles.active=postgres",
+        backend_command = ["java", "-Xmx384m", "-jar", str(jars[0]), "--spring.profiles.active=postgres",
                           "--server.address=127.0.0.1", f"--server.port={java_port}",
                           f"--spring.data.redis.port={redis_port}", "--userauth.password.bcrypt-strength=4",
-                          "--tracking.alert-outbox.poll-delay-ms=3600000"], "Started TrackingEngineApplication", env)
+                          "--tracking.alert-outbox.poll-delay-ms=3600000"]
+        backend = start("backend", backend_command, "Started TrackingEngineApplication", env)
         origin = f"http://127.0.0.1:{java_port}"
 
-        def post(path: str, body: Registration | VehicleInput | TrackerInput, token: str | None = None) -> bytes:
+        def post(path: str, body: Registration | VehicleInput | TrackerInput | OverspeedRule, token: str | None = None) -> bytes:
             headers = {"content-type": "application/json"}
             if token:
                 headers["authorization"] = "Bearer " + token
@@ -179,32 +232,77 @@ def main() -> None:
             vehicle = "tracking-map-vehicle" if label == "owner" else "telemetry-foreign"
             post("/api/v1/vehicles", VehicleInput(vehicle, "LIVE MAP 01" if label == "owner" else "FOREIGN MAP"), account.access_token)
             post("/api/v1/trackers", TrackerInput("tracker-" + label, device, vehicle), account.access_token)
-        wait_for_intake_subscription("initial")
-        start("device", ["java", "-Xmx256m", "-jar", str(jars[1]), "--tracking.tcp.server.host=127.0.0.1",
-                         f"--tracking.tcp.server.port={tcp_port}"], "TCP Server started successfully", env)
-        # Stop only our broker. A failed publish must close TCP, save no location,
-        # and never be silently replayed under a newly generated event identity.
+            if label == "owner":
+                post("/alerts/rules/templates/overspeed", OverspeedRule(
+                    "durable-speed", "Durable telemetry speed", 10, [vehicle], True), account.access_token)
+        wait_until("initial durable intake consumer", has_consumer)
+        # Both backend and broker go offline. Capture must depend on neither.
+        stop(backend)
         stop(broker)
+        spool = base / "device-spool"
+        device_command = ["java", "-Xmx256m", "-jar", str(jars[1]), "--tracking.tcp.server.host=127.0.0.1",
+                          f"--tracking.tcp.server.port={tcp_port}", f"--tracking.telemetry.spool.directory={spool}"]
+        device = start("device-offline", device_command, "TCP Server started successfully", env)
         now = datetime.now(timezone.utc)
-        frame = f"*HQ,8168000008,V1,{now:%H%M%S},A,5130.0000,N,00006.0000,W,012.96,000,{now:%d%m%y},FBFBBFF,460,00,10342,4283,10,25,128#"
+        frame = packet(now, "5130.0000")
         with socket.create_connection(("127.0.0.1", tcp_port), timeout=20) as peer:
             peer.sendall(frame.encode("ascii"))
-            if peer.recv(1) != b"":
-                raise AssertionError("Failed publication did not close device connection")
+            wait_until("fsynced captured fix", lambda: len(list(spool.glob("*.json"))) == 1)
+        retained = next(spool.glob("*.json")).read_bytes()
+        device.kill()  # Abrupt gateway crash, not merely a graceful shutdown.
+        device.wait(timeout=20)
+        device = start("device-restarted", device_command, "TCP Server started successfully", env)
+        if next(spool.glob("*.json")).read_bytes() != retained:
+            raise AssertionError("Gateway restart changed the retained envelope")
+        with socket.create_connection(("127.0.0.1", tcp_port), timeout=20) as peer:
+            peer.sendall(frame.encode("ascii"))  # Device-like resend has a different capture UUID.
+            wait_until("second captured envelope", lambda: len(list(spool.glob("*.json"))) == 2)
         if sql("SELECT count(*) FROM tracker_location_data") != "0":
-            raise AssertionError("Failed publication unexpectedly saved a location")
-        start("broker-recovered", broker_command, "AMQ221007", env)
-        wait_for_intake_subscription("recovered")
+            raise AssertionError("Offline backend unexpectedly saved a location")
+        broker = start("broker-recovered", broker_command, "AMQ221007", env)
+        wait_until("durable broker retention without a consumer", queue_retains_fixes)
+        wait_until("confirmed captures removed from local spool", lambda: not list(spool.glob("*.json")))
+        # Now only the broker owns the messages. Its persistent journal must survive restart too.
+        stop(broker)
+        broker = start("broker-restarted", broker_command, "AMQ221007", env)
+        wait_until("journal-retained fixes", queue_retains_fixes)
         if sql("SELECT count(*) FROM tracker_location_data") != "0":
-            raise AssertionError("An unacknowledged failed packet was silently replayed")
-        print("PASS: broker outage closes TCP; recovered intake subscriber is active", flush=True)
+            raise AssertionError("Backend-offline fixes were not retained at the transport boundary")
+        backend = start("backend-recovered", backend_command, "Started TrackingEngineApplication", env)
+        wait_until("one deduplicated persisted fix", lambda: sql("SELECT count(*) FROM tracker_location_data") == "1")
+        wait_until("one persisted alert", lambda: sql("SELECT count(*) FROM tracker_alerts") == "1")
+        if sql("SELECT count(*) FROM telemetry_receipts") != "1":
+            raise AssertionError("Resent fix created duplicate receipts")
+        # Historical replay stays in history but cannot rewind the live position or emit old alerts.
+        with socket.create_connection(("127.0.0.1", tcp_port), timeout=20) as peer:
+            peer.sendall(packet(now - timedelta(hours=1), "5129.0000").encode("ascii"))
+        wait_until("retained historical fix", lambda: sql("SELECT count(*) FROM tracker_location_data") == "2")
+        if sql("SELECT l.latitude FROM vehicles v JOIN tracker_location_data l ON l.location_id=v.current_location_id WHERE v.vehicle_id='tracking-map-vehicle'") != "51.5":
+            raise AssertionError("Historical replay rewound current location")
+        if sql("SELECT count(*) FROM tracker_alerts") != "1":
+            raise AssertionError("Historical replay created an extra alert")
+        # An online consumer with an unavailable database must retain queued work too.
+        subprocess.run([str(args.pg_bin / "pg_ctl"), "-D", str(base / "pgdata"), "-m", "fast", "-w", "stop"], check=True)
+        pg_started = False
+        with socket.create_connection(("127.0.0.1", tcp_port), timeout=20) as peer:
+            peer.sendall(packet(datetime.now(timezone.utc), "5130.3000").encode("ascii"))
+        def queue_has_uncommitted_work() -> bool:
+            snapshot = queue_snapshot("database-outage")
+            return snapshot is not None and snapshot.durable and snapshot.messages >= 1
+        wait_until("queued work during database outage", queue_has_uncommitted_work)
+        subprocess.run([str(args.pg_bin / "pg_ctl"), "-D", str(base / "pgdata"), "-l", str(base / "postgres-recovered.log"),
+                        "-o", f"-h 127.0.0.1 -p {pg_port} -k {base}", "-w", "start"], check=True)
+        pg_started = True
+        wait_until("location after database recovery", lambda: sql("SELECT count(*) FROM tracker_location_data") == "3")
+        print("PASS: disk capture, abrupt gateway restart, backend/database outages, broker journal restart, deduplication and late-fix handling", flush=True)
         test_env = {**env, "TRACKING_TEST_JAVA_ORIGIN": origin, "TRACKING_TEST_EMAIL": "owner@telemetry-test.example",
                     "TRACKING_TEST_PASSWORD": "eight123", "TRACKING_TEST_POSTGRES_PORT": str(pg_port),
-                    "TRACKING_TEST_TCP_PORT": str(tcp_port)}
+                    "TRACKING_TEST_TCP_PORT": str(tcp_port), "TRACKING_TEST_DURABILITY": "true",
+                    "TRACKING_TEST_INITIAL_COORDINATES": "51.50500, -0.10000"}
         with (base / "browser.log").open("w") as output:
             subprocess.run(["pnpm", "exec", "playwright", "test", "--config", "playwright.tracking.config.ts"],
                            cwd=args.frontend, env=test_env, stdout=output, stderr=subprocess.STDOUT, check=True, timeout=180)
-        print("PASS: fresh TCP telemetry crosses recovered Artemis into persistence and browser refresh", flush=True)
+        print("PASS: recovered telemetry and duplicate-safe replay reach automatic browser refresh", flush=True)
     finally:
         for process in reversed(processes):
             stop(process)

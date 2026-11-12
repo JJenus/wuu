@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.Clock;
 import java.util.Optional;
 
 @Service
@@ -27,15 +28,19 @@ public class VehicleService {
     private final TrackerRepository trackerRepository;
     private final TripRepository tripRepository;
     private final TrackerLocationRepository locationRepository;
+    private final Clock clock;
+    @org.springframework.beans.factory.annotation.Value("${tracking.telemetry.max-future-skew-seconds:300}")
+    private int maxFutureSkewSeconds = 300;
 
     public VehicleService(VehicleRepository vehicleRepository,
                           TrackerRepository trackerRepository,
                           TripRepository tripRepository,
-                          TrackerLocationRepository locationRepository) {
+                          TrackerLocationRepository locationRepository, Clock clock) {
         this.vehicleRepository = vehicleRepository;
         this.trackerRepository = trackerRepository;
         this.tripRepository = tripRepository;
         this.locationRepository = locationRepository;
+        this.clock = clock;
     }
 
     @Transactional
@@ -118,7 +123,11 @@ public class VehicleService {
 
         TrackerLocation saved = locationRepository.save(location);
 
-        vehicle.updateLocation(saved);
+        if (!locationPoint.timestamp().isAfter(clock.instant().plusSeconds(maxFutureSkewSeconds))
+                && (vehicle.getCurrentLocation() == null || vehicle.getCurrentLocation().getRecordedAt() == null
+                || locationPoint.timestamp().isAfter(vehicle.getCurrentLocation().getRecordedAt()))) {
+            vehicle.updateLocation(saved);
+        }
         vehicleRepository.save(vehicle);
 
         logger.debug("Saved location for vehicle {}: lat={}, lon={}, speed={} km/h",

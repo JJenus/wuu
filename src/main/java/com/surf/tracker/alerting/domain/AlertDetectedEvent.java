@@ -10,7 +10,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
 
-public class AlertDetectedEvent extends DomainEvent {
+public class AlertDetectedEvent extends DomainEvent implements com.surf.tracker.shared.pubsub.DurableWorkEvent {
     private final String ruleKey;
     private final AlertType alertType;
     private final String vehicleId;

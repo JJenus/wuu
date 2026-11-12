@@ -19,10 +19,12 @@ public class AlertEventHandler {
         this.alertingEngine = alertingEngine;
     }
 
+    @org.springframework.jms.annotation.JmsListeners({
+    @JmsListener(destination = "tracking.work.vehicleupdatedevent", containerFactory = "queueJmsListenerContainerFactory", concurrency = "1"),
     @JmsListener(
             destination = "tracking.events.vehicleupdatedevent",
             containerFactory = "topicJmsListenerContainerFactory"
-    )
+    )})
     public void handleVehicleUpdate(@Payload VehicleUpdatedEvent event) {
         if (event.getOrganizationId() == null || event.getOrganizationId() <= 0) {
             throw new IllegalArgumentException("Vehicle update requires organization identity");

@@ -63,6 +63,8 @@ class CreateIsolationIntegrationTest {
     @Import({VehicleService.class, TrackerService.class})
     static class Config {
         @Bean
+        Clock clock() { return Clock.fixed(NOW, ZoneOffset.UTC); }
+        @Bean
         PersistenceManagedTypes persistenceManagedTypes() {
             return PersistenceManagedTypes.of(Vehicle.class.getName(), Tracker.class.getName(),
                     Trip.class.getName(), TrackerLocation.class.getName(),

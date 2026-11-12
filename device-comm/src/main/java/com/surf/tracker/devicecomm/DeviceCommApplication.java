@@ -19,8 +19,16 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 import java.time.Clock;
+import com.surf.tracker.devicecomm.application.DurableLocationPublisher;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Primary;
+import org.springframework.jms.core.JmsTemplate;
+import org.springframework.scheduling.annotation.EnableScheduling;
+import java.nio.file.Path;
 
 @SpringBootApplication
+@EnableScheduling
 @Import({RedisConnectionTracker.class, ArtemisEventPublisher.class})
 public class DeviceCommApplication {
 
@@ -31,6 +39,16 @@ public class DeviceCommApplication {
     @Bean
     public Clock clock() {
         return Clock.systemUTC();
+    }
+
+    @Bean
+    @Primary
+    public DurableLocationPublisher telemetryPublisher(ObjectMapper mapper,
+            @Qualifier("queueJmsTemplate") JmsTemplate queue, Clock clock,
+            @Value("${tracking.telemetry.spool.directory:./data/telemetry-spool}") String directory,
+            @Value("${tracking.telemetry.spool.max-files:10000}") int maxFiles,
+            @Value("${tracking.telemetry.spool.max-bytes:67108864}") long maxBytes) {
+        return new DurableLocationPublisher(Path.of(directory), mapper, queue, clock, maxFiles, maxBytes);
     }
 
     @Bean

@@ -23,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @ExtendWith(OutputCaptureExtension.class)
 class DeviceCommApplicationIntegrationTest {
+    @org.junit.jupiter.api.io.TempDir java.nio.file.Path spool;
 
     @Test
     void run_standaloneConfiguration_startsDeviceInfrastructureWithoutBusinessModules(CapturedOutput output) throws Exception {
@@ -31,6 +32,7 @@ class DeviceCommApplicationIntegrationTest {
 
         // when
         try (var context = application.run("--tracking.tcp.server.port=0",
+                "--tracking.telemetry.spool.directory=" + spool,
                 "--spring.main.keep-alive=false", "--tracking.tcp.autoseeker.timestamp-zone=Asia/Singapore")) {
             // then
             assertThat(context.getBean(DeviceDataProcessor.class)).isNotNull();
@@ -41,7 +43,9 @@ class DeviceCommApplicationIntegrationTest {
             assertThat(configuredParser.parse(packet).timestamp()).isEqualTo(java.time.Instant.parse("2015-07-09T20:36:02Z"));
             assertThat(context.getBean(DeviceCommandTransport.class)).isNotNull();
             assertThat(context.getBean(RedisConnectionTracker.class)).isNotNull();
-            assertThat(context.getBean(EventPublisher.class)).isInstanceOf(ArtemisEventPublisher.class);
+            assertThat(context.getBean(EventPublisher.class)).isInstanceOf(
+                    com.surf.tracker.devicecomm.application.DurableLocationPublisher.class);
+            assertThat(context.getBean(ArtemisEventPublisher.class)).isNotNull();
             assertThat(context.getBean(Clock.class).getZone()).isEqualTo(java.time.ZoneOffset.UTC);
             assertThat(context.containsBean("entityManagerFactory")).isFalse();
             assertThat(context.containsBean("dataSource")).isFalse();

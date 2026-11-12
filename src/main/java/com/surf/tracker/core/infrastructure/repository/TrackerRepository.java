@@ -17,7 +17,8 @@ import java.util.Optional;
 @Repository
 public interface TrackerRepository extends JpaRepository<Tracker, String> {
     // Trusted device-ingress ownership lookup; HTTP paths must keep organization filters.
-    @Query("SELECT t FROM Tracker t LEFT JOIN FETCH t.vehicle WHERE t.deviceId = :deviceId")
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT t FROM Tracker t JOIN FETCH t.vehicle WHERE t.deviceId = :deviceId")
     Optional<Tracker> findForTelemetryByDeviceId(@Param("deviceId") String deviceId);
     
     @Query("SELECT t FROM Tracker t WHERE t.deviceId = :deviceId AND t.vehicle.organizationId = :organizationId")

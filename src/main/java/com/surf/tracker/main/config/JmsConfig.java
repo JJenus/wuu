@@ -59,6 +59,8 @@ public class JmsConfig {
     ) {
         JmsTemplate template = new JmsTemplate(connectionFactory);
         template.setPubSubDomain(false);
+        template.setSessionTransacted(true);
+        template.setExplicitQosEnabled(true);
         template.setMessageConverter(messageConverter);
         template.setDeliveryPersistent(true);
         return template;
@@ -74,6 +76,7 @@ public class JmsConfig {
 
         configurer.configure(factory, connectionFactory);
         factory.setPubSubDomain(false);
+        factory.setSessionTransacted(true);
         factory.setConcurrency("1-3");
 
         factory.setErrorHandler(t ->

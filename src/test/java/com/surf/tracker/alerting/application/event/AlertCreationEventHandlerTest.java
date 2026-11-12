@@ -114,13 +114,14 @@ class AlertCreationEventHandlerTest {
         assertThat(TenantContext.getCurrentUserId()).isEqualTo(88L);
     }
 
-    @Test
-    void listeners_vehicleUpdate_hasExactlyOneEvaluationConsumer() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"tracking.events.vehicleupdatedevent", "tracking.work.vehicleupdatedevent"})
+    void listeners_vehicleUpdate_hasExactlyOneEvaluationConsumer(String destination) {
         // when
         long consumers = Stream.of(AlertEventHandler.class, AlertCreationEventHandler.class)
             .flatMap(type -> Arrays.stream(type.getDeclaredMethods()))
-            .map(method -> method.getAnnotation(org.springframework.jms.annotation.JmsListener.class))
-            .filter(annotation -> annotation != null && annotation.destination().equals("tracking.events.vehicleupdatedevent"))
+            .flatMap(method -> Arrays.stream(method.getAnnotationsByType(org.springframework.jms.annotation.JmsListener.class)))
+            .filter(annotation -> annotation.destination().equals(destination))
             .count();
         // then
         assertThat(consumers).isEqualTo(1);

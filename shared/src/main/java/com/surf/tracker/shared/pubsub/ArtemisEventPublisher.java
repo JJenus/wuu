@@ -13,16 +13,21 @@ public class ArtemisEventPublisher implements EventPublisher {
 
     private final JmsTemplate jmsTemplate;
     private final ObjectMapper objectMapper;
+    private final JmsTemplate queueTemplate;
 
-    public ArtemisEventPublisher(@Qualifier("topicJmsTemplate") JmsTemplate jmsTemplate, ObjectMapper objectMapper) {
+    public ArtemisEventPublisher(@Qualifier("topicJmsTemplate") JmsTemplate jmsTemplate,
+                                 @Qualifier("queueJmsTemplate") JmsTemplate queueTemplate, ObjectMapper objectMapper) {
         this.jmsTemplate = jmsTemplate;
         this.objectMapper = objectMapper;
+        this.queueTemplate = queueTemplate;
     }
 
     @Override
     public void publish(DomainEvent event) {
         try {
-            String destination = "tracking.events." + event.getClass().getSimpleName().toLowerCase();
+            boolean durableWork = event instanceof DurableWorkEvent;
+            String destination = (durableWork ? "tracking.work." : "tracking.events.")
+                    + event.getClass().getSimpleName().toLowerCase(java.util.Locale.ROOT);
 
             logger.info("🟢 PUBLISHING to destination: {}", destination);
             logger.info("🟢 Event class: {}", event.getClass().getName());
@@ -31,7 +36,7 @@ public class ArtemisEventPublisher implements EventPublisher {
             String json = null;
             try {
                 json = objectMapper.writeValueAsString(event);
-                logger.info("🟢 JSON: {}", json);
+                logger.debug("Event envelope serialized successfully");
             } catch (Exception e) {
                 logger.error("🔴 FAILED to serialize event to JSON", e);
                 logger.error("🔴 Event details: {}", event);
@@ -39,7 +44,7 @@ public class ArtemisEventPublisher implements EventPublisher {
             }
 
             // Publish
-            jmsTemplate.convertAndSend(destination, event);
+            (durableWork ? queueTemplate : jmsTemplate).convertAndSend(destination, event);
             logger.info("🟢✅ Published event {} to {}", event.getEventId(), destination);
 
         } catch (Exception e) {

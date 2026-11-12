@@ -36,6 +36,7 @@ class VehicleEventHandlerTest {
     @Mock EventPublisher publisher;
     @Mock VehicleActivityTracker activityTracker;
     @Mock MetricsRegistry metrics;
+    @Mock TelemetryReceiptStore receipts;
     @org.mockito.Spy Clock clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC);
     @InjectMocks VehicleEventHandler handler;
 
@@ -56,8 +57,8 @@ class VehicleEventHandlerTest {
         // when
         handler.handleLocationUpdate(event);
         // then
-        verify(publisher).publish(argThat(e -> e instanceof VehicleUpdatedEvent update
-                && update.getOrganizationId().equals(11L) && update.getVehicleId().equals("vehicle-1")));
+        verify(receipts).record(anyString(), eq(11L), eq("vehicle-1"), eq(event), argThat(update ->
+                update.getOrganizationId().equals(11L) && update.getVehicleId().equals("vehicle-1")));
         assertThat(TenantContext.getCurrentOrgId()).isNull();
         verify(vehicleService, never()).findVehicleIdForDevice(any());
     }
@@ -88,13 +89,13 @@ class VehicleEventHandlerTest {
     }
 
     @Test
-    void handleLocationUpdate_publicationIllegalState_propagatesForBrokerRedelivery() {
+    void handleLocationUpdate_receiptStorageIllegalState_propagatesForBrokerRedelivery() {
         // given
         TenantContext.setCurrentOrgId(99L);
         TenantContext.setCurrentUserId(88L);
         when(trackerRepository.findForTelemetryByDeviceId("device-1")).thenReturn(Optional.of(assignedTracker()));
         var failure = new IllegalStateException("publisher unavailable");
-        doThrow(failure).when(publisher).publish(any());
+        doThrow(failure).when(receipts).record(anyString(), anyLong(), anyString(), any(), any());
         // when / then
         assertThatThrownBy(() -> handler.handleLocationUpdate(event())).isSameAs(failure);
         assertThat(TenantContext.getCurrentOrgId()).isEqualTo(99L);
@@ -113,7 +114,7 @@ class VehicleEventHandlerTest {
         handler.handleLocationUpdate(source);
         // then
         var updates = org.mockito.ArgumentCaptor.forClass(VehicleUpdatedEvent.class);
-        verify(publisher, times(2)).publish(updates.capture());
+        verify(receipts, times(2)).record(anyString(), anyLong(), anyString(), any(), updates.capture());
         assertThat(updates.getAllValues().get(1)).usingRecursiveComparison().isEqualTo(updates.getAllValues().getFirst());
         assertThat(updates.getValue().getOccurredOn()).isEqualTo(source.getOccurredOn());
     }
@@ -165,7 +166,7 @@ class VehicleEventHandlerTest {
         handler.handleLocationUpdate(second);
         // then
         var updates = org.mockito.ArgumentCaptor.forClass(VehicleUpdatedEvent.class);
-        verify(publisher, times(2)).publish(updates.capture());
+        verify(receipts, times(2)).record(anyString(), anyLong(), anyString(), any(), updates.capture());
         assertThat(updates.getAllValues()).extracting(VehicleUpdatedEvent::getEventId).doesNotHaveDuplicates();
     }
 
@@ -175,7 +176,7 @@ class VehicleEventHandlerTest {
         handler.handleLocationUpdate(event());
         handler.handleLocationUpdate(event());
         var updates = org.mockito.ArgumentCaptor.forClass(VehicleUpdatedEvent.class);
-        verify(publisher, times(2)).publish(updates.capture());
+        verify(receipts, times(2)).record(anyString(), anyLong(), anyString(), any(), updates.capture());
         assertThat(updates.getAllValues().get(1).getEventId()).isEqualTo(updates.getAllValues().getFirst().getEventId());
     }
 

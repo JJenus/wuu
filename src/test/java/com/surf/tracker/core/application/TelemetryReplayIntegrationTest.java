@@ -46,7 +46,7 @@ class TelemetryReplayIntegrationTest {
     @Autowired PlatformTransactionManager transactions;
     @Autowired VehicleEventHandler handler;
     @Autowired JdbcTemplate jdbc;
-    @Autowired TelemetryReceiptStore receipts;
+    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean TelemetryReceiptStore receipts;
     @MockitoBean EventPublisher publisher;
     @MockitoBean VehicleActivityTracker activity;
     private static final AtomicInteger IDS = new AtomicInteger();
@@ -104,6 +104,22 @@ class TelemetryReplayIntegrationTest {
         assertThat(locationCount(device)).isEqualTo(1);
         assertThat(jdbc.queryForObject("select count(*) from telemetry_receipts where device_id=? and update_payload is not null "
                 + "and published_at is null", Integer.class, device)).isEqualTo(1);
+    }
+
+    @Test
+    void receive_receiptStorageFailure_rollsBackLocationAndAllowsRetry() {
+        String device = assignedDevice();
+        doThrow(new org.springframework.dao.DataAccessResourceFailureException("test receipt storage unavailable"))
+                .doCallRealMethod().when(receipts).record(anyString(), anyLong(), anyString(), any(), any());
+        var source = event(device, 0, 51.5);
+        assertThatThrownBy(() -> handler.handleLocationUpdate(source))
+                .isInstanceOf(org.springframework.dao.DataAccessResourceFailureException.class);
+        assertThat(locationCount(device)).isZero();
+        handler.handleLocationUpdate(source);
+        handler.handleLocationUpdate(source);
+        receipts.relayPending();
+        assertThat(locationCount(device)).isEqualTo(1);
+        verify(publisher, times(1)).publish(any());
     }
 
     @Test

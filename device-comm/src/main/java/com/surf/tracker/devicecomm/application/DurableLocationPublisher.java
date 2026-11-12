@@ -46,7 +46,11 @@ public final class DurableLocationPublisher implements EventPublisher, AutoClose
     public DurableLocationPublisher(Path directory, ObjectMapper mapper, JmsTemplate queue,
                                     Clock clock, int maxFiles, long maxBytes) {
         this.directory = directory.toAbsolutePath().normalize();
-        this.mapper = mapper;
+        this.mapper = mapper.copy()
+                .enable(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_MISSING_CREATOR_PROPERTIES)
+                .enable(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_NULL_CREATOR_PROPERTIES)
+                .enable(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES)
+                .enable(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
         this.queue = queue;
         this.clock = clock;
         this.maxFiles = maxFiles;
@@ -147,9 +151,17 @@ public final class DurableLocationPublisher implements EventPublisher, AutoClose
     public int pendingCount() { synchronized (stateLock) { return pending.size(); } }
 
     private PendingLocation read(Path path) throws IOException {
-        PendingLocation record = mapper.readValue(Files.readAllBytes(path), PendingLocation.class);
+        var payload = ByteBuffer.allocate(32769);
+        try (var channel = FileChannel.open(path, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
+            if (channel.size() > 32768) throw new IOException("Oversized retained telemetry record");
+            while (payload.hasRemaining() && channel.read(payload) != -1) { }
+        }
+        if (payload.position() > 32768) throw new IOException("Oversized retained telemetry record");
+        PendingLocation record = mapper.readValue(payload.array(), 0, payload.position(), PendingLocation.class);
         try { record.validate(); }
         catch (RuntimeException malformed) { throw new IOException("Invalid retained telemetry record", malformed); }
+        if (!path.getFileName().toString().endsWith("-" + record.eventId() + ".json"))
+            throw new IOException("Retained telemetry envelope and filename disagree");
         return record;
     }
 
@@ -181,7 +193,7 @@ public final class DurableLocationPublisher implements EventPublisher, AutoClose
                     || protocol == null || protocol.isBlank() || protocol.length() > 50
                     || location == null || !location.toLocation().isValid()
                     || !Float.isFinite(location.speedKmh())) throw new IllegalArgumentException("Invalid location capture");
-            UUID.fromString(eventId);
+            if (!UUID.fromString(eventId).toString().equals(eventId)) throw new IllegalArgumentException("Noncanonical capture UUID");
         }
         LocationDataEvent toEvent() {
             return new LocationDataEvent(Clock.fixed(occurredOn, java.time.ZoneOffset.UTC), UUID.fromString(eventId),

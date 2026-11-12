@@ -68,10 +68,74 @@ class DurableLocationPublisherTest {
 
     @Test
     void start_corruptRecord_failsClosedAndPreservesEvidence() throws Exception {
-        var corrupt = directory.resolve("00000000000000000001-broken.json");
+        var corrupt = directory.resolve("00000000000000000001-00000000-0000-0000-0000-000000000001.json");
         Files.writeString(corrupt, "truncated record");
         assertThatThrownBy(() -> spool(mock(JmsTemplate.class), 10)).isInstanceOf(IllegalStateException.class);
         assertThat(Files.readString(corrupt)).isEqualTo("truncated record");
+    }
+
+    @Test
+    void start_uncommittedTemporaryFile_stopsForRecoveryWithoutDeletingIt() throws Exception {
+        var incomplete = directory.resolve("interrupted.tmp");
+        Files.writeString(incomplete, "partial capture");
+        assertThatThrownBy(() -> spool(mock(JmsTemplate.class), 10)).isInstanceOf(IllegalStateException.class);
+        assertThat(incomplete).exists();
+    }
+
+    @Test
+    void relay_corruptionAfterStartup_retainsRecordAndFailsFurtherCaptureClosed() throws Exception {
+        var queue = mock(JmsTemplate.class);
+        try (var spool = spool(queue, 10)) {
+            spool.publish(event("00000000-0000-0000-0000-000000000001"));
+            Path retained;
+            try (var files = Files.list(directory)) {
+                retained = files.filter(file -> file.toString().endsWith(".json")).findFirst().orElseThrow();
+            }
+            Files.writeString(retained, "{}");
+            spool.relayPending();
+            verifyNoInteractions(queue);
+            assertThat(retained).exists();
+            assertThatThrownBy(() -> spool.publish(event("00000000-0000-0000-0000-000000000002")))
+                    .isInstanceOf(com.surf.tracker.shared.exception.InfrastructureException.class);
+        }
+    }
+
+    @Test
+    void publish_byteCapacityReached_doesNotEvictEarlierRecords() throws Exception {
+        try (var spool = new DurableLocationPublisher(directory, mapper, mock(JmsTemplate.class), clock, 100, 1024)) {
+            int accepted = 0;
+            for (int index = 0; index < 100; index++) {
+                var next = event(new UUID(0, index + 1).toString());
+                try { spool.publish(next); accepted++; }
+                catch (com.surf.tracker.shared.exception.InfrastructureException full) { break; }
+            }
+            assertThat(accepted).isBetween(1, 99);
+            assertThat(spool.pendingCount()).isEqualTo(accepted);
+        }
+    }
+
+    @Test
+    void publish_slowRelay_doesNotBlockDurableCaptureOfLaterPacket() throws Exception {
+        var queue = mock(JmsTemplate.class);
+        var entered = new java.util.concurrent.CountDownLatch(1);
+        var release = new java.util.concurrent.CountDownLatch(1);
+        doAnswer(invocation -> {
+            entered.countDown();
+            if (!release.await(5, java.util.concurrent.TimeUnit.SECONDS)) throw new IllegalStateException("Test relay timed out");
+            return null;
+        }).when(queue).convertAndSend(anyString(), any(LocationDataEvent.class));
+        try (var spool = spool(queue, 10); var workers = java.util.concurrent.Executors.newFixedThreadPool(2)) {
+            spool.publish(event("00000000-0000-0000-0000-000000000001"));
+            var relay = workers.submit(spool::relayPending);
+            try {
+                assertThat(entered.await(5, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+                workers.submit(() -> spool.publish(event("00000000-0000-0000-0000-000000000002")))
+                        .get(2, java.util.concurrent.TimeUnit.SECONDS);
+                assertThat(spool.pendingCount()).isEqualTo(2);
+            } finally { release.countDown(); }
+            relay.get(5, java.util.concurrent.TimeUnit.SECONDS);
+            assertThat(spool.pendingCount()).isZero();
+        }
     }
 
     @Test

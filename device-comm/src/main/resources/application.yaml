@@ -20,11 +20,19 @@ spring:
     password: ${ARTEMIS_PASSWORD:admin}
 
 tracking:
+  telemetry:
+    spool:
+      # A dedicated persistent, private filesystem volume is required in production.
+      directory: ${TELEMETRY_SPOOL_DIRECTORY:./data/telemetry-spool}
+      max-files: ${TELEMETRY_SPOOL_MAX_FILES:10000}
+      max-bytes: ${TELEMETRY_SPOOL_MAX_BYTES:67108864}
+      poll-delay-ms: ${TELEMETRY_SPOOL_POLL_DELAY_MS:1000}
   tcp:
     server:
       host: ${TCP_HOST:0.0.0.0}
       port: ${TCP_PORT:8888}
       message-delimiter: "#"
+      max-pending-frames: ${TCP_MAX_PENDING_FRAMES:256}
       worker-threads: 4
       # Raw frames contain device IDs and coordinates; keep tracing off by default.
       wiretap-enabled: ${TCP_WIRETAP_ENABLED:false}

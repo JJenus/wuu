@@ -1,0 +1,25 @@
+<!-- Merge these entries into broker.xml's existing address-settings. Do not replace unrelated policies. -->
+<address-settings xmlns="urn:activemq:core">
+  <address-setting match="tracking.telemetry.locations">
+    <redelivery-delay>1000</redelivery-delay>
+    <redelivery-delay-multiplier>2.0</redelivery-delay-multiplier>
+    <max-redelivery-delay>60000</max-redelivery-delay>
+    <max-delivery-attempts>-1</max-delivery-attempts>
+    <auto-create-queues>true</auto-create-queues>
+    <auto-create-addresses>true</auto-create-addresses>
+    <auto-delete-queues>false</auto-delete-queues>
+    <auto-delete-addresses>false</auto-delete-addresses>
+    <address-full-policy>PAGE</address-full-policy>
+  </address-setting>
+  <address-setting match="tracking.work.#">
+    <redelivery-delay>1000</redelivery-delay>
+    <redelivery-delay-multiplier>2.0</redelivery-delay-multiplier>
+    <max-redelivery-delay>60000</max-redelivery-delay>
+    <max-delivery-attempts>-1</max-delivery-attempts>
+    <auto-create-queues>true</auto-create-queues>
+    <auto-create-addresses>true</auto-create-addresses>
+    <auto-delete-queues>false</auto-delete-queues>
+    <auto-delete-addresses>false</auto-delete-addresses>
+    <address-full-policy>PAGE</address-full-policy>
+  </address-setting>
+</address-settings>

@@ -69,6 +69,8 @@ Thumbs.db
 *.gcno
 
 # ===== Temp / Misc =====
+/data/telemetry-spool/
+/device-comm/data/telemetry-spool/
 tmp/
 temp/
 *.swp
