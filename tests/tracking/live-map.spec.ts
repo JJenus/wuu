@@ -8,6 +8,45 @@ async function signIn(page: Page) {
   await expect(page).toHaveURL('/map')
 }
 
+test('recorded replay shows exact fixes, gaps, empty history and retryable failures', async ({ page }) => {
+  const start = '2026-11-12T12:00:00Z'
+  const end = '2026-11-12T12:10:00Z'
+  const trip = { trip_id: 'recorded', vehicle_id: 'live-1', start_time: start, end_time: end, is_active: false }
+  let state: 'ready' | 'empty' | 'denied' = 'ready'
+  await page.route('**/api/_wuu/vehicles?*', route => route.fulfill({ json: snapshot() }))
+  await page.route('**/api/_wuu/trips?*', route => route.fulfill({ json: { content: [trip], last: true, empty: false } }))
+  await page.route('**/api/_wuu/trips/recorded', route => route.fulfill({ json: trip }))
+  await page.route('**/api/_wuu/trips/recorded/history', route => route.fulfill(state === 'denied'
+    ? { status: 403, json: { message: 'History access revoked' } }
+    : { json: { tripId: 'recorded', vehicleId: 'live-1', source: 'VEHICLE_TIME_WINDOW', windowStart: start, windowEnd: end, truncated: false,
+      points: state === 'empty' ? [] : [
+        { locationId: 1, recordedAt: start, latitude: 51.5, longitude: -0.1, speedKmh: 42 },
+        { locationId: 2, recordedAt: end, latitude: 51.51, longitude: -0.1, speedKmh: null },
+      ],
+    } }))
+  await signIn(page)
+  await page.goto('/trips/recorded')
+  const replay = page.getByRole('region', { name: 'Recorded GPS replay' })
+  await expect(replay).toContainText('Vehicle fixes within the trip time window')
+  await expect(replay).toContainText('51.50000, -0.10000')
+  await expect(replay).toContainText('42 km/h')
+  await expect(replay).not.toContainText('Simulated')
+  const slider = replay.getByRole('slider', { name: 'Recorded replay timeline' })
+  await slider.fill('300')
+  await expect(replay).toContainText('Recording gap')
+  await expect(replay.locator('.geo-vehicle-marker')).toHaveCount(0)
+  await slider.fill('600')
+  await expect(replay).toContainText('51.51000, -0.10000')
+  await expect(replay).toContainText('Speed not recorded')
+  state = 'denied'
+  await replay.getByRole('button', { name: 'Refresh history' }).click()
+  await expect(replay).toContainText('History access revoked')
+  await expect(replay.getByRole('slider')).toHaveCount(0)
+  state = 'empty'
+  await replay.getByRole('button', { name: 'Refresh history' }).click()
+  await expect(replay).toContainText('No recorded GPS fixes in this time window')
+})
+
 function snapshot(latitude = 51.5, speed = 24, recordedAt = new Date().toISOString()) {
   return {
     content: [
