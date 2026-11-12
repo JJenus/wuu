@@ -20,7 +20,8 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI().substring(request.getContextPath().length());
-        return !"POST".equals(request.getMethod()) || !path.startsWith("/api/v1/auth/");
+        return !"POST".equals(request.getMethod())
+            || !path.startsWith(com.surf.tracker.main.api.ApiVersionConfig.V1 + "/auth/");
     }
 
     @Override

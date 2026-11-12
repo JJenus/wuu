@@ -42,7 +42,7 @@ class VehicleControllerTest {
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(new VehicleController(vehicleQueryService, vehicleService)).build();
+        mockMvc = com.surf.tracker.main.api.ApiMockMvc.standaloneSetup(new VehicleController(vehicleQueryService, vehicleService)).build();
     }
 
     private Vehicle aVehicle() {

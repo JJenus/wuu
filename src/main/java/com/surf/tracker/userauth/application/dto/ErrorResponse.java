@@ -3,10 +3,12 @@ package com.surf.tracker.userauth.application.dto;
 import java.time.Instant;
 import java.util.Map;
 
+@io.swagger.v3.oas.annotations.media.Schema(description = "MVC service/validation error. Security filters may instead return only code. timestamp currently defaults to the epoch; it is not a reliable occurrence time.")
 public class ErrorResponse {
     private String code;
     private String message;
     private Instant timestamp = Instant.EPOCH;
+    @io.swagger.v3.oas.annotations.media.Schema(description = "Optional validation messages keyed by the rejected Java field name; this is a dynamic field-error boundary.")
     private Map<String, String> fieldErrors;
 
     public ErrorResponse() {}

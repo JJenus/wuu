@@ -43,7 +43,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class SecurityBoundaryIntegrationTest {
     @org.springframework.boot.test.context.TestConfiguration
     @EnableWebMvc
-    @Import({SecurityConfig.class, JwtAuthFilter.class, AuthIdentityService.class,
+    @Import({com.surf.tracker.main.api.ApiVersionConfig.class, SecurityConfig.class, JwtAuthFilter.class, AuthIdentityService.class,
         AuthController.class, UserController.class, OrganizationController.class, AuthRateLimitFilter.class,
         AlertController.class})
     static class Config {
@@ -94,7 +94,7 @@ class SecurityBoundaryIntegrationTest {
     @Test void acknowledgeAlert_forgedActor_usesAuthenticatedUserId() throws Exception {
         user.getRoles().iterator().next().addPermission(Permission.of("alerts.write", "write alerts"));
         when(alerts.acknowledgeAlert(eq(91L), any())).thenReturn(new AlertResponse());
-        mvc.perform(post("/alerts/91/acknowledge").header("Authorization", "Bearer " + token())
+        mvc.perform(post("/api/v1/alerts/91/acknowledge").header("Authorization", "Bearer " + token())
             .contentType("application/json").content("{\"acknowledgedBy\":\"forged administrator\"}"))
             .andExpect(status().isOk());
         verify(alerts).acknowledgeAlert(eq(91L), argThat(request -> "1".equals(request.getAcknowledgedBy())));
@@ -103,7 +103,7 @@ class SecurityBoundaryIntegrationTest {
     @Test void resolveAlert_forgedActor_usesAuthenticatedUserIdAndPreservesNotes() throws Exception {
         user.getRoles().iterator().next().addPermission(Permission.of("alerts.write", "write alerts"));
         when(alerts.resolveAlert(eq(91L), any())).thenReturn(new AlertResponse());
-        mvc.perform(post("/alerts/91/resolve").header("Authorization", "Bearer " + token())
+        mvc.perform(post("/api/v1/alerts/91/resolve").header("Authorization", "Bearer " + token())
             .contentType("application/json").content("{\"resolvedBy\":\"forged administrator\",\"resolutionNotes\":\"Reviewed and confirmed safe\"}"))
             .andExpect(status().isOk());
         verify(alerts).resolveAlert(eq(91L), argThat(request -> "1".equals(request.getResolvedBy())
@@ -112,10 +112,10 @@ class SecurityBoundaryIntegrationTest {
 
     @Test void alertTransitions_omittedActor_deriveIdentityWithoutClientSelection() throws Exception {
         user.getRoles().iterator().next().addPermission(Permission.of("alerts.write", "write alerts"));
-        mvc.perform(post("/alerts/91/acknowledge").header("Authorization", "Bearer " + token())
+        mvc.perform(post("/api/v1/alerts/91/acknowledge").header("Authorization", "Bearer " + token())
             .contentType("application/json").content("{}"))
             .andExpect(status().isOk());
-        mvc.perform(post("/alerts/91/resolve").header("Authorization", "Bearer " + token())
+        mvc.perform(post("/api/v1/alerts/91/resolve").header("Authorization", "Bearer " + token())
             .contentType("application/json").content("{\"resolutionNotes\":\"Reviewed and confirmed safe\"}"))
             .andExpect(status().isOk());
         verify(alerts).acknowledgeAlert(eq(91L), argThat(request -> "1".equals(request.getAcknowledgedBy())));
@@ -124,10 +124,10 @@ class SecurityBoundaryIntegrationTest {
 
     @Test void bulkAlertTransitions_forgedOrMissingActor_deriveAuthenticatedIdentity() throws Exception {
         user.getRoles().iterator().next().addPermission(Permission.of("alerts.write", "write alerts"));
-        mvc.perform(post("/alerts/bulk/acknowledge").param("acknowledgedBy", "forged administrator")
+        mvc.perform(post("/api/v1/alerts/bulk/acknowledge").param("acknowledgedBy", "forged administrator")
             .header("Authorization", "Bearer " + token()).contentType("application/json").content("[91,92]"))
             .andExpect(status().isOk());
-        mvc.perform(post("/alerts/bulk/resolve").param("resolutionNotes", "Reviewed and confirmed safe")
+        mvc.perform(post("/api/v1/alerts/bulk/resolve").param("resolutionNotes", "Reviewed and confirmed safe")
             .header("Authorization", "Bearer " + token()).contentType("application/json").content("[91,92]"))
             .andExpect(status().isOk());
         verify(alerts).bulkAcknowledgeAlerts(List.of(91L, 92L), "1");
@@ -135,7 +135,7 @@ class SecurityBoundaryIntegrationTest {
     }
 
     @Test void alertTransitions_withoutDatabasePermissionOrAuthentication_remainDenied() throws Exception {
-        for (String path : List.of("/alerts/91/acknowledge", "/alerts/91/resolve", "/alerts/bulk/acknowledge", "/alerts/bulk/resolve")) {
+        for (String path : List.of("/api/v1/alerts/91/acknowledge", "/api/v1/alerts/91/resolve", "/api/v1/alerts/bulk/acknowledge", "/api/v1/alerts/bulk/resolve")) {
             mvc.perform(post(path).header("Authorization", "Bearer " + token())
                 .contentType("application/json").content("{}"))
                 .andExpect(status().isForbidden());
@@ -147,7 +147,7 @@ class SecurityBoundaryIntegrationTest {
 
     @Test void resolveAlert_shortNotes_stillRejectedBeforeMutation() throws Exception {
         user.getRoles().iterator().next().addPermission(Permission.of("alerts.write", "write alerts"));
-        mvc.perform(post("/alerts/91/resolve").header("Authorization", "Bearer " + token())
+        mvc.perform(post("/api/v1/alerts/91/resolve").header("Authorization", "Bearer " + token())
             .contentType("application/json").content("{\"resolvedBy\":\"1\",\"resolutionNotes\":\"short\"}"))
             .andExpect(status().isBadRequest());
         verifyNoInteractions(alerts);
@@ -244,7 +244,7 @@ class SecurityBoundaryIntegrationTest {
     }
 
     @Test void request_internalSurfaces_areDenied() throws Exception {
-        for (String path : List.of("/h2-console/", "/actuator/metrics", "/api/notifications/webhooks/email/test")) {
+        for (String path : List.of("/h2-console/", "/actuator/metrics", "/api/v1/notifications/webhooks/email/test")) {
             mvc.perform(get(path).header("Authorization", "Bearer " + token()))
                 .andExpect(status().isForbidden());
         }
@@ -252,7 +252,7 @@ class SecurityBoundaryIntegrationTest {
 
     @Test void request_tenantWithoutPermission_cannotWriteAnyBusinessSurface() throws Exception {
         for (String path : List.of("/api/v1/vehicles", "/api/v1/trackers", "/api/v1/commands",
-                "/alerts/rules", "/alerts/geofences", "/alerts/cleanup", "/api/notifications/templates")) {
+                "/api/v1/alerts/rules", "/api/v1/alerts/geofences", "/api/v1/alerts/cleanup", "/api/v1/notifications/templates")) {
             mvc.perform(post(path).header("Authorization", "Bearer " + token()).contentType("application/json").content("{}"))
                 .andExpect(status().isForbidden());
         }

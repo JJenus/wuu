@@ -44,7 +44,7 @@ class TrackerControllerTest {
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(new TrackerController(trackerService, clock)).build();
+        mockMvc = com.surf.tracker.main.api.ApiMockMvc.standaloneSetup(new TrackerController(trackerService, clock)).build();
     }
 
     private Tracker aTracker() {

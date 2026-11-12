@@ -99,9 +99,9 @@ class AlertRuleLifecycleIT {
         // Deliberately bound wall-clock time: this verifies the real production clock wiring.
         Instant before = Instant.now().minusSeconds(1);
         String path = switch (kind) {
-            case "custom" -> "/alerts/rules";
-            case "batch" -> "/alerts/rules/batch";
-            default -> "/alerts/rules/templates/" + kind;
+            case "custom" -> "/api/v1/alerts/rules";
+            case "batch" -> "/api/v1/alerts/rules/batch";
+            default -> "/api/v1/alerts/rules/templates/" + kind;
         };
 
         // when
@@ -116,7 +116,7 @@ class AlertRuleLifecycleIT {
         Instant createdAt = jdbc.queryForObject("select created_at from alert_rules where rule_key = ?",
                 java.sql.Timestamp.class, key).toInstant();
         softly.assertThat(createdAt).isBetween(before, Instant.now().plusSeconds(1));
-        softly.assertThat(Instant.parse((String) read(owner, "/alerts/rules/" + key).get("created_at")))
+        softly.assertThat(Instant.parse((String) read(owner, "/api/v1/alerts/rules/" + key).get("created_at")))
                 .isCloseTo(createdAt, within(1, java.time.temporal.ChronoUnit.MILLIS));
         softly.assertAll();
     }
@@ -128,12 +128,12 @@ class AlertRuleLifecycleIT {
         Map me = read(owner, "/api/v1/users/me");
         HttpHeaders editor = memberHeaders(((Number) me.get("id")).longValue());
         String key = "update-rule-" + IDS.incrementAndGet();
-        assertThat(request(owner, HttpMethod.POST, "/alerts/rules",
+        assertThat(request(owner, HttpMethod.POST, "/api/v1/alerts/rules",
                 ruleRequest("custom", key, createVehicle(owner), owner)).getStatusCode()).isEqualTo(HttpStatus.CREATED);
         Map before = jdbc.queryForMap("select created_by, created_at from alert_rules where rule_key = ?", key);
 
         // when
-        ResponseEntity<Map> updated = request(editor, HttpMethod.PUT, "/alerts/rules/" + key,
+        ResponseEntity<Map> updated = request(editor, HttpMethod.PUT, "/api/v1/alerts/rules/" + key,
                 Map.of("rule_name", "Edited rule", "created_by", "spoofed editor", "created_at", "1970-01-01T00:00:00Z"));
 
         // then
@@ -157,7 +157,7 @@ class AlertRuleLifecycleIT {
             case "overspeed" -> data.put("speed_limit", 80);
             case "idle-timeout" -> data.put("max_idle_minutes", 10);
             case "geofence" -> {
-                ResponseEntity<Map> zone = request(owner, HttpMethod.POST, "/alerts/geofences",
+                ResponseEntity<Map> zone = request(owner, HttpMethod.POST, "/api/v1/alerts/geofences",
                         Map.of("vehicle_id", vehicle, "name", "Actor zone", "shape_type", "CIRCLE",
                                 "center_latitude", 51.5, "center_longitude", -0.12, "radius_meters", 100));
                 assertThat(zone.getStatusCode()).isEqualTo(HttpStatus.CREATED);

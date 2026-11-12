@@ -1,10 +1,13 @@
 package com.surf.tracker.alerting.api;
 
+import com.surf.tracker.main.api.ApiV1;
+
 import com.surf.tracker.alerting.api.dto.*;
 import com.surf.tracker.alerting.application.service.AlertService;
 import com.surf.tracker.alerting.domain.enums.AlertSeverity;
 import com.surf.tracker.alerting.domain.enums.AlertType;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -22,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
+@ApiV1
 @RequestMapping("/alerts")
 @Tag(name = "Alerts", description = "Alert management endpoints")
 public class AlertController {
@@ -37,21 +41,24 @@ public class AlertController {
     // ========== CRUD ENDPOINTS ==========
 
     @PostMapping
-    @Operation(summary = "Create a new alert")
+    @Operation(operationId = "alertsCreate", summary = "Create a new alert", description = "Requires alerts.write. Validates the alert request and creates it within the authenticated tenant through the alert service. This is explicit alert creation, not evidence that hardware or rule evaluation triggered an event.")
+    @ApiResponse(responseCode = "201", description = "Alert created")
     public ResponseEntity<AlertResponse> createAlert(@Valid @RequestBody CreateAlertRequest request) {
         AlertResponse response = alertService.createAlert(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @GetMapping("/{alertId}")
-    @Operation(summary = "Get alert by ID")
+    @Operation(operationId = "alertsGet", summary = "Get alert by ID", description = "Requires alerts.read. alertId is numeric and resolved within the current tenant. Missing or foreign alerts are not exposed.")
+    @ApiResponse(responseCode = "404", description = "Alert not found in the active tenant")
+    @ApiResponse(responseCode = "200", description = "Tenant-authorized alert")
     public ResponseEntity<AlertResponse> getAlert(@PathVariable Long alertId) {
         AlertResponse response = alertService.getAlertById(alertId);
         return ResponseEntity.ok(response);
     }
 
     @GetMapping
-    @Operation(summary = "Search alerts with pagination and filtering")
+    @Operation(operationId = "alertsSearch", summary = "Search alerts with pagination and filtering", description = "Requires alerts.read. Combines optional message search, vehicle/tracker, type, severity, acknowledgement, resolution and ISO-8601 date filters within the current tenant. Defaults: page=0, size=20, sortBy=triggeredAt, sortDirection=DESC. Returns the project's PagedResponse; no matches is an empty page, not an upstream-error fallback.")
     public ResponseEntity<PagedResponse<AlertResponse>> searchAlerts(
             @Parameter(description = "Page number (0-based)")
             @RequestParam(defaultValue = "0") int page,
@@ -114,7 +121,7 @@ public class AlertController {
     // ========== ALERT MANAGEMENT ==========
 
     @PostMapping("/{alertId}/acknowledge")
-    @Operation(summary = "Acknowledge an alert")
+    @Operation(operationId = "alertsAcknowledge", summary = "Acknowledge an alert", description = "Requires alerts.write. Send a JSON object ({} is sufficient). The controller overwrites acknowledged_by with the authenticated database user ID; caller-selected actor values cannot determine audit identity. Returns the saved tenant-authorized alert.")
     public ResponseEntity<AlertResponse> acknowledgeAlert(
             @PathVariable Long alertId,
             @Valid @RequestBody AcknowledgeAlertRequest request,
@@ -125,7 +132,7 @@ public class AlertController {
     }
 
     @PutMapping("/{alertId}")
-    @Operation(summary = "Update an alert")
+    @Operation(operationId = "alertsUpdate", summary = "Update an alert", description = "Requires alerts.write. Applies supported UpdateAlertRequest fields through the tenant-scoped service. This does not permit changing tenant ownership or selecting the actor for dedicated acknowledgement/resolution operations.")
     public ResponseEntity<AlertResponse> updateAlert(
             @PathVariable Long alertId,
             @Valid @RequestBody UpdateAlertRequest request) {
@@ -134,14 +141,16 @@ public class AlertController {
     }
 
     @DeleteMapping("/{alertId}")
-    @Operation(summary = "Delete an alert")
+    @Operation(operationId = "alertsDelete", summary = "Delete an alert", description = "Requires alerts.write. Deletes the numeric alert ID within the current tenant; returns 204 without a response body.")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteAlert(@PathVariable Long alertId) {
         alertService.deleteAlert(alertId);
     }
 
     @PostMapping("/{alertId}/resolve")
-    @Operation(summary = "Resolve an alert")
+    @Operation(operationId = "alertsResolve", summary = "Resolve an alert", description = "Requires alerts.write. JSON resolution_notes is required and must be 10–1000 characters. resolved_by is always overwritten with the authenticated database user ID. Returns the saved tenant-authorized alert.")
+    @ApiResponse(responseCode = "400", description = "Invalid resolution notes or request")
+    @ApiResponse(responseCode = "200", description = "Saved alert resolution and audit actor")
     public ResponseEntity<AlertResponse> resolveAlert(
             @PathVariable Long alertId,
             @Valid @RequestBody ResolveAlertRequest request,
@@ -152,7 +161,7 @@ public class AlertController {
     }
 
     @PostMapping("/bulk/acknowledge")
-    @Operation(summary = "Bulk acknowledge alerts")
+    @Operation(operationId = "alertsBulkAcknowledge", summary = "Bulk acknowledge alerts", description = "Requires alerts.write. Body is a JSON array of numeric alert IDs, not an object wrapper. Audit actor comes from the authenticated principal. Applies the service's tenant checks; success is HTTP 200 with no response body.")
     public ResponseEntity<Void> bulkAcknowledgeAlerts(
             @RequestBody List<Long> alertIds,
             Principal principal) {
@@ -161,7 +170,7 @@ public class AlertController {
     }
 
     @PostMapping("/bulk/resolve")
-    @Operation(summary = "Bulk resolve alerts")
+    @Operation(operationId = "alertsBulkResolve", summary = "Bulk resolve alerts", description = "Requires alerts.write. Body is an array of numeric alert IDs; resolutionNotes is a required query parameter (camelCase), unlike the single-alert JSON resolution_notes field. Actor comes from the authenticated principal. Success is HTTP 200 with no response body.")
     public ResponseEntity<Void> bulkResolveAlerts(
             @RequestBody List<Long> alertIds,
             @RequestParam String resolutionNotes,
@@ -182,7 +191,7 @@ public class AlertController {
     // ========== STATUS ENDPOINTS ==========
 
     @GetMapping("/active")
-    @Operation(summary = "Get active alerts with pagination")
+    @Operation(operationId = "alertsActive", summary = "Get active alerts with pagination", description = "Requires alerts.read. Returns active tenant alerts through the service in the project pagination envelope. Zero-based page defaults to 0 and size to 20; this is a read of persisted state, not a subscription stream.")
     public ResponseEntity<PagedResponse<AlertResponse>> getActiveAlerts(
             @Parameter(description = "Page number (0-based)")
             @RequestParam(defaultValue = "0") int page,
@@ -195,14 +204,14 @@ public class AlertController {
     }
 
     @GetMapping("/vehicle/{vehicleId}/active")
-    @Operation(summary = "Get active alerts for a vehicle")
+    @Operation(operationId = "alertsVehicleActive", summary = "Get active alerts for a vehicle", description = "Requires alerts.read. Uses the string vehicleId within the tenant scope. Returns an unpaginated JSON array of active alerts, not PagedResponse.")
     public ResponseEntity<List<AlertResponse>> getVehicleActiveAlerts(@PathVariable String vehicleId) {
         List<AlertResponse> response = alertService.getActiveAlerts(vehicleId);
         return ResponseEntity.ok(response);
     }
 
     @GetMapping("/vehicle/{vehicleId}/recent")
-    @Operation(summary = "Get recent alerts for a vehicle")
+    @Operation(operationId = "alertsVehicleRecent", summary = "Get recent alerts for a vehicle", description = "Requires alerts.read. Returns recent tenant-visible vehicle alerts as a JSON array, limited by limit (default 10). vehicleId is the business string identifier.")
     public ResponseEntity<List<AlertResponse>> getVehicleRecentAlerts(
             @PathVariable String vehicleId,
             @Parameter(description = "Maximum number of alerts to return")
@@ -215,7 +224,7 @@ public class AlertController {
     // ========== STATISTICS ENDPOINTS ==========
 
     @GetMapping("/stats")
-    @Operation(summary = "Get alert statistics")
+    @Operation(operationId = "alertsStatistics", summary = "Get alert statistics", description = "Requires alerts.read. Optional startDate is an ISO-8601 instant; omitted start defaults to seven days before the server clock. End is the current server time. Returns the service's named count values within the current tenant.")
     public ResponseEntity<Map<String, Long>> getAlertStatistics(
             @Parameter(description = "Start date for statistics (ISO format)")
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant startDate) {
@@ -226,14 +235,14 @@ public class AlertController {
     }
 
     @GetMapping("/stats/unacknowledged")
-    @Operation(summary = "Get count of unacknowledged alerts by severity")
+    @Operation(operationId = "alertsUnacknowledgedCounts", summary = "Get count of unacknowledged alerts by severity", description = "Requires alerts.read. Returns a JSON object of severity-to-count entries for the current tenant. This response is an aggregate object, not a list or page of alerts.")
     public ResponseEntity<Map<String, Long>> getUnacknowledgedCounts() {
         Map<String, Long> counts = alertService.getUnacknowledgedCountBySeverity();
         return ResponseEntity.ok(counts);
     }
 
     @GetMapping("/vehicle/{vehicleId}/has-critical")
-    @Operation(summary = "Check if vehicle has critical unacknowledged alerts")
+    @Operation(operationId = "alertsVehicleHasCritical", summary = "Check if vehicle has critical unacknowledged alerts", description = "Requires alerts.read. Returns a JSON boolean from the tenant-scoped vehicle alert query, not a wrapped status object. Does not acknowledge or resolve alerts.")
     public ResponseEntity<Boolean> hasCriticalUnacknowledgedAlerts(@PathVariable String vehicleId) {
         boolean hasCritical = alertService.hasCriticalUnacknowledgedAlerts(vehicleId);
         return ResponseEntity.ok(hasCritical);
@@ -242,7 +251,7 @@ public class AlertController {
     // ========== MAINTENANCE ENDPOINTS ==========
 
     @PostMapping("/cleanup")
-    @Operation(summary = "Clean up stale alerts (admin only)")
+    @Operation(operationId = "alertsCleanup", summary = "Disabled HTTP alert cleanup", description = "SecurityConfig denies this operation for every HTTP caller, including administrators. cutoffTime is an ISO-8601 instant but this mapping is not an available maintenance API.", responses = @ApiResponse(responseCode = "403", description = "HTTP cleanup explicitly disabled"))
     public ResponseEntity<Void> cleanupStaleAlerts(
             @Parameter(description = "Cutoff time for stale alerts (ISO format)")
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant cutoffTime) {
@@ -253,7 +262,7 @@ public class AlertController {
     // ========== AUTOMATED ALERT ENDPOINTS ==========
 
     @PostMapping("/automated")
-    @Operation(summary = "Create an automated alert (for internal use)")
+    @Operation(operationId = "alertsAutomated", summary = "Disabled HTTP automated-alert input", description = "SecurityConfig denies this operation for every HTTP caller. Automated alerts must come from the trusted internal evaluation/event flow, not caller-supplied metadata. Metadata is a legacy dynamic event boundary, not a new general-purpose DTO contract.", responses = @ApiResponse(responseCode = "403", description = "HTTP automated input explicitly disabled"))
     public ResponseEntity<AlertResponse> createAutomatedAlert(
             @RequestParam String vehicleId,
             @RequestParam String trackerId,

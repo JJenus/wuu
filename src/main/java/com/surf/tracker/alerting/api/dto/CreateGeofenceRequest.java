@@ -9,12 +9,14 @@ import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Set;
 
+@io.swagger.v3.oas.annotations.media.Schema(description = "Atomic geofence creation. Supply vehicle_ids (empty explicitly means unassigned) or legacy vehicle_id, plus complete circle or polygon geometry.", example = "{\"name\":\"Depot\",\"vehicle_ids\":[\"VAN-01\"],\"shape_type\":\"CIRCLE\",\"center_latitude\":51.5,\"center_longitude\":-0.12,\"radius_meters\":500,\"active\":true}")
 public class CreateGeofenceRequest {
 
     // Legacy singular input; the complete array is authoritative when present.
     @Size(min = 1, max = 50)
     private String vehicleId;
 
+    @io.swagger.v3.oas.annotations.media.Schema(description = "Complete vehicle association set; takes precedence over vehicle_id when present.")
     private Set<@NotBlank @Size(max = 50) String> vehicleIds;
 
     @Size(max = 500)
@@ -33,6 +35,7 @@ public class CreateGeofenceRequest {
     @Valid
     private List<@NotNull GeofencePointDto> points;
     private boolean active = true;
+    @io.swagger.v3.oas.annotations.media.Schema(description = "Ignored on HTTP input; derived from authenticated identity.", deprecated = true)
     private String createdBy;
 
     public String getVehicleId() {

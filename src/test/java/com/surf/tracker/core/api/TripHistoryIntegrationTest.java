@@ -44,7 +44,7 @@ class TripHistoryIntegrationTest {
     }
 
     @BeforeEach void setUp() {
-        mvc = MockMvcBuilders.standaloneSetup(new TripController(service)).build();
+        mvc = com.surf.tracker.main.api.ApiMockMvc.standaloneSetup(new TripController(service)).build();
         TenantContext.setCurrentOrgId(1L);
         Vehicle vehicle = new Vehicle();
         vehicle.setVehicleId("owned");

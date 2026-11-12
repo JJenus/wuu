@@ -1,5 +1,10 @@
 package com.surf.tracker.notification.api;
 
+import com.surf.tracker.main.api.ApiV1;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import com.surf.tracker.notification.api.dto.WebhookEmailPayload;
 import com.surf.tracker.notification.api.dto.WebhookPushPayload;
 import com.surf.tracker.notification.domain.entity.Delivery;
@@ -21,7 +26,9 @@ import java.time.Instant;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/api/notifications/webhooks")
+@ApiV1
+@RequestMapping("/notifications/webhooks")
+@Tag(name = "Disabled Webhooks", description = "Mapped legacy callbacks are denied by HTTP security; not enabled provider integrations.")
 public class WebhookController {
 
     private static final Logger logger = LoggerFactory.getLogger(WebhookController.class);
@@ -42,6 +49,7 @@ public class WebhookController {
     }
 
     @PostMapping("/push/{provider}")
+    @Operation(operationId = "webhooksPush", summary = "Disabled push-provider callback", description = "SecurityConfig denies this HTTP operation for every caller. No provider-signature verification or replay protection is established here; do not configure a provider to use it as an enabled integration. The legacy handler would mutate delivery/device state, so the deny rule must remain.", responses = @ApiResponse(responseCode = "403", description = "Webhook HTTP access explicitly disabled"))
     public ResponseEntity<Void> handlePushCallback(
             @PathVariable String provider,
             @RequestBody WebhookPushPayload payload) {
@@ -100,6 +108,7 @@ public class WebhookController {
     }
 
     @PostMapping("/email/{provider}")
+    @Operation(operationId = "webhooksEmail", summary = "Disabled email-provider callback", description = "SecurityConfig denies this HTTP operation for every caller. Provider authenticity, replay safety and idempotency must be implemented and verified separately before enabling it. The legacy payload handler is not proof of a working provider integration.", responses = @ApiResponse(responseCode = "403", description = "Webhook HTTP access explicitly disabled"))
     public ResponseEntity<Void> handleEmailCallback(
             @PathVariable String provider,
             @RequestBody WebhookEmailPayload payload) {

@@ -148,7 +148,7 @@ class PostgresDeploymentIT {
         String vehicle = createVehicle(owner);
         Long organization = vehicles.findById(vehicle).orElseThrow().getOrganizationId();
         String key = "database-retry-" + IDS.incrementAndGet();
-        assertThat(request(owner, HttpMethod.POST, "/alerts/rules/templates/overspeed",
+        assertThat(request(owner, HttpMethod.POST, "/api/v1/alerts/rules/templates/overspeed",
             Map.of("rule_key", key, "rule_name", "Database retry acceptance", "speed_limit", 30,
                 "vehicle_ids", List.of(vehicle), "enabled", true)).getStatusCode()).isEqualTo(HttpStatus.CREATED);
         // Spring Data's interface spy delegates to a repository proxy; there is no abstract real method to call.
@@ -180,7 +180,7 @@ class PostgresDeploymentIT {
         HttpHeaders owner = tenantHeaders();
         String vehicle = createVehicle(owner);
         String key = "retry-speed-" + IDS.incrementAndGet();
-        assertThat(request(owner, HttpMethod.POST, "/alerts/rules/templates/overspeed",
+        assertThat(request(owner, HttpMethod.POST, "/api/v1/alerts/rules/templates/overspeed",
             Map.of("rule_key", key, "rule_name", "Retry acceptance", "speed_limit", 30,
                 "vehicle_ids", List.of(vehicle), "enabled", true)).getStatusCode()).isEqualTo(HttpStatus.CREATED);
         var attempts = new java.util.concurrent.CopyOnWriteArrayList<com.surf.tracker.alerting.domain.AlertDetectedEvent>();
@@ -221,7 +221,7 @@ class PostgresDeploymentIT {
         Long organizationId = vehicles.findById(vehicle).orElseThrow().getOrganizationId();
         Long foreignOrganization = vehicles.findById(foreignVehicle).orElseThrow().getOrganizationId();
         String key = "outage-speed-" + IDS.incrementAndGet();
-        assertThat(request(owner, HttpMethod.POST, "/alerts/rules/templates/overspeed",
+        assertThat(request(owner, HttpMethod.POST, "/api/v1/alerts/rules/templates/overspeed",
             Map.of("rule_key", key, "rule_name", "Outage acceptance", "speed_limit", 30,
                 "vehicle_ids", List.of(vehicle, siblingVehicle), "enabled", true)).getStatusCode()).isEqualTo(HttpStatus.CREATED);
         int unavailablePort;
@@ -356,8 +356,8 @@ class PostgresDeploymentIT {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"/alerts", "/alerts?search=missing", "/alerts/geofences",
-        "/alerts/geofences?search=missing", "/alerts/rules", "/alerts/rules?search=missing"})
+    @ValueSource(strings = {"/api/v1/alerts", "/api/v1/alerts?search=missing", "/api/v1/alerts/geofences",
+        "/api/v1/alerts/geofences?search=missing", "/api/v1/alerts/rules", "/api/v1/alerts/rules?search=missing"})
     void alertQueries_optionalSearch_returnsEmptyTenantPageOnPostgres(String path) {
         // given
         HttpHeaders tenant = tenantHeaders();
@@ -389,17 +389,17 @@ class PostgresDeploymentIT {
             }
         });
         // when / then
-        assertThat(content(owner, "/alerts?sortBy=triggeredAt&sortDirection=ASC"))
+        assertThat(content(owner, "/api/v1/alerts?sortBy=triggeredAt&sortDirection=ASC"))
             .extracting(row -> row.get("message")).containsExactly("Speed marker 0", "Speed marker 1");
-        assertThat(content(outsider, "/alerts")).extracting(row -> row.get("message"))
+        assertThat(content(outsider, "/api/v1/alerts")).extracting(row -> row.get("message"))
             .containsExactly("Speed marker 2");
         String filters = "&vehicleId=" + ownVehicle
             + "&trackerId=query-tracker&alertType=OVERSPEED&severity=WARNING&acknowledged=false&resolved=false";
-        assertThat(content(owner, "/alerts?search=sPeEd" + filters + "&endDate=2026-01-02T00:00:00Z"))
+        assertThat(content(owner, "/api/v1/alerts?search=sPeEd" + filters + "&endDate=2026-01-02T00:00:00Z"))
             .extracting(row -> row.get("message")).containsExactly("Speed marker 0");
-        assertThat(content(owner, "/alerts?search=sPeEd" + filters + "&startDate=2026-01-02T00:00:00Z"))
+        assertThat(content(owner, "/api/v1/alerts?search=sPeEd" + filters + "&startDate=2026-01-02T00:00:00Z"))
             .extracting(row -> row.get("message")).containsExactly("Speed marker 1");
-        assertThat(content(outsider, "/alerts?search=sPeEd" + filters)).isEmpty();
+        assertThat(content(outsider, "/api/v1/alerts?search=sPeEd" + filters)).isEmpty();
     }
 
     private HttpHeaders tenantHeaders() {
@@ -505,7 +505,7 @@ class PostgresDeploymentIT {
         String vehicle = createVehicle(owner);
         String tracker = createTracker(owner, vehicle);
         String key = "telemetry-speed-" + IDS.incrementAndGet();
-        assertThat(request(owner, HttpMethod.POST, "/alerts/rules/templates/overspeed",
+        assertThat(request(owner, HttpMethod.POST, "/api/v1/alerts/rules/templates/overspeed",
             Map.of("rule_key", key, "rule_name", "Telemetry acceptance", "speed_limit", 30,
                 "vehicle_ids", List.of(vehicle), "enabled", true)).getStatusCode()).isEqualTo(HttpStatus.CREATED);
         try (var connection = messaging.createConnection();
@@ -537,9 +537,9 @@ class PostgresDeploymentIT {
             assertThat(outgoing.getVehicleId()).isEqualTo(vehicle);
             assertThat(outgoing.getRuleKey()).isEqualTo(key);
             assertThat(outgoing.getAlertType()).isEqualTo("OVERSPEED");
-            assertThat(content(owner, "/alerts?vehicleId=" + vehicle))
+            assertThat(content(owner, "/api/v1/alerts?vehicleId=" + vehicle))
                 .extracting(row -> String.valueOf(row.get("alert_id"))).containsExactly(outgoing.getAlertId());
-            assertThat(content(outsider, "/alerts?vehicleId=" + vehicle)).isEmpty();
+            assertThat(content(outsider, "/api/v1/alerts?vehicleId=" + vehicle)).isEmpty();
             assertThat(jdbc.queryForObject("select count(*) from tracker_alerts where vehicle_id = ?",
                 Long.class, vehicle)).isEqualTo(1L);
             jakarta.jms.Message additional;
@@ -557,7 +557,7 @@ class PostgresDeploymentIT {
         String vehicle = createVehicle(owner);
         String tracker = createTracker(owner, vehicle);
         String key = "core-retry-speed-" + IDS.incrementAndGet();
-        assertThat(request(owner, HttpMethod.POST, "/alerts/rules/templates/overspeed",
+        assertThat(request(owner, HttpMethod.POST, "/api/v1/alerts/rules/templates/overspeed",
             Map.of("rule_key", key, "rule_name", "Core retry acceptance", "speed_limit", 30,
                 "vehicle_ids", List.of(vehicle), "enabled", true)).getStatusCode()).isEqualTo(HttpStatus.CREATED);
         var attempts = new java.util.concurrent.CopyOnWriteArrayList<com.surf.tracker.shared.events.VehicleUpdatedEvent>();
@@ -1062,14 +1062,14 @@ class PostgresDeploymentIT {
         HttpHeaders outsider = tenantHeaders();
         String vehicle = createVehicle(owner);
         String key = "fleet-speed-" + IDS.incrementAndGet();
-        String path = "/alerts/rules/" + key;
+        String path = "/api/v1/alerts/rules/" + key;
         Map<String, Object> template = Map.of("rule_key", key, "rule_name", "Fleet speed limit", "speed_limit", 80,
             "vehicle_ids", List.of(vehicle), "enabled", false);
         // when / then
-        assertThat(request(owner, HttpMethod.POST, "/alerts/rules/templates/overspeed",
+        assertThat(request(owner, HttpMethod.POST, "/api/v1/alerts/rules/templates/overspeed",
             Map.of("rule_key", key, "rule_name", "Invalid speed", "speed_limit", -1, "vehicle_ids", List.of(vehicle)))
             .getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        ResponseEntity<Map> created = request(owner, HttpMethod.POST, "/alerts/rules/templates/overspeed", template);
+        ResponseEntity<Map> created = request(owner, HttpMethod.POST, "/api/v1/alerts/rules/templates/overspeed", template);
         assertThat(created.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(created.getBody()).containsEntry("rule_key", key).containsEntry("rule_type", "SPEED")
             .containsEntry("enabled", false);
@@ -1081,15 +1081,15 @@ class PostgresDeploymentIT {
         softly.assertThat(request(outsider, HttpMethod.DELETE, path, null).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         assertThat(request(owner, HttpMethod.PUT, path, Map.of("rule_name", "Updated speed limit", "priority", 2))
             .getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(request(owner, HttpMethod.POST, "/alerts/rules/batch/enable", List.of(key)).getStatusCode())
+        assertThat(request(owner, HttpMethod.POST, "/api/v1/alerts/rules/batch/enable", List.of(key)).getStatusCode())
             .isEqualTo(HttpStatus.OK);
         assertThat(request(owner, HttpMethod.GET, path, null).getBody()).containsEntry("enabled", true)
             .containsEntry("rule_name", "Updated speed limit");
-        assertThat(content(owner, "/alerts/rules?enabled=true")).extracting(row -> row.get("rule_key")).containsExactly(key);
-        assertThat(content(outsider, "/alerts/rules?enabled=true")).isEmpty();
+        assertThat(content(owner, "/api/v1/alerts/rules?enabled=true")).extracting(row -> row.get("rule_key")).containsExactly(key);
+        assertThat(content(outsider, "/api/v1/alerts/rules?enabled=true")).isEmpty();
         assertThat(request(owner, HttpMethod.DELETE, path, null).getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         softly.assertThat(request(owner, HttpMethod.GET, path, null).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
-        assertThat(content(owner, "/alerts/rules?enabled=true")).isEmpty();
+        assertThat(content(owner, "/api/v1/alerts/rules?enabled=true")).isEmpty();
         softly.assertAll();
     }
 

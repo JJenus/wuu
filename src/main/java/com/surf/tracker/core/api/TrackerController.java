@@ -1,5 +1,10 @@
 package com.surf.tracker.core.api;
 
+import com.surf.tracker.main.api.ApiV1;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import com.surf.tracker.core.api.dto.*;
 import com.surf.tracker.core.application.service.TrackerService;
 import com.surf.tracker.core.domain.entity.Tracker;
@@ -16,7 +21,9 @@ import java.time.Clock;
 import java.time.Instant;
 
 @RestController
-@RequestMapping("/api/v1/trackers")
+@ApiV1
+@RequestMapping("/trackers")
+@Tag(name = "Trackers", description = "Tenant-authorized tracker inventory. Registration is not proof of transport or hardware connectivity.")
 public class TrackerController {
 
     private final TrackerService trackerService;
@@ -28,6 +35,7 @@ public class TrackerController {
     }
 
     @GetMapping
+    @Operation(operationId = "trackersList", summary = "List tenant trackers", description = "Requires devices.read. Page defaults: page=0, size=20, sortBy=createdAt, sortDirection=DESC. Filters are NOT combined: status takes precedence over online, then batteryThreshold, then stale=true. staleMinutes defaults to 10. Without a selected filter returns all authorized trackers.")
     public ResponseEntity<PagedResponse<TrackerResponse>> listTrackers(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -58,6 +66,9 @@ public class TrackerController {
     }
 
     @GetMapping("/{trackerId}")
+    @Operation(operationId = "trackersGet", summary = "Get a tenant tracker", description = "Requires devices.read. trackerId is the string business identifier. Returns registration and last saved telemetry/status fields; absence does not fall back to another tenant's inventory.")
+    @ApiResponse(responseCode = "404", description = "Tracker not found in the authorized scope")
+    @ApiResponse(responseCode = "200", description = "Tracker registration and last saved status")
     public ResponseEntity<TrackerResponse> getTracker(@PathVariable String trackerId) {
         Tracker tracker = trackerService.getTrackerById(trackerId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tracker not found"));
@@ -65,6 +76,10 @@ public class TrackerController {
     }
 
     @PostMapping
+    @Operation(operationId = "trackersCreate", summary = "Register and assign a tracker", description = "Requires vehicles.assign_device. Requires tracker_id, device_id and an authorized vehicle_id. New status is ACTIVE; hardware/device uniqueness and assignment are validated by the tracker service. Optional protocol/model/SIM metadata does not establish a transport session.")
+    @ApiResponse(responseCode = "201", description = "Tracker registered and assigned")
+    @ApiResponse(responseCode = "400", description = "Invalid registration or assignment")
+    @ApiResponse(responseCode = "409", description = "Device, tracker or assignment conflicts with existing data")
     public ResponseEntity<TrackerResponse> createTracker(@jakarta.validation.Valid @RequestBody CreateTrackerRequest request) {
         Tracker tracker = new Tracker();
         tracker.setTrackerId(request.getTrackerId());
@@ -86,6 +101,9 @@ public class TrackerController {
     }
 
     @PutMapping("/{trackerId}")
+    @Operation(operationId = "trackersUpdate", summary = "Update tracker fields", description = "Requires vehicles.assign_device. Accepts model, protocol, firmware_version, sim_number, battery_level, signal_strength and status through the tracker service. Does not take a new device ID or vehicle assignment.")
+    @ApiResponse(responseCode = "404", description = "Tracker not found")
+    @ApiResponse(responseCode = "200", description = "Updated tracker")
     public ResponseEntity<TrackerResponse> updateTracker(@PathVariable String trackerId,
                                                          @jakarta.validation.Valid @RequestBody UpdateTrackerRequest request) {
         Tracker update = new Tracker();
@@ -106,6 +124,8 @@ public class TrackerController {
     }
 
     @DeleteMapping("/{trackerId}")
+    @Operation(operationId = "trackersDelete", summary = "Delete a tracker", description = "Requires vehicles.assign_device. Deletes the tenant-authorized tracker through the service; returns 204 without a body.")
+    @ApiResponse(responseCode = "404", description = "Tracker not found")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteTracker(@PathVariable String trackerId) {
         try {

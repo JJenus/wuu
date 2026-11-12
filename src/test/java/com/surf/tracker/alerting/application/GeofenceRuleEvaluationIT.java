@@ -126,7 +126,7 @@ class GeofenceRuleEvaluationIT {
         String vehicle = vehicle(alpha);
         String geofence = boundary(alpha, vehicle, shape);
         String key = "evaluate_" + (++sequence);
-        assertThat(request(alpha, HttpMethod.POST, "/alerts/rules/templates/geofence", rule(key, geofence, vehicle, action), AlertRuleResponse.class)
+        assertThat(request(alpha, HttpMethod.POST, "/api/v1/alerts/rules/templates/geofence", rule(key, geofence, vehicle, action), AlertRuleResponse.class)
                 .getStatusCode()).isEqualTo(HttpStatus.CREATED);
         TenantContext.setCurrentOrgId(alphaOrg);
         // when: each update reconstructs a domain rule from persisted configuration/state.
@@ -144,29 +144,29 @@ class GeofenceRuleEvaluationIT {
         assertThat(jdbc.queryForObject("select count(*) from tracker_alerts where vehicle_id=?", Integer.class, vehicle))
                 .isEqualTo(1);
         Long alert = jdbc.queryForObject("select min(alert_id) from tracker_alerts where vehicle_id=?", Long.class, vehicle);
-        assertThat(request(alpha, HttpMethod.GET, "/alerts/" + alert, null, AlertResponse.class).getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(request(beta, HttpMethod.GET, "/alerts/" + alert, null, Void.class).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(request(alpha, HttpMethod.GET, "/api/v1/alerts/" + alert, null, AlertResponse.class).getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(request(beta, HttpMethod.GET, "/api/v1/alerts/" + alert, null, Void.class).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
 
         // Disabling the source boundary must stop both entry and exit evaluation.
         var disabled = new UpdateGeofenceRequest(); disabled.setActive(false);
-        assertThat(request(alpha, HttpMethod.PUT, "/alerts/geofences/" + geofence, disabled, GeofenceResponse.class)
+        assertThat(request(alpha, HttpMethod.PUT, "/api/v1/alerts/geofences/" + geofence, disabled, GeofenceResponse.class)
                 .getStatusCode()).isEqualTo(HttpStatus.OK);
         events.clear(); evaluated.clear(); update(vehicle, 10, 10); update(vehicle, 11, 11);
         assertThat(events).isEmpty();
         assertThat(evaluated).isEmpty();
-        assertThat(request(alpha, HttpMethod.PATCH, "/alerts/rules/" + key + "/disable", null, Void.class).getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(request(alpha, HttpMethod.PATCH, "/alerts/rules/" + key + "/enable", null, Void.class).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(request(alpha, HttpMethod.PATCH, "/api/v1/alerts/rules/" + key + "/disable", null, Void.class).getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(request(alpha, HttpMethod.PATCH, "/api/v1/alerts/rules/" + key + "/enable", null, Void.class).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         assertThat(jdbc.queryForObject("select is_enabled from alert_rules where rule_key=?", Boolean.class, key)).isFalse();
     }
 
     @Test void createRule_foreignOrUnlinkedReferences_rejectsWithoutPersisting() {
         String own = vehicle(alpha), foreign = vehicle(beta), unlinked = vehicle(alpha);
         String zone = boundary(alpha, own, "CIRCLE"), otherZone = boundary(beta, foreign, "CIRCLE");
-        assertThat(request(alpha, HttpMethod.POST, "/alerts/rules/templates/geofence", rule("reject_foreign_zone", otherZone, own, "BOTH"), Void.class)
+        assertThat(request(alpha, HttpMethod.POST, "/api/v1/alerts/rules/templates/geofence", rule("reject_foreign_zone", otherZone, own, "BOTH"), Void.class)
                 .getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
-        assertThat(request(alpha, HttpMethod.POST, "/alerts/rules/templates/geofence", rule("reject_foreign_vehicle", zone, foreign, "BOTH"), Void.class)
+        assertThat(request(alpha, HttpMethod.POST, "/api/v1/alerts/rules/templates/geofence", rule("reject_foreign_vehicle", zone, foreign, "BOTH"), Void.class)
                 .getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(request(alpha, HttpMethod.POST, "/alerts/rules/templates/geofence", rule("reject_unlinked_vehicle", zone, unlinked, "BOTH"), Void.class)
+        assertThat(request(alpha, HttpMethod.POST, "/api/v1/alerts/rules/templates/geofence", rule("reject_unlinked_vehicle", zone, unlinked, "BOTH"), Void.class)
                 .getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(jdbc.queryForObject("select count(*) from alert_rules where rule_key like 'reject_%'", Integer.class)).isZero();
     }
@@ -193,7 +193,7 @@ class GeofenceRuleEvaluationIT {
         if (shape.equals("CIRCLE")) {
             input.setCenterLatitude(10d); input.setCenterLongitude(10d); input.setRadiusMeters(500);
         } else input.setPoints(List.of(point(9.99, 9.99), point(9.99, 10.01), point(10.01, 10.01), point(10.01, 9.99)));
-        var created = request(owner, HttpMethod.POST, "/alerts/geofences", input, GeofenceResponse.class);
+        var created = request(owner, HttpMethod.POST, "/api/v1/alerts/geofences", input, GeofenceResponse.class);
         assertThat(created.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         return created.getBody().getGeofenceId().toString();
     }

@@ -37,7 +37,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class AlertRuleControllerIT {
 
     @Configuration(proxyBeanMethods = false)
-    @Import({AlertRuleController.class, SecurityConfig.class, JwtAuthFilter.class, AuthRateLimitFilter.class})
+    @Import({com.surf.tracker.main.api.ApiVersionConfig.class, AlertRuleController.class, SecurityConfig.class, JwtAuthFilter.class, AuthRateLimitFilter.class})
     static class Config {}
 
     @MockitoBean private JwtService jwtService;
@@ -71,7 +71,7 @@ class AlertRuleControllerIT {
         when(alertRuleService.createRule(any(CreateAlertRuleRequest.class))).thenReturn(response);
 
         // when & then
-        mockMvc.perform(post("/alerts/rules")
+        mockMvc.perform(post("/api/v1/alerts/rules")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
@@ -87,7 +87,7 @@ class AlertRuleControllerIT {
         // Missing required fields
 
         // when & then
-        mockMvc.perform(post("/alerts/rules")
+        mockMvc.perform(post("/api/v1/alerts/rules")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
@@ -109,7 +109,7 @@ class AlertRuleControllerIT {
         when(alertRuleService.getAllRulesPaged(any(SearchRequest.class))).thenReturn(pagedResponse);
 
         // when & then
-        mockMvc.perform(get("/alerts/rules")
+        mockMvc.perform(get("/api/v1/alerts/rules")
                 .param("page", "0")
                 .param("size", "20")
                 .param("sortBy", "createdAt")
@@ -133,7 +133,7 @@ class AlertRuleControllerIT {
         when(alertRuleService.getRuleByKey("test-rule")).thenReturn(response);
 
         // when & then
-        mockMvc.perform(get("/alerts/rules/test-rule"))
+        mockMvc.perform(get("/api/v1/alerts/rules/test-rule"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.rule_key").value("test-rule"));
     }
@@ -152,7 +152,7 @@ class AlertRuleControllerIT {
             .thenReturn(response);
 
         // when & then
-        mockMvc.perform(put("/alerts/rules/test-rule")
+        mockMvc.perform(put("/api/v1/alerts/rules/test-rule")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -165,7 +165,7 @@ class AlertRuleControllerIT {
         doNothing().when(alertRuleService).deleteRule("test-rule");
 
         // when & then
-        mockMvc.perform(delete("/alerts/rules/test-rule"))
+        mockMvc.perform(delete("/api/v1/alerts/rules/test-rule"))
                 .andExpect(status().isNoContent());
         verify(alertRuleService).deleteRule("test-rule");
     }
@@ -176,7 +176,7 @@ class AlertRuleControllerIT {
         doNothing().when(alertRuleService).enableRule("test-rule");
 
         // when & then
-        mockMvc.perform(patch("/alerts/rules/test-rule/enable"))
+        mockMvc.perform(patch("/api/v1/alerts/rules/test-rule/enable"))
                 .andExpect(status().isOk());
         verify(alertRuleService).enableRule("test-rule");
     }
@@ -197,7 +197,7 @@ class AlertRuleControllerIT {
             .thenReturn(response);
 
         // when & then
-        mockMvc.perform(post("/alerts/rules/templates/overspeed")
+        mockMvc.perform(post("/api/v1/alerts/rules/templates/overspeed")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
@@ -219,7 +219,7 @@ class AlertRuleControllerIT {
         when(alertRuleService.batchCreateRules(anyList())).thenReturn(List.of(response));
 
         // when & then
-        mockMvc.perform(post("/alerts/rules/batch")
+        mockMvc.perform(post("/api/v1/alerts/rules/batch")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(List.of(request))))
                 .andExpect(status().isCreated())
@@ -233,7 +233,7 @@ class AlertRuleControllerIT {
         doNothing().when(alertRuleService).batchEnableRules(anySet());
 
         // when & then
-        mockMvc.perform(post("/alerts/rules/batch/enable")
+        mockMvc.perform(post("/api/v1/alerts/rules/batch/enable")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(ruleKeys)))
                 .andExpect(status().isOk());
@@ -253,7 +253,7 @@ class AlertRuleControllerIT {
         when(alertRuleService.getEnabledRulesPaged(any(SearchRequest.class))).thenReturn(pagedResponse);
 
         // when & then
-        mockMvc.perform(get("/alerts/rules/enabled")
+        mockMvc.perform(get("/api/v1/alerts/rules/enabled")
                 .param("page", "0")
                 .param("size", "20"))
                 .andExpect(status().isOk())
@@ -266,7 +266,7 @@ class AlertRuleControllerIT {
     @WithAnonymousUser
     void request_anonymous_returnsUnauthorized(String method) throws Exception {
         // when & then
-        mockMvc.perform(request(org.springframework.http.HttpMethod.valueOf(method), "/alerts/rules/test-rule")
+        mockMvc.perform(request(org.springframework.http.HttpMethod.valueOf(method), "/api/v1/alerts/rules/test-rule")
                 .contentType(MediaType.APPLICATION_JSON).content("{}"))
             .andExpect(status().isUnauthorized())
             .andExpect(jsonPath("$.code").value("UNAUTHENTICATED"));
@@ -279,9 +279,9 @@ class AlertRuleControllerIT {
     void mutation_readerOnly_returnsForbidden(String method) throws Exception {
         // given
         String path = switch (method) {
-            case "POST" -> "/alerts/rules";
-            case "PATCH" -> "/alerts/rules/test-rule/enable";
-            default -> "/alerts/rules/test-rule";
+            case "POST" -> "/api/v1/alerts/rules";
+            case "PATCH" -> "/api/v1/alerts/rules/test-rule/enable";
+            default -> "/api/v1/alerts/rules/test-rule";
         };
         // when & then
         mockMvc.perform(request(org.springframework.http.HttpMethod.valueOf(method), path)
@@ -295,7 +295,7 @@ class AlertRuleControllerIT {
     @WithMockUser(authorities = "alerts.write")
     void getRule_writerWithoutRead_returnsForbidden() throws Exception {
         // when & then
-        mockMvc.perform(get("/alerts/rules/test-rule"))
+        mockMvc.perform(get("/api/v1/alerts/rules/test-rule"))
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.code").value("FORBIDDEN"));
         verifyNoInteractions(alertRuleService);
