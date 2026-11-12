@@ -1,11 +1,30 @@
 <script setup lang="ts">
 import { useDataSource } from '~/features/core/composables/useDataSource'
-import { useWorkspace } from '~/features/workspace/composables/useWorkspace'
 import FleetMap from '~/features/fleet/components/FleetMap.vue'
-import { useTrackingPreview } from '~/features/tracking/composables/useTrackingPreview'
+import { useMapTracking } from '~/features/tracking/composables/useMapTracking'
+import { locationFreshness } from '~/features/tracking/domain/live-tracking'
+import { formatDateTime } from '~/features/core/domain/time'
 import { formatElapsed } from '~/features/tracking/domain/playback'
 const source = useDataSource()
-const { vehicles, summary, isPending, isError, refetch } = useWorkspace('fleet')
+const {
+  positions,
+  summary,
+  isPending,
+  isError,
+  isFetching,
+  error,
+  refetch,
+  refreshedAt,
+  paused,
+  toggleUpdates,
+  seconds,
+  playing,
+  speed,
+  play,
+  pause,
+  restart,
+  trail,
+} = useMapTracking()
 const mapDataState = computed(() => ({
   source: source.mode,
   status: isPending.value
@@ -13,10 +32,8 @@ const mapDataState = computed(() => ({
     : isError.value
       ? ('error' as const)
       : ('ready' as const),
-  message: isError.value ? 'Unable to load map vehicles. Retry the workspace request.' : undefined,
+  message: isError.value ? error.value : undefined,
 }))
-const { positions, seconds, playing, speed, play, pause, restart, trail } =
-  useTrackingPreview(vehicles)
 const selectedId = ref<string | null>(null)
 const follow = ref(false)
 const fleetMap = ref<InstanceType<typeof FleetMap>>()
@@ -56,35 +73,67 @@ useHead({ title: 'Fleet map — Wuu' })
         animate; idle, parked, and offline vehicles stay still. Nothing is written to fleet records.
       </p>
       <p v-else>
-        A simulated movement overlay on live vehicle starting positions. It is not live GPS and
-        never writes to fleet records. Only moving vehicles animate.
+        Saved GPS positions from the backend, refreshed every 10 seconds while this tab is visible.
+        No simulated movement or inferred paths. A refreshed snapshot does not prove a device is
+        connected.
       </p>
     </div>
     <section class="panel tracking-panel">
       <div class="panel-heading">
         <div>
-          <h2>Simulated tracking</h2>
-          <p class="form-hint">Opt-in movement preview · 2-minute loop</p>
+          <h2>{{ source.isPreview ? 'Simulated tracking' : 'Live fleet positions' }}</h2>
+          <p class="form-hint">
+            {{
+              source.isPreview
+                ? 'Opt-in movement preview · 2-minute loop'
+                : 'Latest saved positions · not a streaming GPS feed'
+            }}
+          </p>
         </div>
-        <span class="tracking-state"
+        <span v-if="source.isPreview" class="tracking-state"
           ><span role="status">{{ playing ? 'Simulation running' : 'Simulation paused' }}</span> ·
           {{ formatElapsed(seconds) }}</span
         >
+        <span v-else class="tracking-state" role="status">
+          {{
+            isError
+              ? 'Position refresh failed'
+              : paused
+                ? 'Updates paused'
+                : isFetching
+                  ? 'Refreshing positions…'
+                  : 'Automatic updates enabled'
+          }}
+        </span>
       </div>
       <div class="tracking-toolbar playback-controls">
         <UButton
+          v-if="source.isPreview"
           :icon="playing ? 'i-lucide-pause' : 'i-lucide-play'"
           @click="playing ? pause() : play()"
           >{{ playing ? 'Pause simulation' : 'Start simulation' }}</UButton
         >
-        <UButton icon="i-lucide-rotate-ccw" color="neutral" variant="outline" @click="restart"
+        <UButton
+          v-if="source.isPreview"
+          icon="i-lucide-rotate-ccw"
+          color="neutral"
+          variant="outline"
+          @click="restart"
           >Reset simulation</UButton
         >
-        <label class="playback-speed"
+        <label v-if="source.isPreview" class="playback-speed"
           >Speed<select v-model.number="speed" class="native-select" aria-label="Simulation speed">
             <option v-for="rate in [1, 2, 4, 8]" :key="rate" :value="rate">{{ rate }}×</option>
           </select></label
         >
+        <template v-if="!source.isPreview">
+          <UButton color="neutral" variant="outline" :disabled="isFetching" @click="toggleUpdates">
+            {{ paused ? 'Resume updates' : 'Pause updates' }}
+          </UButton>
+          <UButton icon="i-lucide-refresh-cw" :loading="isFetching" @click="refetch()"
+            >Refresh positions</UButton
+          >
+        </template>
         <UButton
           icon="i-lucide-locate-fixed"
           color="neutral"
@@ -95,13 +144,21 @@ useHead({ title: 'Fleet map — Wuu' })
           >Follow selected vehicle</UButton
         >
       </div>
+      <p v-if="!source.isPreview && refreshedAt" class="form-hint section-body">
+        Snapshot refreshed {{ formatDateTime(refreshedAt, { second: '2-digit' }) }}. Location
+        timestamps below describe the GPS fix, not the refresh time. Older than five minutes is
+        stale.
+      </p>
+      <p v-if="!source.isPreview && isError" class="form-error section-body" role="alert">
+        {{ error }} Positions are hidden until a successful refresh.
+      </p>
       <FleetMap
         ref="fleetMap"
         :vehicles="visible"
         :focus-id="selectedId"
         :follow="follow"
         :route-points="[]"
-        :trail-points="selectedId ? trail(selectedId) : []"
+        :trail-points="source.isPreview && selectedId ? trail(selectedId) : []"
         :data-state="mapDataState"
         full
         @select="selectedId = $event"
@@ -127,12 +184,22 @@ useHead({ title: 'Fleet map — Wuu' })
             ><strong>{{ vehicle.name }}</strong
             ><small>{{ vehicle.driver }}</small></span
           ><span
-            ><UiStatusBadge :status="vehicle.status" /><small>{{
+            ><UiStatusBadge :status="vehicle.status" /><small v-if="source.isPreview">{{
               vehicle.status === 'offline'
                 ? 'No simulated updates'
                 : `${vehicle.speed} km/h · Simulated`
             }}</small></span
           >
+          <span v-if="!source.isPreview">
+            <small
+              >{{ locationFreshness(vehicle) }} ·
+              {{ formatDateTime(vehicle.observedAt, { second: '2-digit' }) }}</small
+            >
+            <small v-if="vehicle.position"
+              >{{ vehicle.position.lat.toFixed(5) }}, {{ vehicle.position.lng.toFixed(5) }} · Last
+              reported {{ vehicle.speed }} km/h</small
+            >
+          </span>
         </button>
         <p v-if="!visible.length" class="muted">No vehicles match this filter.</p>
       </div>

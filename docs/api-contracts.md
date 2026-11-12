@@ -1,5 +1,13 @@
 # Backend and live adapter contracts
 
+## Live map snapshots — 2026-11-12
+
+Live `/map` polls the existing tenant-authorized GET `/api/v1/vehicles` through
+the fleet adapter every ten seconds while visible. No new upstream routes or
+writes are exposed. Coordinates and location times come from saved records;
+snapshot refresh does not imply hardware connectivity. Preview alone supports
+simulated movement. See [live-map.md](live-map.md) for checks and transport limits.
+
 ## Geofence alert rules — 2026-11-12
 
 Live geofence details now list rules and allow template creation and enable/disable

@@ -1,5 +1,13 @@
 # Architecture contract
 
+## Live map snapshots — 2026-11-12
+
+`useMapTracking` owns a page-local observer on the existing context-keyed fleet
+query. Live positions come directly from the fleet adapter, with visible-tab
+polling, explicit pause/refresh, read-error hiding and no simulated paths. Preview
+still uses the opt-in playback clock. This supersedes simulated live-map behavior;
+it does not add a GPS stream or historical replay. See [live-map.md](live-map.md).
+
 ## Live geofence editing — 2026-11-10
 
 Recovered the existing geofence adapter/editor through the same service/gateway
