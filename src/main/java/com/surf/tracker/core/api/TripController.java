@@ -40,6 +40,12 @@ public class TripController {
         return ResponseEntity.ok(toResponse(trip));
     }
 
+    @GetMapping("/{tripId}/history")
+    public TripHistoryResponse getHistory(@PathVariable String tripId,
+            @RequestParam(defaultValue = "10000") int limit) {
+        return tripQueryService.getHistory(tripId, limit);
+    }
+
     private TripResponse toResponse(Trip trip) {
         TripResponse response = new TripResponse();
         response.setTripId(trip.getTripId());

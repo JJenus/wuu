@@ -13,6 +13,15 @@ import java.util.List;
 
 @Repository
 public interface TrackerLocationRepository extends JpaRepository<TrackerLocation, Long> {
+
+    @Query("SELECT tl FROM TrackerLocation tl WHERE tl.tracker.vehicle.vehicleId = :vehicleId " +
+            "AND tl.tracker.vehicle.organizationId = :organizationId " +
+            "AND tl.recordedAt >= :start AND tl.recordedAt <= :end " +
+            "AND tl.validity = 'A' AND tl.latitude BETWEEN -90 AND 90 " +
+            "AND tl.longitude BETWEEN -180 AND 180 ORDER BY tl.recordedAt, tl.locationId")
+    List<TrackerLocation> findRecordedWindow(@Param("vehicleId") String vehicleId,
+            @Param("organizationId") Long organizationId, @Param("start") Instant start,
+            @Param("end") Instant end, Pageable pageable);
     
     List<TrackerLocation> findByTrackerTrackerIdOrderByRecordedAtDesc(String trackerId);
     
