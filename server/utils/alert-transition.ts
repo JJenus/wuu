@@ -1,9 +1,12 @@
 import { z } from 'zod'
+import { upstreamApi, upstreamSuffix } from './upstream-api'
 
 /** Only individual alert transitions; bulk, rules and geofences stay unavailable. */
 export function alertTransitionAllowed(method: string, target: string): boolean {
   if (method !== 'POST') return false
-  const match = /^\/alerts\/([1-9][0-9]{0,18})\/(acknowledge|resolve)$/.exec(target)
+  const suffix = upstreamSuffix(target, upstreamApi.alerts)
+  const match =
+    suffix === null ? null : /^\/([1-9][0-9]{0,18})\/(acknowledge|resolve)$/.exec(suffix)
   return !!match && BigInt(match[1]!) <= 9223372036854775807n
 }
 

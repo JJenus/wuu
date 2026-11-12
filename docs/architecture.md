@@ -1,5 +1,19 @@
 # Architecture contract
 
+## Canonical upstream API boundary — 2026-11-12
+
+`server/utils/upstream-api.ts` is the only application source declaring the Java
+`/api/v1` prefix. It owns upstream routes for gateway resolution, authentication
+and write allowlists. Policies match resource-relative suffixes at exact resource
+boundaries. Components and pages never import this server-only registry or call
+HTTP directly; composables use feature services/adapters. Browser adapters retain
+their existing BFF resource paths (`/api/_wuu/*`), not Java URLs.
+
+`tools/check-boundaries.mjs` checks Vue/TypeScript UI, workflow HTTP calls,
+browser imports of server/upstream routes and duplicated server version literals.
+Tests may assert full canonical URLs independently of the registry. No legacy
+Java path aliases or automatic version fallback are supported.
+
 ## Live map snapshots — 2026-11-12
 
 `useMapTracking` owns a page-local observer on the existing context-keyed fleet

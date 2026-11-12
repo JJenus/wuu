@@ -53,9 +53,9 @@ createServer(async (request, response) => {
     })
   if (!rules.has(email)) rules.set(email, new Map())
   const ownedRules = rules.get(email)
-  if (path === '/alerts/rules' && request.method === 'GET')
+  if (path === '/api/v1/alerts/rules' && request.method === 'GET')
     return send(200, page([...ownedRules.values()]))
-  if (path === '/alerts/rules/templates/geofence' && request.method === 'POST') {
+  if (path === '/api/v1/alerts/rules/templates/geofence' && request.method === 'POST') {
     if (!writer) return send(403, {})
     if (ownedRules.has(body.rule_key)) return send(409, { message: 'Rule key already exists' })
     /** @type {FixtureRule} */
@@ -74,7 +74,7 @@ createServer(async (request, response) => {
     ownedRules.set(body.rule_key, saved)
     return send(201, saved)
   }
-  const transition = /^\/alerts\/rules\/([A-Za-z0-9_-]+)\/(enable|disable)$/.exec(path)
+  const transition = /^\/api\/v1\/alerts\/rules\/([A-Za-z0-9_-]+)\/(enable|disable)$/.exec(path)
   if (transition && request.method === 'PATCH') {
     if (!writer) return send(403, {})
     const saved = ownedRules.get(transition[1])
@@ -102,13 +102,13 @@ createServer(async (request, response) => {
         { vehicle_id: 'VH-2', license_plate: 'LONDON-2' },
       ]),
     )
-  if (path === '/alerts/geofences' && request.method === 'GET')
+  if (path === '/api/v1/alerts/geofences' && request.method === 'GET')
     return send(200, page([geofences.get(email)]))
-  if (path === '/alerts/geofences/9' && request.method === 'GET')
+  if (path === '/api/v1/alerts/geofences/9' && request.method === 'GET')
     return send(200, geofences.get(email))
   if (
-    (path === '/alerts/geofences' && request.method === 'POST') ||
-    (path === '/alerts/geofences/9' && request.method === 'PUT')
+    (path === '/api/v1/alerts/geofences' && request.method === 'POST') ||
+    (path === '/api/v1/alerts/geofences/9' && request.method === 'PUT')
   ) {
     if (!writer) return send(403, {})
     if (Object.keys(body).some((key) => /[A-Z]/.test(key)))
@@ -121,6 +121,6 @@ createServer(async (request, response) => {
     )
     return send(request.method === 'POST' ? 201 : 200, geofences.get(email))
   }
-  if (['/api/v1/trips', '/alerts'].includes(path)) return send(200, page([]))
+  if (['/api/v1/trips', '/api/v1/alerts'].includes(path)) return send(200, page([]))
   return send(404, {})
 }).listen(18084, '127.0.0.1')

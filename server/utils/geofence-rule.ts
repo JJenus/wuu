@@ -1,15 +1,16 @@
 import { z } from 'zod'
+import { upstreamApi, upstreamSuffix } from './upstream-api'
 import { geofenceRuleInputSchema } from '#shared/geofence-rule'
 
 export function ruleRequestAllowed(method: string, target: string) {
-  if (method === 'GET') return target === '/alerts/rules'
-  if (method === 'POST') return target === '/alerts/rules/templates/geofence'
-  return (
-    method === 'PATCH' && /^\/alerts\/rules\/[A-Za-z0-9_-]{1,100}\/(enable|disable)$/.test(target)
-  )
+  const suffix = upstreamSuffix(target, upstreamApi.alertRules)
+  if (suffix === null) return false
+  if (method === 'GET') return suffix === ''
+  if (method === 'POST') return suffix === '/templates/geofence'
+  return method === 'PATCH' && /^\/[A-Za-z0-9_-]{1,100}\/(enable|disable)$/.test(suffix)
 }
 export function ruleRequestBody(target: string, body: unknown) {
-  if (target === '/alerts/rules/templates/geofence') {
+  if (target === `${upstreamApi.alertRules}/templates/geofence`) {
     const input = geofenceRuleInputSchema.parse(body)
     return {
       rule_key: input.ruleKey,

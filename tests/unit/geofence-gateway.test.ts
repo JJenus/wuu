@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { geofenceWriteAllowed, geofenceWriteBody } from '../../server/utils/geofence-write'
 
-const base = '/alerts/geofences'
+const base = '/api/v1/alerts/geofences'
 
 describe('strict geofence write gateway', () => {
   it('admits only collection POST with complete geometry and explicit associations', () => {
@@ -52,7 +52,7 @@ describe('strict geofence write gateway', () => {
       `${base}/9223372036854775808`,
       `${base}/9/vehicles`,
       `${base}/9/delete`,
-      '/alerts/9',
+      '/api/v1/alerts/9',
     ])
       expect(geofenceWriteAllowed('PUT', target)).toBe(false)
     for (const method of ['POST', 'DELETE', 'PATCH', 'GET'])

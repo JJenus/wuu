@@ -1,5 +1,6 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto'
 import { z } from 'zod'
+import { upstreamApi } from './upstream-api'
 import { loginSchema, userSchema } from '../../app/features/auth/domain/auth'
 import { originIsSafe } from './wuu-gateway'
 
@@ -126,7 +127,7 @@ export function createAuthBackend(origin: string, fetcher: typeof fetch = global
     }
   }
   async function me(token: string) {
-    const result = userSchema.safeParse(await request('/api/v1/users/me', token))
+    const result = userSchema.safeParse(await request(upstreamApi.me, token))
     if (!result.success)
       throw new AuthFailure(502, 'The sign-in service returned an invalid identity.')
     if (!result.data.enabled || result.data.locked)
@@ -153,16 +154,16 @@ export function createAuthBackend(origin: string, fetcher: typeof fetch = global
     me,
     async login(input: z.infer<typeof loginSchema>) {
       return authenticatedTokens(
-        await request('/api/v1/auth/login', undefined, loginSchema.parse(input)),
+        await request(upstreamApi.login, undefined, loginSchema.parse(input)),
       )
     },
     async refresh(refreshToken: string) {
       return authenticatedTokens(
-        await request('/api/v1/auth/refresh', undefined, { refresh_token: refreshToken }),
+        await request(upstreamApi.refresh, undefined, { refresh_token: refreshToken }),
       )
     },
     async logout(token: string) {
-      await request('/api/v1/auth/logout', token)
+      await request(upstreamApi.logout, token)
     },
   }
 }

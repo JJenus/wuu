@@ -47,7 +47,7 @@ test('actual Java: tenant fleet, sealed sessions and account-wide revocation', a
       },
     })
     expect(vehicle.status(), 'API creates real persisted vehicle').toBe(201)
-    const alert = await request.post(`${backend}/alerts`, {
+    const alert = await request.post(`${backend}/api/v1/alerts`, {
       headers,
       data: {
         vehicle_id: owner.vehicle_id,
@@ -284,7 +284,7 @@ test('actual Java: tenant fleet, sealed sessions and account-wide revocation', a
       'PASS own live fleet/detail and bidirectional foreign isolation; no preview fallback',
     )
     const zoneName = `Acceptance depot ${run}`
-    const zone = await request.post(`${backend}/alerts/geofences`, {
+    const zone = await request.post(`${backend}/api/v1/alerts/geofences`, {
       headers: { authorization: `Bearer ${owners[0]!.token}` },
       data: {
         vehicle_id: owners[0]!.vehicle_id,
@@ -311,7 +311,7 @@ test('actual Java: tenant fleet, sealed sessions and account-wide revocation', a
       { latitude: 51.5, longitude: -0.1 },
       { latitude: 51.52, longitude: -0.12 },
     ]
-    const zonePath = `${backend}/alerts/geofences/${zoneId}`
+    const zonePath = `${backend}/api/v1/alerts/geofences/${zoneId}`
     const zoneUpdated = await request.put(zonePath, {
       headers: geofenceHeaders,
       data: {
@@ -437,7 +437,7 @@ test('actual Java: tenant fleet, sealed sessions and account-wide revocation', a
     for (const action of ['acknowledge', 'resolve']) {
       expect(
         (
-          await request.post(`${backend}/alerts/${owners[0]!.alert}/${action}`, {
+          await request.post(`${backend}/api/v1/alerts/${owners[0]!.alert}/${action}`, {
             headers: colleagueHeaders,
             data:
               action === 'resolve'
