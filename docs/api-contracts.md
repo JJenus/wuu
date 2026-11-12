@@ -1,5 +1,17 @@
 # Backend and live adapter contracts
 
+## Recorded trip-window history — 2026-11-12
+
+Live trip detail now reads GET `/api/v1/trips/{id}/history` through the existing
+sealed-session GET gateway. Java enforces `trips.read` and tenant-scoped trip and
+GPS queries. Typed responses contain at most 10,000 ordered recorded samples,
+window bounds and explicit truncation. Source is `VEHICLE_TIME_WINDOW`, not
+confirmed trip membership. Replay does not interpolate or draw inferred routes;
+after two minutes without a fix it hides the marker and marks a recording gap.
+Empty/error/partial states remain explicit; preview alone uses invented paths.
+See backend `../sidie/docs/recorded-history.md` for the contract, checks and limits.
+This supersedes historical statements that all live replay is disabled.
+
 ## Live map snapshots — 2026-11-12
 
 Live `/map` polls the existing tenant-authorized GET `/api/v1/vehicles` through

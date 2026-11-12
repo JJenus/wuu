@@ -5,6 +5,7 @@ import { useWorkspace } from '~/features/workspace/composables/useWorkspace'
 import { useWorkspaceRecord } from '~/features/workspace/composables/useWorkspaceRecord'
 import { useTripExport } from '~/features/workspace/composables/useTripExport'
 import TripReplay from '~/features/tracking/components/TripReplay.vue'
+import RecordedTripReplay from '~/features/tracking/components/RecordedTripReplay.vue'
 const route = useRoute()
 const source = useDataSource()
 const { vehicles } = useWorkspace('trips')
@@ -124,13 +125,12 @@ useHead(() => ({
               :vehicle="vehicle"
               :in-progress="trip.status === 'in progress'"
             />
-            <div v-else class="info-banner">
-              <UIcon name="i-lucide-shield-alert" />
-              <p>
-                Route replay is unavailable for live trips until historical telemetry and origin and
-                destination data are verified. No route is generated from the live record.
-              </p>
-            </div>
+            <RecordedTripReplay
+              v-else-if="!source.isPreview"
+              :key="trip.id"
+              :trip-id="trip.id"
+              :vehicle="vehicle"
+            />
           </div>
           <div class="detail-stack">
             <section class="panel">

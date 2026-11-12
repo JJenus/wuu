@@ -80,6 +80,34 @@ test('real TCP telemetry crosses Artemis into persisted positions and automatic 
     await expect(page.locator('.tracking-vehicle-card')).toHaveCount(1)
     expect(countLocations()).toBe(before + 3)
     await expect(page.getByRole('button', { name: /simulation/i })).toHaveCount(0)
+    if (process.env.TRACKING_TEST_HISTORY) {
+      await page.goto('/trips/recorded-native')
+      const replay = page.getByRole('region', { name: 'Recorded GPS replay' })
+      await expect(replay).toContainText('3 recorded fixes')
+      await expect(replay).toContainText('51.48333, -0.10000')
+      const slider = replay.getByRole('slider', { name: 'Recorded replay timeline' })
+      await slider.fill('600')
+      await expect(replay).toContainText('Recording gap')
+      await expect(replay.locator('.geo-vehicle-marker')).toHaveCount(0)
+      await slider.fill((await slider.getAttribute('max'))!)
+      await expect(replay).toContainText('51.50500, -0.10000')
+      await page.reload()
+      await expect(replay).toContainText('3 recorded fixes')
+      await page.goto('/trips/empty-native')
+      await expect(page.getByRole('region', { name: 'Recorded GPS replay' })).toContainText(
+        'No recorded GPS fixes in this time window',
+      )
+      expect((await page.request.get('/api/_wuu/trips/foreign-native/history')).status()).toBe(404)
+      expect(
+        (await page.request.get('/api/_wuu/trips/recorded-native/history?limit=0')).status(),
+      ).toBe(400)
+      const partial = await page.request.get('/api/_wuu/trips/recorded-native/history?limit=1')
+      expect(partial.status()).toBe(200)
+      expect(await partial.json()).toMatchObject({
+        truncated: true,
+        points: [expect.objectContaining({ latitude: expect.any(Number) })],
+      })
+    }
   } finally {
     socket.destroy()
   }

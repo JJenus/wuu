@@ -4,7 +4,7 @@ import type { VehicleStatus } from '../../fleet/domain/fleet'
 export interface GeographicMarker {
   id: string
   label: string
-  status: VehicleStatus
+  status: VehicleStatus | 'unknown'
   position: Coordinate | null
 }
 export interface MapScene {
