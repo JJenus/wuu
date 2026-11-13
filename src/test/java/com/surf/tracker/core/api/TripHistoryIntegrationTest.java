@@ -134,4 +134,24 @@ class TripHistoryIntegrationTest {
         mvc.perform(get("/api/v1/trips/journey/history"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.points.length()").value(2));
     }
+
+    @Test void history_associatedTrip_returnsOnlyExplicitMembersNotEveryWindowFix() throws Exception {
+        Trip trip = em.find(Trip.class, "journey");
+        trip.setRecordedPointsAssociated(true);
+        var point = em.createQuery("select l from TrackerLocation l where l.latitude=11", TrackerLocation.class).getSingleResult();
+        point.setTrip(trip);
+        em.flush(); em.clear();
+        mvc.perform(get("/api/v1/trips/journey/history"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.source").value("TRIP_ASSOCIATED"))
+                .andExpect(jsonPath("$.points.length()").value(1))
+                .andExpect(jsonPath("$.points[0].latitude").value(11.0));
+    }
+
+    @Test void history_emptyAssociatedTrip_doesNotFallBackToInferredWindow() throws Exception {
+        em.find(Trip.class, "journey").setRecordedPointsAssociated(true);
+        em.flush(); em.clear();
+        mvc.perform(get("/api/v1/trips/journey/history"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.source").value("TRIP_ASSOCIATED"))
+                .andExpect(jsonPath("$.points").isEmpty());
+    }
 }
