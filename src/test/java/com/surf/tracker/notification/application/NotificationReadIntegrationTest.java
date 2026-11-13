@@ -4,6 +4,7 @@ import com.surf.tracker.notification.domain.entity.*;
 import com.surf.tracker.notification.domain.enums.NotificationChannel;
 import com.surf.tracker.notification.domain.enums.DeliveryStatus;
 import com.surf.tracker.notification.infrastructure.repository.DeliveryRepository;
+import com.surf.tracker.notification.infrastructure.repository.DeliveryEventRepository;
 import com.surf.tracker.shared.security.TenantContext;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.*;
@@ -31,6 +32,7 @@ class NotificationReadIntegrationTest {
     @Autowired EntityManager em;
     @Autowired NotificationQueryService queries;
     @Autowired NotificationCommandService commands;
+    @Autowired DeliveryEventRepository events;
 
     @Configuration
     @EntityScan(basePackageClasses = Delivery.class)
@@ -119,5 +121,40 @@ class NotificationReadIntegrationTest {
         TenantContext.clear();
         assertThatThrownBy(() -> queries.getUserNotifications("1", true, PageRequest.of(0, 20)))
             .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test void markAllAsRead_moreThanOneThousandDeliveries_marksEntireOwnedInboxWithoutDuplicateReadEvents() {
+        // given: a large inbox, including an already-read record and unrelated scopes.
+        for (int index = 0; index < 1505; index++) delivery("bulk-" + index, "1", "10");
+        em.flush();
+        em.clear();
+        long unread = queries.getUserNotifications("1", true, PageRequest.of(0, 1)).getTotalElements();
+        long before = events.count();
+        // when
+        commands.markAllAsRead("1");
+        em.flush();
+        em.clear();
+        // then
+        assertThat(queries.getUserNotifications("1", true, PageRequest.of(0, 20))).isEmpty();
+        assertThat(events.count()).isEqualTo(before + unread);
+        assertThat(events.countByDeliveryId("a-read")).isEqualTo(1);
+        assertThat(events.countByDeliveryId("foreign-user")).isZero();
+        assertThat(events.countByDeliveryId("foreign-tenant")).isZero();
+        commands.markAllAsRead("1");
+        em.flush();
+        assertThat(events.count()).isEqualTo(before + unread);
+    }
+
+    @Test void markAllAsRead_emptyInboxOrDeniedCaller_doesNotCreateEvents() {
+        // given
+        long before = events.count();
+        TenantContext.setCurrentUserId(3L);
+        // when / then
+        commands.markAllAsRead("3");
+        assertThat(events.count()).isEqualTo(before);
+        assertThatThrownBy(() -> commands.markAllAsRead("1")).isInstanceOf(AccessDeniedException.class);
+        TenantContext.clear();
+        assertThatThrownBy(() -> commands.markAllAsRead("1")).isInstanceOf(AccessDeniedException.class);
+        assertThat(events.count()).isEqualTo(before);
     }
 }
