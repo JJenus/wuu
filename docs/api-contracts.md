@@ -1,5 +1,22 @@
 # Backend and live adapter contracts
 
+## Reporting corrections — 2026-11-14
+
+Live `odometer_km` is a persisted odometer reading, not distance today. Vehicle
+details label it **Odometer**; the overview labels its sum **Fleet odometer total**,
+not a period distance. Empty fleets or any missing reading yield an unavailable
+total, never a partial sum presented as complete. A measured zero remains zero.
+Missing trip distance remains null in the adapter, displays **Not recorded**, and
+exports as an empty CSV cell. Preview retains sample-day distance and explicitly
+illustrative charts; live cards do not render those charts.
+
+Java's existing GET `/api/v1/trips/export` now combines optional `vehicleId`,
+`start` and `end` filters, including either date bound without a vehicle. Bounds
+are inclusive on **trip start time**, not interval overlap. Reversed bounds return
+400; absent/nonpositive tenant context returns 403. Existing `trips.export`
+authorization is unchanged. Frontend CSV downloads still export loaded records;
+they do not call the server export endpoint. See [reporting.md](reporting.md).
+
 ## Account self-service — 2026-11-13
 
 Live Settings now edits the authenticated user's names through the strict

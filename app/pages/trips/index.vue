@@ -104,7 +104,7 @@ useHead({ title: 'Trips — Wuu' })
                 </td>
                 <td>{{ trip.driver ?? 'Not recorded' }}</td>
                 <td>{{ trip.started }}</td>
-                <td>{{ trip.distance }} km</td>
+                <td>{{ trip.distance === null ? 'Not recorded' : `${trip.distance} km` }}</td>
                 <td><UiStatusBadge :status="trip.status" /></td>
                 <td>
                   <UButton

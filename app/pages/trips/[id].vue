@@ -55,8 +55,8 @@ useHead(() => ({
             in real time.
           </p>
           <p v-else>
-            Trip record from the live service. Endpoints and historical GPS points are not part of
-            the verified trip contract yet.
+            Trip record from the live service. Recorded GPS replay below uses saved samples and
+            labels gaps or truncation. Named route endpoints are not provided by this trip summary.
           </p>
         </div>
         <div class="detail-layout">
@@ -68,7 +68,11 @@ useHead(() => ({
               </div>
               <div class="detail-stats">
                 <div>
-                  <small>Distance</small><strong>{{ trip.distance }} <span>km</span></strong>
+                  <small>Distance</small
+                  ><strong
+                    >{{ trip.distance ?? 'Not recorded' }}
+                    <span v-if="trip.distance !== null">km</span></strong
+                  >
                 </div>
                 <div>
                   <small>{{ trip.status === 'in progress' ? 'Elapsed' : 'Duration' }}</small

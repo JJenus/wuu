@@ -94,7 +94,11 @@ const tabs = computed(() => [
           icon="i-lucide-truck"
           detail="All accounted for"
           note="in your fleet"
-          chart="M0 31L12 31L20 25L31 25L40 17L51 19L61 11L74 11L85 7L100 7"
+          :chart="
+            source.isPreview
+              ? 'M0 31L12 31L20 25L31 25L40 17L51 19L61 11L74 11L85 7L100 7'
+              : undefined
+          "
           featured
         />
         <MetricCard
@@ -103,8 +107,12 @@ const tabs = computed(() => [
           icon="i-lucide-navigation"
           :detail="`${Math.round((summary.moving / (summary.total || 1)) * 100)}% of your fleet`"
           note="on the road"
-          trend="positive"
-          chart="M0 32L11 29L20 33L31 20L41 25L52 15L64 20L74 10L85 15L100 5"
+          :trend="source.isPreview ? 'positive' : undefined"
+          :chart="
+            source.isPreview
+              ? 'M0 32L11 29L20 33L31 20L41 25L52 15L64 20L74 10L85 15L100 5'
+              : undefined
+          "
         />
         <MetricCard
           label="Needs attention"
@@ -113,17 +121,30 @@ const tabs = computed(() => [
           :detail="`${activeAlerts.filter((a) => a.severity === 'critical').length} critical alert`"
           note="worth a closer look"
           trend="warning"
-          chart="M0 11L12 11L20 20L31 17L42 17L53 28L64 21L76 26L87 26L100 26"
+          :chart="
+            source.isPreview
+              ? 'M0 11L12 11L20 20L31 17L42 17L53 28L64 21L76 26L87 26L100 26'
+              : undefined
+          "
         />
         <MetricCard
-          label="Distance traveled"
-          :value="summary.distance.toLocaleString()"
+          :label="source.isPreview ? 'Distance traveled' : 'Fleet odometer total'"
+          :value="summary.distance?.toLocaleString() ?? 'Not recorded'"
           icon="i-lucide-route"
-          detail="km across your fleet"
-          :note="source.isPreview ? 'sample day' : 'latest records'"
-          chart="M0 35L10 31L20 31L31 22L41 25L51 17L61 18L71 10L84 12L100 3"
+          :detail="
+            summary.distance === null ? 'Complete readings unavailable' : 'km across your fleet'
+          "
+          :note="source.isPreview ? 'sample day' : 'Not a period distance'"
+          :chart="
+            source.isPreview
+              ? 'M0 35L10 31L20 31L31 22L41 25L51 17L61 18L71 10L84 12L100 3'
+              : undefined
+          "
         />
       </section>
+      <p v-if="source.isPreview" class="muted mb-6">
+        Charts are illustrative sample trends, not historical analytics.
+      </p>
       <section class="overview-middle">
         <article class="panel map-panel">
           <div class="panel-heading">

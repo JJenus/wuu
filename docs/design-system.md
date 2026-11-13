@@ -38,7 +38,7 @@ Camera controls: preserve map-art proportions, keep vehicle hit targets constant
 
 Movement/replay: keep the simulation label beside controls and disclose invented paths beside replay. Start paused; use explicit play/pause, speed, reset and keyboard-accessible range controls. Selected trails are teal and the full illustrative route is dashed. Follow-camera is opt-in. Pause background tabs and clean up animation on navigation; never announce every animation frame to assistive technology.
 
-Maps use real geographic Leaflet tiles with visible provider attribution and metric scale. Markers have constant-size hit targets, distinct status symbols, hover/focus names and persistent selection rings. Nearby markers cluster and overlapping groups expand. Keep basemap errors separate from fleet-data errors. Mock telemetry is disclosed beside controls, not by calling real map tiles an illustration. Sparkline shapes remain sample trend illustrations, not verified analytics.
+Maps use real geographic Leaflet tiles with visible provider attribution and metric scale. Markers have constant-size hit targets, distinct status symbols, hover/focus names and persistent selection rings. Nearby markers cluster and overlapping groups expand. Keep basemap errors separate from fleet-data errors. Mock telemetry is disclosed beside controls, not by calling real map tiles an illustration. Sparkline shapes appear only in preview, beside an explicit sample-trend disclosure; live metrics have no illustrative trend charts.
 
 ## Verification limits
 

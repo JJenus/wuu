@@ -23,7 +23,7 @@ export function toTrip(dto: TripDto, now: number = Date.now()): Trip {
     startedAt: dto.startTime ?? null,
     endedAt: dto.endTime ?? null,
     duration: dto.startTime ? formatDuration(dto.startTime, dto.endTime, now) : 'Not recorded',
-    distance: dto.totalDistanceKm ?? 0,
+    distance: dto.totalDistanceKm ?? null,
     status: active ? 'in progress' : 'completed',
   }
 }

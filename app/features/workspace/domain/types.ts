@@ -32,7 +32,7 @@ export interface Trip {
   startedAt: string | null
   endedAt: string | null
   duration: string
-  distance: number
+  distance: number | null
   status: 'completed' | 'in progress'
 }
 

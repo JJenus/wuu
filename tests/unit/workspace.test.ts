@@ -32,7 +32,10 @@ describe('fleet workspace', () => {
     expect(fleetSummary([]).distance).toBeNull()
     expect(fleetSummary([{ ...vehicle, distance: null }]).distance).toBeNull()
     expect(
-      fleetSummary([{ ...vehicle, distance: 1204.4 }, { ...vehicle, distance: null }]).distance,
+      fleetSummary([
+        { ...vehicle, distance: 1204.4 },
+        { ...vehicle, distance: null },
+      ]).distance,
     ).toBeNull()
   })
   it('preserves measured zero and totals only complete readings', async () => {
@@ -40,7 +43,10 @@ describe('fleet workspace', () => {
     const vehicle = vehicles[0]!
     expect(fleetSummary([{ ...vehicle, distance: 0 }]).distance).toBe(0)
     expect(
-      fleetSummary([{ ...vehicle, distance: 1204.4 }, { ...vehicle, distance: 800.2 }]).distance,
+      fleetSummary([
+        { ...vehicle, distance: 1204.4 },
+        { ...vehicle, distance: 800.2 },
+      ]).distance,
     ).toBe(2005)
   })
   it('rejects missing and duplicate registrations', async () => {

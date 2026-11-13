@@ -7,7 +7,7 @@ defineProps<{
   note: string
   trend?: string
   featured?: boolean
-  chart: string
+  chart?: string
 }>()
 </script>
 
@@ -19,7 +19,7 @@ defineProps<{
     </div>
     <div class="metric-middle">
       <strong>{{ value }}</strong
-      ><svg viewBox="0 0 100 40" class="sparkline" aria-hidden="true">
+      ><svg v-if="chart" viewBox="0 0 100 40" class="sparkline" aria-hidden="true">
         <path :d="`${chart} L100 40 L0 40 Z`" fill="currentColor" opacity=".06" />
         <path
           :d="chart"

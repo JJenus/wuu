@@ -19,7 +19,9 @@ test('overview renders, filters fleet, and map markers expose vehicle details', 
   page.on('pageerror', (error) => errors.push(error.message))
   await navigate(page, '/')
   await expect(page.getByRole('heading', { name: 'Your fleet, in focus.' })).toBeVisible()
-  await expect(page.getByText('Charts are illustrative sample trends, not historical analytics.')).toBeVisible()
+  await expect(
+    page.getByText('Charts are illustrative sample trends, not historical analytics.'),
+  ).toBeVisible()
   await expect(page.locator('.sparkline')).toHaveCount(4)
   await expect(page.getByRole('table').getByRole('row')).toHaveCount(5)
   await page.getByRole('button', { name: 'Offline 1' }).click()

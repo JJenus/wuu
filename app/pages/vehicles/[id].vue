@@ -61,7 +61,7 @@ const sourceLabel = computed(() => (source.isPreview ? 'Sample data' : 'Live dat
               ><strong>{{ vehicle.fuel ?? '—' }}<span v-if="vehicle.fuel !== null">%</span></strong>
             </div>
             <div>
-              <small>Distance today</small
+              <small>{{ source.isPreview ? 'Distance today' : 'Odometer' }}</small
               ><strong
                 >{{ vehicle.distance ?? '—' }}
                 <span v-if="vehicle.distance !== null">km</span></strong
@@ -165,7 +165,11 @@ const sourceLabel = computed(() => (source.isPreview ? 'Sample data' : 'Live dat
                   >{{ trip.from ?? 'Origin not recorded' }} →
                   {{ trip.to ?? 'Destination not recorded' }}</strong
                 >
-                <p>{{ trip.id }} · {{ trip.distance }} km · {{ trip.duration }}</p>
+                <p>
+                  {{ trip.id }} ·
+                  {{ trip.distance === null ? 'Distance not recorded' : `${trip.distance} km` }} ·
+                  {{ trip.duration }}
+                </p>
               </div>
               <UIcon name="i-lucide-arrow-up-right"
             /></NuxtLink>

@@ -17,6 +17,7 @@ export interface Vehicle {
   location: string | null
   updated: string | null
   observedAt: string | null
+  /** Preview: sample-day distance. Live: persisted odometer reading, not period travel. */
   distance: number | null
   position: Coordinate | null
 }
@@ -42,7 +43,11 @@ export function fleetSummary(vehicles: Vehicle[]) {
     idle: vehicles.filter((v) => v.status === 'idle').length,
     parked: vehicles.filter((v) => v.status === 'parked').length,
     offline: vehicles.filter((v) => v.status === 'offline').length,
-    distance: Math.round(vehicles.reduce((sum, v) => sum + (v.distance ?? 0), 0)),
+    // A partial sum would silently present unknown readings as zero travel.
+    distance:
+      vehicles.length > 0 && vehicles.every((v) => v.distance !== null)
+        ? Math.round(vehicles.reduce((sum, v) => sum + v.distance!, 0))
+        : null,
   }
 }
 

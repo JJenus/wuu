@@ -23,6 +23,10 @@ describe('preview trip CSV', () => {
     expect(csv).toContain('"12.8"')
     expect(tripsCsv([]).split('\r\n')).toHaveLength(1)
   })
+  it('exports missing distance as blank while preserving measured zero', () => {
+    expect(tripsCsv([{ ...trip, distance: null }])).toContain('"SOMA","","completed"')
+    expect(tripsCsv([{ ...trip, distance: 0 }])).toContain('"SOMA","0","completed"')
+  })
   it('neutralizes spreadsheet formulas even after leading whitespace', () => {
     for (const driver of ['=1+1', '+1', '-1', '@SUM(A1)', '\t=1', '  =1', '\r=1']) {
       expect(tripsCsv([{ ...trip, driver }])).toContain(`"'${driver}"`)
