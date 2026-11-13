@@ -53,7 +53,12 @@ strict collection-create payloads; the BFF enforces exact origin and bounded JSO
 Backend tenant/permission/uniqueness enforcement remains authoritative. Requests
 are never automatically replayed; uncertain results retain drafts and tell the
 user to check persisted IDs before retrying. Historical disabled-fleet statements
-below are superseded only for these two creates and tracker reads.
+below are superseded for those creates and tracker reads. The 2026-11-13 management
+increment also adds strict profile edits and confirmed unused-tracker correction
+through this same boundary. Raw profile values remain separate from display
+placeholders; failed/uncertain writes retain drafts. Java serializes correction
+with ingestion and rejects recorded activity, active trips and stale sources.
+See `fleet-registration.md` for the updated contract and checks.
 
 ## Subscription integration exception — 2026-10-29
 

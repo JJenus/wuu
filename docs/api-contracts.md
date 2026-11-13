@@ -83,16 +83,21 @@ references and geometry validity. Rule writes/delete/bulk side paths remain
 blocked by the gateway. This supersedes disabled-geofence statements below.
 See [geofence-editors.md](geofence-editors.md) for checks and remaining limits.
 
-## Fleet setup — 2026-11-10
+## Fleet setup and management — 2026-11-13
 
 Live vehicle creation and assigned-tracker registration are now enabled. Exact
 same-origin collection POSTs expose only the bounded fields in
 `shared/fleet-registration.ts`; organization/actor fields, legacy vehicle device
-IDs, query overrides, update/delete and assignment subroutes remain unavailable.
+IDs and query overrides remain unavailable. Exact vehicle PUT, tracker profile
+PATCH and confirmed unused-tracker reassignment POST are now allowlisted; deletion,
+unassignment and used/cross-tenant tracker moves remain unavailable.
 Vehicle IDs/tracker IDs must be URL-addressable (no percent escapes, separators,
 controls or consecutive dots). Java remains authoritative for tenant ownership,
 permissions and global device uniqueness. Vehicle creation uses `vehicles.write`,
 tracker registration `vehicles.assign_device`, and tracker reads `devices.read`.
+Vehicle edits use `vehicles.write`; tracker profile/correction uses
+`vehicles.assign_device`. Correction requires expected source/destination and rejects
+recorded activity, assignment history, active trips and stale editors under locking.
 Registration does not imply hardware connectivity. See [fleet-registration.md](fleet-registration.md)
 for the request fields, checks and remaining limits. This supersedes historical
 read-only/disabled-fleet statements below.

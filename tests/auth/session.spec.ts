@@ -75,7 +75,7 @@ test('sign-in preserves safe deep links, hides credentials, verifies identity, g
         data: {},
       })
     ).status(),
-  ).toBe(405)
+  ).toBe(400) // Profile edits are allowlisted, but require the complete strict profile.
   await page.getByRole('button', { name: 'Sign out all sessions' }).click()
   await expect(page).toHaveURL('/sign-in')
   expect((await page.request.get('/api/_wuu/vehicles')).status()).toBe(401)

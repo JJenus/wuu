@@ -154,3 +154,62 @@ test('management boundary rejects identity, measured-state, query and origin ove
     ).status(),
   ).toBe(405)
 })
+
+test('mobile edit retains its draft when permission is revoked before save @java', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await signIn(page)
+  const vehicle = `revoked-${randomUUID().slice(0, 8)}`
+  expect(
+    (
+      await page.request.post('/api/_wuu/vehicles', {
+        headers: { origin },
+        data: { vehicle_id: vehicle, model: 'Original' },
+      })
+    ).status(),
+  ).toBe(201)
+  await page.goto(`/vehicles/${vehicle}`)
+  await page.getByRole('button', { name: 'Edit vehicle', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'Edit vehicle' })
+  await dialog.getByLabel('Model', { exact: true }).fill('Retained draft')
+  let writes = 0
+  page.on('request', (request) => {
+    if (request.method() === 'PUT') writes++
+  })
+  await page.route('**/api/_wuu/access', async (route) => {
+    const response = await route.fetch()
+    await route.fulfill({
+      response,
+      json: { ...(await response.json()), permissions: ['vehicles.read', 'devices.read'] },
+    })
+  })
+  await dialog.getByRole('button', { name: 'Save changes', exact: true }).click()
+  await expect(dialog.getByRole('alert')).toContainText('do not currently have permission')
+  await expect(dialog.getByLabel('Model', { exact: true })).toHaveValue('Retained draft')
+  expect(writes).toBe(0)
+  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Edit vehicle', exact: true })).not.toBeVisible()
+})
+
+test('native management keeps foreign tracker and vehicle ownership inaccessible @java', async ({
+  page,
+}) => {
+  test.skip(!process.env.FLEET_TEST_JAVA_ORIGIN, 'Requires the owned Java tenant fixtures')
+  await signIn(page)
+  const response = await page.request.post('/api/_wuu/trackers/tracker-foreign/reassign', {
+    headers: { origin },
+    data: { source_vehicle_id: 'telemetry-foreign', target_vehicle_id: 'tracking-map-vehicle' },
+  })
+  expect(response.status()).toBe(404)
+  const used = await page.request.post('/api/_wuu/trackers/tracker-owner/reassign', {
+    headers: { origin },
+    data: { source_vehicle_id: 'tracking-map-vehicle', target_vehicle_id: 'telemetry-foreign' },
+  })
+  expect(used.status()).toBe(404)
+  const profile = await page.request.patch('/api/_wuu/trackers/tracker-foreign/profile', {
+    headers: { origin },
+    data: { model: 'forbidden', protocol: null, firmware_version: null, sim_number: null },
+  })
+  expect(profile.status()).toBe(404)
+})

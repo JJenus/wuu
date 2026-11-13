@@ -27,8 +27,11 @@ Current database-derived `vehicles.write` enables the live vehicle form;
 refreshes that permission snapshot and Java rechecks authorization. Tracker
 records require `devices.read`; unavailable reads remain errors, not empty data.
 Role names confer no permission. Exact-origin, sealed-session, strict bounded
-collection POSTs are the only fleet writes exposed. Reassignment/unassignment
-remain unavailable. This supersedes disabled-fleet statements below; see
+collection POSTs plus the profile and confirmed unused-reassignment writes in
+`fleet-registration.md` are exposed. Vehicle edits require `vehicles.write`;
+tracker metadata and correction require `vehicles.assign_device`. Used trackers,
+active-trip moves and cross-tenant transfers remain blocked; unassignment is
+unavailable. This supersedes disabled-fleet statements below; see
 [fleet-registration.md](fleet-registration.md) for verification limits.
 
 ## Alert transition gateway exception — 2026-10-30

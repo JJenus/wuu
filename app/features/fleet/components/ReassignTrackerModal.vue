@@ -70,6 +70,10 @@ async function submit() {
           assignment history block a move. Neither vehicle may have an active trip. Device IDs stay
           unchanged.
         </p>
+        <p class="form-hint">
+          Correct the assignment before the device starts transmitting. Pending gateway packets
+          cannot be detected here.
+        </p>
         <p v-if="destinations.isPending.value" role="status">Loading destination vehicles…</p>
         <p v-if="destinations.isError.value" role="alert">
           {{ errorMessage(destinations.error.value, 'Destination vehicles could not load.') }}
