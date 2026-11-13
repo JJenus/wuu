@@ -220,6 +220,46 @@ class TelemetryReplayIntegrationTest {
         assertThat(jdbc.queryForObject("select sum(total_distance_km) from trips where vehicle_id=(select vehicle_id from trackers where device_id=?)", Float.class, device)).isZero();
     }
 
+    @Test
+    void receive_existingLegacyPosition_initializesCursorWithoutBackfillingOldTripMembership() {
+        String device = assignedDevice();
+        new TransactionTemplate(transactions).executeWithoutResult(status -> {
+            Tracker tracker = entities.createQuery("select t from Tracker t where t.deviceId=:device", Tracker.class)
+                .setParameter("device", device).getSingleResult();
+            var position = new com.surf.tracker.core.domain.entity.TrackerLocation(51.5, -0.1, 24f, clock.instant().minusSeconds(10));
+            position.setTracker(tracker); entities.persist(position);
+            tracker.getVehicle().setCurrentLocation(position);
+        });
+        handler.handleLocationUpdate(event(device, -20, 51.49));
+        assertThat(tripCount(device)).isZero();
+        handler.handleLocationUpdate(event(device, 0, 51.51));
+        assertThat(tripCount(device)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select count(*) from tracker_location_data where trip_id=?", Integer.class, onlyTrip(device))).isEqualTo(1);
+    }
+
+    @Test
+    void receive_twoTrackersOnSameVehicle_concurrentFixesNeverCreateTwoActiveTrips() throws Exception {
+        String device = assignedDevice();
+        String secondary = "second-" + device;
+        new TransactionTemplate(transactions).executeWithoutResult(status -> {
+            Vehicle vehicle = entities.createQuery("select t.vehicle from Tracker t where t.deviceId=:device", Vehicle.class)
+                    .setParameter("device", device).getSingleResult();
+            Tracker tracker = new Tracker();
+            tracker.setTrackerId(secondary); tracker.setDeviceId(secondary); tracker.setVehicle(vehicle);
+            entities.persist(tracker);
+        });
+        var start = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var first = executor.submit(() -> { start.await(); handler.handleLocationUpdate(event(device, -10, 51.5)); return true; });
+            var second = executor.submit(() -> { start.await(); handler.handleLocationUpdate(event(secondary, 0, 51.51)); return true; });
+            start.countDown();
+            assertThat(first.get(10, TimeUnit.SECONDS)).isTrue();
+            assertThat(second.get(10, TimeUnit.SECONDS)).isTrue();
+        }
+        assertThat(tripCount(device)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select is_active from trips where trip_id=?", Boolean.class, onlyTrip(device))).isTrue();
+    }
+
     private int tripCount(String device) {
         return jdbc.queryForObject("select count(*) from trips where vehicle_id=(select vehicle_id from trackers where device_id=?)", Integer.class, device);
     }
