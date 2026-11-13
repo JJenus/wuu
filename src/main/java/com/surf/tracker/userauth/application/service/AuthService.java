@@ -248,6 +248,8 @@ public class AuthService {
     @Transactional
     public UserResponse createUser(String email, String password, String firstName, String lastName, Long orgId) {
         if (orgId == null) throw new org.springframework.security.access.AccessDeniedException("Tenant required");
+        Role defaultRole = roleRepository.findByNameAndOrgId("OPERATOR", orgId)
+            .orElseThrow(() -> new ValidationException("DEFAULT_ROLE_MISSING", "tenant OPERATOR role is required before creating members"));
         if (userRepository.existsByEmail(email.toLowerCase(Locale.ROOT))) {
             throw new ValidationException("EMAIL_TAKEN", "email already registered");
         }
@@ -256,15 +258,9 @@ public class AuthService {
         u.setPasswordHash(passwordService.hash(password));
         u.setFirstName(firstName);
         u.setLastName(lastName);
+        u.assignRole(defaultRole);
         userRepository.save(u);
-        if (orgId != null) {
-            Role role = roleRepository.findByNameAndOrgId("OPERATOR", orgId).orElse(null);
-            if (role != null) {
-                u.assignRole(role);
-                userRepository.save(u);
-            }
-        }
-        return toResponse(u);
+        return toTenantResponse(u, orgId);
     }
 
     @Transactional
@@ -288,28 +284,28 @@ public class AuthService {
         user.getRoles().removeIf(role -> role.isOrgScoped() && Objects.equals(role.getOrg().getId(), orgId));
         assigned.forEach(user::assignRole);
         userRepository.save(user);
-        return toResponse(user);
+        return toTenantResponse(user, orgId);
     }
 
     @Transactional(readOnly = true)
     public List<UserResponse> listUsersInOrg(Long orgId) {
         return userRepository.findByOrgId(orgId,
                 org.springframework.data.domain.PageRequest.of(0, 1000))
-            .map(this::toResponse)
+            .map(user -> toTenantResponse(user, orgId))
             .getContent();
     }
 
     @Transactional(readOnly = true)
     public Page<UserResponse> listUsersInOrgPaged(Long orgId, Pageable pageable) {
         return userRepository.findByOrgId(orgId, pageable)
-            .map(this::toResponse);
+            .map(user -> toTenantResponse(user, orgId));
     }
 
     @Transactional(readOnly = true)
     public UserResponse getUserById(Long userId, Long orgId) {
         User user = userRepository.findByIdAndOrgId(userId, orgId)
             .orElseThrow(() -> new BusinessRuleException("USER_NOT_FOUND", "user not found"));
-        return toResponse(user);
+        return toTenantResponse(user, orgId);
     }
 
     @Transactional
@@ -333,7 +329,7 @@ public class AuthService {
             }
             user.setEmail(normalized);
         }
-        return toResponse(userRepository.save(user));
+        return toTenantResponse(userRepository.save(user), orgId);
     }
 
     @Transactional
@@ -414,6 +410,14 @@ public class AuthService {
     private String generateAccessToken(User user, Long orgId, Session session) {
         List<String> roleNames = user.getRoles().stream().map(Role::getName).distinct().collect(Collectors.toList());
         return jwtService.generateAccessToken(user.getId(), orgId, user.getEmail(), roleNames, session.getSessionUuid());
+    }
+
+    private UserResponse toTenantResponse(User user, Long orgId) {
+        UserResponse response = toResponse(user);
+        response.setOrganizationId(orgId);
+        response.setRoles(user.getRoles().stream().filter(role -> role.isOrgScoped()
+            && Objects.equals(role.getOrg().getId(), orgId)).map(Role::getName).sorted().toList());
+        return response;
     }
 
     private UserResponse toResponse(User u) {
