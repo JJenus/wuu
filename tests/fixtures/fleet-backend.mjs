@@ -74,8 +74,26 @@ createServer(async (request, response) => {
   }
   if (path === '/api/v1/vehicles') return send(200, page([...fleet.vehicles.values()]))
   if (path === '/api/v1/trackers') return send(200, page([...fleet.trackers.values()]))
+  const profile = path.match(/^\/api\/v1\/trackers\/([^/]+)\/profile$/)
+  const move = path.match(/^\/api\/v1\/trackers\/([^/]+)\/reassign$/)
+  if (profile || move) {
+    if (!writer) return send(403, {})
+    const tracker = fleet.trackers.get(decodeURIComponent((profile || move)[1]))
+    if (!tracker) return send(404, {})
+    if (profile) Object.assign(tracker, body)
+    else {
+      if (!fleet.vehicles.has(body.target_vehicle_id)) return send(404, {})
+      if (tracker.vehicle_id !== body.source_vehicle_id) return send(409, { message: 'Assignment changed' })
+      tracker.vehicle_id = body.target_vehicle_id
+    }
+    return send(200, tracker)
+  }
   if (path.startsWith('/api/v1/vehicles/')) {
     const vehicle = fleet.vehicles.get(decodeURIComponent(path.slice('/api/v1/vehicles/'.length)))
+    if (request.method === 'PUT') {
+      if (!writer) return send(403, {})
+      if (vehicle) Object.assign(vehicle, body)
+    }
     return vehicle ? send(200, vehicle) : send(404, {})
   }
   if (['/api/v1/trips', '/api/v1/alerts', '/api/v1/alerts/geofences'].includes(path))
