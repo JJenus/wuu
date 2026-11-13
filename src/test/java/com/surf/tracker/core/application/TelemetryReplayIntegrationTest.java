@@ -115,6 +115,7 @@ class TelemetryReplayIntegrationTest {
         assertThatThrownBy(() -> handler.handleLocationUpdate(source))
                 .isInstanceOf(org.springframework.dao.DataAccessResourceFailureException.class);
         assertThat(locationCount(device)).isZero();
+        assertThat(tripCount(device)).isZero();
         handler.handleLocationUpdate(source);
         handler.handleLocationUpdate(source);
         receipts.relayPending();
@@ -158,6 +159,73 @@ class TelemetryReplayIntegrationTest {
         assertThat(locationCount(device)).isEqualTo(1);
         receipts.relayPending();
         verify(publisher, times(1)).publish(any());
+        assertThat(tripCount(device)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select count(*) from trip_points where trip_id=?", Integer.class, onlyTrip(device))).isEqualTo(1);
+    }
+
+    @Test
+    void receive_movementAndConfirmedStop_persistsOneTripAndOrderedAssociatedFixes() {
+        String device = assignedDevice();
+        handler.handleLocationUpdate(event(device, -600, 51.5));
+        handler.handleLocationUpdate(event(device, -540, 51.51));
+        handler.handleLocationUpdate(event(device, -530, 51.51, 0));
+        handler.handleLocationUpdate(event(device, -230, 51.51, 0));
+        String trip = onlyTrip(device);
+        assertThat(jdbc.queryForObject("select is_active from trips where trip_id=?", Boolean.class, trip)).isFalse();
+        assertThat(jdbc.queryForObject("select end_reason from trips where trip_id=?", String.class, trip)).isEqualTo("TIMEOUT");
+        assertThat(jdbc.queryForObject("select start_time from trips where trip_id=?", java.sql.Timestamp.class, trip).toInstant())
+                .isEqualTo(clock.instant().minusSeconds(600));
+        assertThat(jdbc.queryForObject("select count(*) from tracker_location_data where trip_id=?", Integer.class, trip)).isEqualTo(4);
+        assertThat(jdbc.queryForList("select point_order from trip_points where trip_id=? order by point_order", Integer.class, trip))
+                .containsExactly(1, 2, 3, 4);
+        assertThat(jdbc.queryForObject("select total_distance_km from trips where trip_id=?", Float.class, trip)).isBetween(1.0f, 1.2f);
+        assertThat(jdbc.queryForObject("select average_speed_kmh from trips where trip_id=?", Float.class, trip)).isBetween(10f, 12f);
+        handler.handleLocationUpdate(event(device, -230, 51.51, 0));
+        handler.handleLocationUpdate(event(device, -200, 51.52));
+        assertThat(tripCount(device)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("select count(*) from trip_points where trip_id=?", Integer.class, trip)).isEqualTo(4);
+    }
+
+    @Test
+    void receive_idleBeforeMovementAndTransientStop_doesNotCreateOrPrematurelyEndTrip() {
+        String device = assignedDevice();
+        handler.handleLocationUpdate(event(device, -500, 51.5, 0));
+        handler.handleLocationUpdate(event(device, -490, 51.5, 2));
+        assertThat(tripCount(device)).isZero();
+        handler.handleLocationUpdate(event(device, -480, 51.5));
+        handler.handleLocationUpdate(event(device, -400, 51.5, 0));
+        handler.handleLocationUpdate(event(device, -200, 51.51));
+        handler.handleLocationUpdate(event(device, -100, 51.51, 0));
+        assertThat(jdbc.queryForObject("select is_active from trips where trip_id=?", Boolean.class, onlyTrip(device))).isTrue();
+    }
+
+    @Test
+    void receive_lateAndFutureFixes_retainHistoryWithoutChangingTripMembership() {
+        String device = assignedDevice();
+        handler.handleLocationUpdate(event(device, -200, 51.5));
+        handler.handleLocationUpdate(event(device, -100, 51.51));
+        handler.handleLocationUpdate(event(device, -150, 51.505));
+        handler.handleLocationUpdate(event(device, 60, 55));
+        handler.handleLocationUpdate(event(device, 0, 51.52));
+        assertThat(locationCount(device)).isEqualTo(5);
+        assertThat(jdbc.queryForObject("select count(*) from tracker_location_data where trip_id=?", Integer.class, onlyTrip(device))).isEqualTo(3);
+    }
+
+    @Test
+    void receive_reportingGap_splitsAtLastObservedFixWithoutBridgingDistance() {
+        String device = assignedDevice();
+        handler.handleLocationUpdate(event(device, -2000, 51.5));
+        handler.handleLocationUpdate(event(device, -100, 55));
+        assertThat(tripCount(device)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("select sum(total_distance_km) from trips where vehicle_id=(select vehicle_id from trackers where device_id=?)", Float.class, device)).isZero();
+    }
+
+    private int tripCount(String device) {
+        return jdbc.queryForObject("select count(*) from trips where vehicle_id=(select vehicle_id from trackers where device_id=?)", Integer.class, device);
+    }
+
+    private String onlyTrip(String device) {
+        return jdbc.queryForObject("select trip_id from trips where vehicle_id=(select vehicle_id from trackers where device_id=?)", String.class, device);
     }
 
     private String assignedDevice() {
@@ -174,8 +242,12 @@ class TelemetryReplayIntegrationTest {
     }
 
     private LocationDataEvent event(String device, int seconds, double latitude) {
+        return event(device, seconds, latitude, 24);
+    }
+
+    private LocationDataEvent event(String device, int seconds, double latitude, float speed) {
         return new LocationDataEvent(clock, UUID.randomUUID(), device,
-                new LocationPoint(latitude, -0.1, 24, clock.instant().plusSeconds(seconds)), "AUTOSEEKER", null);
+                new LocationPoint(latitude, -0.1, speed, clock.instant().plusSeconds(seconds)), "AUTOSEEKER", null);
     }
 
     private int locationCount(String device) {
