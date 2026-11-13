@@ -1,5 +1,17 @@
 # Backend and live adapter contracts
 
+## Account self-service — 2026-11-13
+
+Live Settings now edits the authenticated user's names through the strict
+POST `/api/auth/profile` → PUT `/api/v1/users/me` boundary, without administrative
+permissions. Email/roles/tenant/status remain immutable here. POST
+`/api/auth/change-password` forwards only current/new passwords to Java's existing
+endpoint, preserves the eight-character/72-UTF-8-byte policy and handles account-wide
+session revocation with explicit reauthentication. Wrong-password/validation failures preserve access;
+ambiguous password writes fail closed without replay. See [self-account.md](self-account.md)
+for exact contracts, verified workflows and limits. This supersedes historical
+statements that live profile/password self-service is unavailable.
+
 ## Live team administration — 2026-11-13
 
 `/team` now uses the narrow `team` BFF alias for the existing tenant user APIs:

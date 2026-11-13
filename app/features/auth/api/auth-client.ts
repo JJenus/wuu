@@ -23,6 +23,7 @@ export async function authRequest(
       method: action === 'session' ? 'GET' : 'POST',
       body,
       credentials: 'same-origin',
+      retry: action === 'profile' || action === 'change-password' ? 0 : undefined,
       onResponse({ response }) {
         responseStatus = response.status
         onCookies?.(response.headers.getSetCookie())

@@ -46,7 +46,7 @@ describe('self account schemas and upstream boundary', () => {
   })
   it('updates only the authenticated identity with snake_case names', async () => {
     const fetcher = vi
-      .fn()
+      .fn<typeof fetch>()
       .mockResolvedValueOnce(Response.json(user))
       .mockResolvedValueOnce(Response.json({ ...user, first_name: 'New' }))
     const result = await createAccountBackend('http://localhost:8080', fetcher).updateProfile(
@@ -55,16 +55,16 @@ describe('self account schemas and upstream boundary', () => {
     )
     expect(result.first_name).toBe('New')
     expect(fetcher.mock.calls[1]?.[0]).toBe('http://localhost:8080/api/v1/users/me')
-    expect(fetcher.mock.calls[1]?.[1].method).toBe('PUT')
-    expect(JSON.parse(fetcher.mock.calls[1]?.[1].body)).toEqual({
+    expect(fetcher.mock.calls[1]?.[1]?.method).toBe('PUT')
+    expect(JSON.parse(fetcher.mock.calls[1]![1]!.body as string)).toEqual({
       first_name: 'New',
       last_name: 'Last',
     })
-    expect(fetcher.mock.calls[1]?.[1].redirect).toBe('manual')
+    expect(fetcher.mock.calls[1]?.[1]?.redirect).toBe('manual')
   })
   it('rejects mismatched profile identities and never adopts another account', async () => {
     const fetcher = vi
-      .fn()
+      .fn<typeof fetch>()
       .mockResolvedValueOnce(Response.json(user))
       .mockResolvedValueOnce(Response.json({ ...user, id: 8 }))
     await expect(
@@ -75,7 +75,7 @@ describe('self account schemas and upstream boundary', () => {
     ).rejects.toMatchObject({ status: 502 })
   })
   it('distinguishes wrong current password from a revoked session and never retries', async () => {
-    const fetcher = vi.fn(async () =>
+    const fetcher = vi.fn<typeof fetch>(async () =>
       Response.json(
         { code: 'INVALID_CREDENTIALS', message: 'do not reflect upstream text' },
         { status: 401 },
@@ -93,6 +93,21 @@ describe('self account schemas and upstream boundary', () => {
       new_password: 'newpass1',
     })
   })
+  it.each([401, 403, 400, 429, 503, 302])(
+    'maps account upstream status %s without reflecting its body',
+    async (status) => {
+      const fetcher = vi.fn<typeof fetch>(async () =>
+        Response.json({ code: 'UNAUTHENTICATED', message: 'sensitive upstream text' }, { status }),
+      )
+      await expect(
+        createAccountBackend('http://localhost:8080', fetcher).changePassword('token', {
+          oldPassword: 'oldpass1',
+          newPassword: 'newpass1',
+        }),
+      ).rejects.not.toHaveProperty('message', 'sensitive upstream text')
+      expect(fetcher).toHaveBeenCalledTimes(1)
+    },
+  )
 })
 
 describe('password mutation session handling', () => {
@@ -107,7 +122,7 @@ describe('password mutation session handling', () => {
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
   })
-  async function request(body: unknown) {
+  async function request(body: unknown, path = '/api/auth/change-password') {
     const { createLoginSession } = await import('../../server/utils/wuu-session')
     const { sealWuuSession } = await import('../../server/utils/wuu-auth')
     const session = createLoginSession({
@@ -117,7 +132,7 @@ describe('password mutation session handling', () => {
       refreshExpiresIn: 3600,
     })
     const incoming = new IncomingMessage(new Socket())
-    incoming.url = '/api/auth/change-password'
+    incoming.url = path
     incoming.method = 'POST'
     incoming.headers = {
       host: 'localhost:3001',
@@ -180,5 +195,109 @@ describe('password mutation session handling', () => {
     })
     expect(String(event.node.res.getHeader('set-cookie'))).toContain('Max-Age=0')
     expect(fetcher).toHaveBeenCalledTimes(1)
+  })
+  it('returns a verified profile without exposing credentials or clearing its session', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>(async (_url, options) =>
+        Response.json(options?.method === 'PUT' ? { ...user, first_name: 'New' } : user),
+      ),
+    )
+    const event = await request({ firstName: 'New', lastName: 'Last' }, '/api/auth/profile')
+    const { handleAccountMutation } = await import('../../server/utils/account-request')
+    const result = await handleAccountMutation(event, 'profile')
+    expect(result).toMatchObject({ user: { id: 7, first_name: 'New' } })
+    expect(JSON.stringify(result)).not.toContain('refresh')
+    expect(String(event.node.res.getHeader('set-cookie'))).not.toContain('Max-Age=0')
+  })
+  it.each([400, 429, 401, 403])(
+    'handles definite password status %s without replay',
+    async (status) => {
+      const fetcher = vi.fn<typeof fetch>(async () =>
+        Response.json({ code: 'UNAUTHENTICATED' }, { status }),
+      )
+      vi.stubGlobal('fetch', fetcher)
+      const event = await request({ oldPassword: 'oldpass1', newPassword: 'newpass1' })
+      const { handleAccountMutation } = await import('../../server/utils/account-request')
+      await expect(handleAccountMutation(event, 'password')).rejects.toMatchObject({
+        statusCode: status,
+      })
+      expect(String(event.node.res.getHeader('set-cookie')).includes('Max-Age=0')).toBe(
+        [401, 403].includes(status),
+      )
+      expect(fetcher).toHaveBeenCalledTimes(1)
+    },
+  )
+  it('rejects CSRF, overrides, wrong content type and oversized bodies before contacting Java', async () => {
+    const fetcher = vi.fn<typeof fetch>()
+    vi.stubGlobal('fetch', fetcher)
+    const { handleAccountMutation } = await import('../../server/utils/account-request')
+    const badOrigin = await request({ firstName: '', lastName: '' })
+    badOrigin.node.req.headers.origin = 'https://foreign.example'
+    await expect(handleAccountMutation(badOrigin, 'profile')).rejects.toMatchObject({
+      statusCode: 403,
+    })
+    await expect(
+      handleAccountMutation(
+        await request({ firstName: '', lastName: '' }, '/api/auth/profile?id=99'),
+        'profile',
+      ),
+    ).rejects.toMatchObject({ statusCode: 400 })
+    const badType = await request({ firstName: '', lastName: '' })
+    badType.node.req.headers['content-type'] = 'text/plain'
+    await expect(handleAccountMutation(badType, 'profile')).rejects.toMatchObject({
+      statusCode: 415,
+    })
+    await expect(
+      handleAccountMutation(
+        await request({ firstName: 'x'.repeat(5000), lastName: '' }),
+        'profile',
+      ),
+    ).rejects.toMatchObject({ statusCode: 413 })
+    await expect(
+      handleAccountMutation(await request({ firstName: '', lastName: '', id: 9 }), 'profile'),
+    ).rejects.toMatchObject({ statusCode: 400 })
+    await expect(
+      handleAccountMutation(
+        await request({ oldPassword: 'oldpass1', newPassword: 'newpass1', userId: 9 }),
+        'password',
+      ),
+    ).rejects.toMatchObject({ statusCode: 400 })
+    expect(fetcher).not.toHaveBeenCalled()
+  })
+})
+
+describe('account auth client', () => {
+  afterEach(() => vi.unstubAllGlobals())
+  it('validates profile sessions and requires 204 for a confirmed password change', async () => {
+    const { authRequest } = await import('../../app/features/auth/api/auth-client')
+    let status = 200
+    vi.stubGlobal(
+      '$fetch',
+      async (_url: string, options: { onResponse: (context: { response: Response }) => void }) => {
+        options.onResponse({ response: new Response(null, { status }) })
+        return status === 204 ? undefined : { user, expires_at: Date.now() + 100000 }
+      },
+    )
+    await expect(
+      authRequest('profile', { firstName: 'First', lastName: 'Last' }),
+    ).resolves.toMatchObject({ user: { id: 7 } })
+    await expect(
+      authRequest('change-password', { oldPassword: 'oldpass1', newPassword: 'newpass1' }),
+    ).rejects.toThrow()
+    status = 204
+    await expect(
+      authRequest('change-password', { oldPassword: 'oldpass1', newPassword: 'newpass1' }),
+    ).resolves.toBeNull()
+    await expect(authRequest('logout')).resolves.toBeNull()
+  })
+  it('maps a definite validation failure without exposing submitted passwords', async () => {
+    vi.stubGlobal('$fetch', async () => {
+      throw { statusCode: 400, data: { message: 'Current password is incorrect.' } }
+    })
+    const { authRequest } = await import('../../app/features/auth/api/auth-client')
+    await expect(
+      authRequest('change-password', { oldPassword: 'wrong', newPassword: 'newpass1' }),
+    ).rejects.toMatchObject({ status: 400, message: 'Current password is incorrect.' })
   })
 })

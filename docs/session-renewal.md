@@ -1,5 +1,11 @@
 # BFF session renewal
 
+Account follow-up (2026-11-13): confirmed password changes now use the existing
+cookie/receipt invalidation path, stop client renewal and require new sign-in.
+Ambiguous password writes are not replayed. Profile-only changes invalidate adoption
+of older client renewal results so they cannot restore stale names. These changes
+retain the single-process limitation below; see `self-account.md` for evidence.
+
 ## Contract and boundaries
 
 Java login and refresh return `access_token`, `refresh_token`, `expires_in`,

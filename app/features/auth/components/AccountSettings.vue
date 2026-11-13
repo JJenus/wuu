@@ -149,8 +149,8 @@ onBeforeUnmount(clearPasswords)
               class="w-full"
           /></UFormField>
           <p class="form-hint">
-            At least 8 characters, at most 72 UTF-8 bytes. Spaces are preserved. Passwords are never
-            saved in browser storage.
+            At least 8 characters, at most 72 UTF-8 bytes. Spaces are preserved. This app does not
+            save passwords in local or session storage.
           </p>
           <p v-if="passwordFailure" role="alert" class="form-error">{{ passwordFailure }}</p>
           <UButton type="submit" :loading="auth.busy.value" :disabled="blocked"

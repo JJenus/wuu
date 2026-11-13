@@ -1,5 +1,14 @@
 # Access matrix and role register
 
+## Account self-service — 2026-11-13
+
+Any active authenticated user can update their own first/last names and change
+their password; `users.write` is not required for these self-only operations.
+Java derives identity from the session; no actor, tenant, role, email or account-status
+overrides are accepted. Password change requires the current password and revokes
+account sessions. Tenant-user administration retains its separate permissions.
+See [self-account.md](self-account.md). Preview does not simulate these writes.
+
 ## Team administration — 2026-11-13
 
 Live team reads require users.read; account/profile writes require users.write;

@@ -1,5 +1,15 @@
 # Architecture contract
 
+## Account self-service — 2026-11-13
+
+`AccountSettings` owns local drafts only; `useAuth` owns identity adoption, shared
+renewal-generation invalidation and reauthentication, while `authRequest` owns
+browser transport. Shared strict schemas feed dedicated authenticated BFF account
+handlers, not a general user-write proxy. Server-only adapters own Java paths,
+identity checks and uncertain-write policy. Both new mutations explicitly disable
+client retries. Account controls are disabled until hydration and remain outside
+the independent notification-preference error boundary. See `self-account.md`.
+
 ## Live team management — 2026-11-13
 
 `TeamManager` uses `useTeam` and `WorkspaceServices.team`; typed adapters own HTTP
