@@ -441,7 +441,7 @@ class AuthServiceTest {
         when(roleRepository.findById(99L)).thenReturn(Optional.of(Role.systemRole("SUPER_ADMIN", "system")));
         // when / then
         assertThatThrownBy(() -> service.assignRoles(1L, java.util.List.of(99L), 10L))
-            .isInstanceOf(ValidationException.class);
+            .isInstanceOf(ValidationException.class).hasMessageNotContaining("SUPER_ADMIN");
         assertThat(user.getRoles()).extracting(Role::getName).containsExactly("OPERATOR");
         verify(userRepository, never()).save(any());
     }
