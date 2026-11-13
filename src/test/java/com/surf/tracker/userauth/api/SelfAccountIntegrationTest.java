@@ -113,6 +113,33 @@ class SelfAccountIntegrationTest {
         }
         assertThat(passwords.matches("eight123", users.findById(owner.getId()).orElseThrow().getPasswordHash())).isTrue();
     }
+    @Test void updateMe_concurrentPasswordSnapshot_doesNotRestoreOldNames() throws Exception {
+        var loaded = new java.util.concurrent.CountDownLatch(1);
+        var release = new java.util.concurrent.CountDownLatch(1);
+        String newHash = passwords.hash("newpass1");
+        try (var executor = java.util.concurrent.Executors.newSingleThreadExecutor()) {
+            var passwordWrite = executor.submit(() -> {
+                new org.springframework.transaction.support.TransactionTemplate(transactions).executeWithoutResult(status -> {
+                    User snapshot = users.findById(owner.getId()).orElseThrow(); loaded.countDown();
+                    try {
+                        if (!release.await(10, java.util.concurrent.TimeUnit.SECONDS)) throw new IllegalStateException("Fixture timed out");
+                    } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); throw new IllegalStateException(interrupted); }
+                    snapshot.setPasswordHash(newHash); users.save(snapshot);
+                });
+                return true;
+            });
+            assertThat(loaded.await(10, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            try {
+                mvc.perform(put("/api/v1/users/me").header("Authorization", "Bearer " + session.getAccessToken())
+                    .contentType("application/json").content(mapper.writeValueAsString(new Names("Concurrent", "Name"))))
+                    .andExpect(status().isOk());
+            } finally { release.countDown(); }
+            assertThat(passwordWrite.get(10, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            User saved = users.findById(owner.getId()).orElseThrow();
+            assertThat(saved.getFirstName()).isEqualTo("Concurrent");
+            assertThat(passwords.matches("newpass1", saved.getPasswordHash())).isTrue();
+        } finally { release.countDown(); }
+    }
     private User account(String email, String name) {
         return new org.springframework.transaction.support.TransactionTemplate(transactions).execute(status -> {
             var org = organizations.save(Organization.create("Self account", "self-" + UUID.randomUUID()));
