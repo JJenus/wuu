@@ -63,8 +63,11 @@ public class NotificationQueryService {
         boolean unreadOnly,
         Pageable pageable
     ) {
-        Page<Delivery> deliveries = deliveryRepository.findForRecipient(NotificationScope.user(userId),
-            NotificationScope.tenant(), null, null, null, pageable);
+        String recipient = NotificationScope.user(userId);
+        String tenant = NotificationScope.tenant();
+        Page<Delivery> deliveries = unreadOnly
+            ? deliveryRepository.findUnreadForRecipient(recipient, tenant, pageable)
+            : deliveryRepository.findForRecipient(recipient, tenant, null, null, null, pageable);
         return deliveries.map(this::toResponse);
     }
 

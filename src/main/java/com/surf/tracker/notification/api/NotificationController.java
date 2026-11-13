@@ -60,9 +60,10 @@ public class NotificationController {
     }
 
     @GetMapping("/user/{userId}")
-    @Operation(operationId = "notificationsUserPage", summary = "Get user notifications", description = "Requires an authenticated bearer session and active tenant; userId must equal the authenticated database user ID. Uses Spring Pageable and returns Spring Page. Known implementation limitation: unreadOnly is accepted (default false) but currently ignored by the query service, so true does not filter read deliveries.")
+    @Operation(operationId = "notificationsUserPage", summary = "Get user notifications", description = "Requires an authenticated bearer session and active tenant; userId must equal the authenticated database user ID. Uses Spring Pageable and returns Spring Page. unreadOnly=true excludes deliveries with a persisted OPENED event before pagination and total counts. Provider delivery status is independent of read state; sent/delivered/failed events do not mark a delivery read. Default false includes both read and unread deliveries.")
     public ResponseEntity<Page<NotificationResponse>> getUserNotifications(
             @PathVariable String userId,
+            @io.swagger.v3.oas.annotations.Parameter(description = "Return only deliveries without an OPENED event. Filters both page content and totals; independent of delivery status.")
             @RequestParam(defaultValue = "false") boolean unreadOnly,
             @ParameterObject Pageable pageable) {
 

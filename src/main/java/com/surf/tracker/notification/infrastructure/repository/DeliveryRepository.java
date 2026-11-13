@@ -27,6 +27,13 @@ public interface DeliveryRepository extends JpaRepository<Delivery, Long> {
         @Param("status") DeliveryStatus status, @Param("channel") NotificationChannel channel,
         @Param("alertId") String alertId, Pageable pageable);
 
+    @Query("SELECT d FROM Delivery d WHERE d.notificationHub.userId = :userId " +
+        "AND d.notificationHub.tenantId = :tenantId AND NOT EXISTS (" +
+        "SELECT e.id FROM DeliveryEvent e WHERE e.deliveryId = d.deliveryId " +
+        "AND e.eventType = com.surf.tracker.notification.domain.enums.DeliveryEventType.OPENED)")
+    Page<Delivery> findUnreadForRecipient(@Param("userId") String userId,
+        @Param("tenantId") String tenantId, Pageable pageable);
+
     Optional<Delivery> findByDeliveryId(String deliveryId);
 
     List<Delivery> findByNotificationHubNotificationId(String notificationId);
