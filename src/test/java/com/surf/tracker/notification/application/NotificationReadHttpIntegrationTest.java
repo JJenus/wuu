@@ -17,6 +17,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.http.*;
 import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import java.util.List;
@@ -29,6 +31,17 @@ import static org.assertj.core.api.Assertions.assertThat;
         "spring.jms.listener.auto-startup=false", "userauth.password.bcrypt-strength=4"})
 @DirtiesContext
 class NotificationReadHttpIntegrationTest {
+    @DynamicPropertySource
+    static void ownedDatabase(DynamicPropertyRegistry properties) {
+        String url = System.getenv("NOTIFICATION_READ_TEST_DB_URL");
+        if (url != null) {
+            if (!url.matches("jdbc:postgresql://127\\.0\\.0\\.1:[0-9]+/notification_read_test"))
+                throw new IllegalArgumentException("Notification test requires an owned loopback database");
+            properties.add("spring.datasource.url", () -> url);
+            properties.add("spring.datasource.username", () -> "notification_read_test");
+            properties.add("spring.datasource.password", () -> "");
+        }
+    }
     @Autowired TestRestTemplate http;
     @Autowired EntityManager em;
     @Autowired UserRepository users;
@@ -83,8 +96,24 @@ class NotificationReadHttpIntegrationTest {
         assertThat(unread.content()).extracting(DeliveryView::status).containsExactly("DELIVERED");
         assertThat(http.exchange(path + "?unreadOnly=false", HttpMethod.GET, request, NotificationPage.class).getBody().totalElements())
             .isEqualTo(2);
+        new TransactionTemplate(transactions).executeWithoutResult(status -> {
+            for (int index = 0; index < 1505; index++) provision("http-bulk-" + index,
+                Long.toString(owner.userId()), Long.toString(owner.organizationId()));
+        });
+        assertThat(http.exchange(path + "?unreadOnly=true&size=1", HttpMethod.GET, request, NotificationPage.class)
+            .getBody().totalElements()).isEqualTo(1506);
         assertThat(http.exchange(path + "/read-all", HttpMethod.POST, request, Void.class).getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(http.exchange(path + "?unreadOnly=true", HttpMethod.GET, request, NotificationPage.class).getBody().content()).isEmpty();
+        assertThat(http.exchange(path + "/read-all", HttpMethod.POST, request, Void.class).getStatusCode()).isEqualTo(HttpStatus.OK);
+        new TransactionTemplate(transactions).executeWithoutResult(status -> {
+            assertThat(em.createQuery("select count(e) from DeliveryEvent e where e.eventType = " +
+                "com.surf.tracker.notification.domain.enums.DeliveryEventType.OPENED", Long.class).getSingleResult())
+                .isEqualTo(1507);
+            provision("http-new-arrival", Long.toString(owner.userId()), Long.toString(owner.organizationId()));
+        });
+        var later = http.exchange(path + "?unreadOnly=true", HttpMethod.GET, request, NotificationPage.class).getBody();
+        assertThat(later.totalElements()).isEqualTo(1);
+        assertThat(later.content()).extracting(DeliveryView::deliveryId).containsExactly("http-new-arrival");
         assertThat(http.exchange("/api/v1/notifications/user/" + (owner.userId() + 10000) + "?unreadOnly=true",
             HttpMethod.GET, request, String.class).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
     }

@@ -48,8 +48,8 @@ operation as available merely because a Java handler is mapped.
 - `unreadOnly=true` now excludes deliveries with a persisted `OPENED` event,
   filtering before pagination and total counts. Read state is independent of
   delivery status; `DELIVERED` does not imply read. Default false still includes
-  both read and unread deliveries. The existing bulk-read implementation is capped
-  at the first 1000 scoped deliveries; removal of that limit remains separate work.
+  both read and unread deliveries. Bulk read now covers all owned unread deliveries
+  visible to its database statement, without a page cap; later arrivals remain unread.
 - Notifications retain Spring `Page`; other resources retain their existing
   project pagination envelopes. This is documented, not silently redesigned.
 - MVC errors use `ErrorResponse`, while security filters may return only `code`.
@@ -122,7 +122,7 @@ Checks actually run:
   the corrected test follows the real UI and passes without changing app behavior.
 
 Remaining work is **field-level documentation and separately scoped behavior
-fixes**, including epoch error timestamps and the bulk-read cap listed above.
+fixes**, including epoch error timestamps. The bulk-read cap is fixed below.
 No compatibility aliases were added; no production deployment or production
 database/broker changes were performed. Physical device/command transport and
 release certification remain separate from this API contract verification.
@@ -138,8 +138,8 @@ database user; no caller-selected recipient or tenant is admitted. No migration,
 new response fields, provider calls or frontend capabilities were introduced.
 
 Documented all ten `NotificationResponse` fields and the `unreadOnly` query
-parameter. The OpenAPI test verifies generated descriptions; the existing bulk-read
-1000-delivery limitation is now disclosed rather than advertised as unbounded.
+parameter. The OpenAPI test verifies generated descriptions. At this stage the
+bulk-read 1000-delivery limitation was disclosed; the next increment below removes it.
 
 RED: four persistence regressions ran, three failed (unread count was 3 rather
 than 2; individually/bulk-read records still appeared). GREEN:
@@ -153,3 +153,34 @@ inbox read, re-reads saved state and checks anonymous/foreign-recipient denial.
 This uses the migrated H2 test database, not PostgreSQL or an external provider.
 No whole-stack or frontend tests were rerun for this backend-only increment; the
 earlier whole-stack evidence above belongs to API standardization, not this fix.
+
+### Complete bulk read — 2026-11-13
+
+Outcome: POST `/api/v1/notifications/user/{userId}/read-all` no longer reads only
+the first 1000 deliveries. After existing authenticated-user/tenant checks, one
+parameterized `INSERT ... SELECT` records `OPENED` events for all scoped deliveries
+without such an event. It is a single atomic database statement in the existing
+transaction; the application does not materialize or retain an inbox-sized list.
+Existing events, provider status and other recipients/tenants remain unchanged.
+Empty inboxes and sequential retries add no duplicate open events. Concurrent
+read requests may still append duplicate audit events under the existing event
+model; read results remain correct, and no unique-event guarantee is claimed.
+Rows arriving after the statement are not marked read. No schema migration,
+provider call, compatibility alias or frontend capability was added.
+
+RED: the large-inbox persistence test left an unread page (26 pages at size 20)
+after the old implementation's capped operation. GREEN:
+`./mvnw -B -Dtest=NotificationReadIntegrationTest,NotificationReadHttpIntegrationTest,NotificationScopeTest,ApiContractIntegrationTest verify`
+passed **18 tests** and executable packaging. The expanded persistence check covers
+1508 owned deliveries including one already read, foreign recipients/tenants,
+empty/denied operations and sequential retries without new events. The actual HTTP
+workflow covers 1507 owned deliveries, a real login/session, persisted bulk-read
+results, repeat requests, foreign-recipient denial and a later arrival staying unread.
+
+The same HTTP test also passed separately against a fresh owned loopback
+**PostgreSQL 18** cluster with actual PostgreSQL Flyway migrations. The cluster was
+stopped afterward; no production data/services or provider were accessed. To repeat
+with a separately provisioned disposable cluster/user/database `notification_read_test`:
+`NOTIFICATION_READ_TEST_DB_URL=jdbc:postgresql://127.0.0.1:<port>/notification_read_test ./mvnw -B -Dtest=NotificationReadHttpIntegrationTest -Dspring.profiles.active=postgres test`.
+The test rejects non-loopback/differently named database URLs. H2 remains the default
+when that variable is absent. No unrelated full-stack/frontend suites were rerun.
