@@ -59,15 +59,19 @@ describe('password mutation session handling', () => {
     return createEvent(incoming, new ServerResponse(incoming))
   }
   it('clears local session and renewal receipts after confirmed change', async () => {
-    const fetcher = vi.fn(async () => new Response(null, { status: 204 })); vi.stubGlobal('fetch', fetcher)
+    const fetcher = vi.fn<typeof fetch>(async url => String(url).endsWith('/refresh')
+      ? Response.json({ access_token: 'next-access', refresh_token: 'next-refresh', expires_in: 900, refresh_expires_in: 3600, token_type: 'Bearer' })
+      : String(url).endsWith('/me') ? Response.json(user) : new Response(null, { status: 204 }))
+    vi.stubGlobal('fetch', fetcher)
     const event = await request({ oldPassword: 'eight123', newPassword: 'newpass1' })
+    const { currentSession, refreshSession } = await import('../../server/utils/wuu-session')
+    await refreshSession(event, currentSession(event))
     const { handleAccountMutation } = await import('../../server/utils/account-request')
     await handleAccountMutation(event, 'password')
     expect(event.node.res.statusCode).toBe(204)
     expect(String(event.node.res.getHeader('set-cookie'))).toContain('Max-Age=0')
-    const { currentSession } = await import('../../server/utils/wuu-session')
     expect(() => currentSession(event)).toThrow()
-    expect(fetcher).toHaveBeenCalledTimes(1)
+    expect(fetcher).toHaveBeenCalledTimes(3)
   })
   it('keeps the session for a definite wrong-current-password error', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => Response.json({ code: 'INVALID_CREDENTIALS' }, { status: 401 })))

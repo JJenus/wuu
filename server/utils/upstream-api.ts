@@ -21,6 +21,7 @@ export const upstreamApi = Object.freeze({
   login: `${auth}/login`,
   refresh: `${auth}/refresh`,
   logout: `${auth}/logout`,
+  changePassword: `${auth}/change-password`,
   localAccounts: `${auth}/local-accounts`,
 })
 
