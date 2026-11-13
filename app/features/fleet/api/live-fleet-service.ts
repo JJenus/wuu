@@ -11,12 +11,37 @@ import {
 } from './contracts'
 import { vehicleRegistrationSchema, trackerRegistrationSchema } from '../domain/registration'
 import type { FleetTracker } from '../domain/registration'
+import { vehicleProfileSchema, trackerProfileSchema, trackerReassignmentSchema } from '#shared/fleet-management'
 
 const PAGE_SIZE = 200
 const MAX_PAGES = 50
 
 export function createLiveFleetService(client: GatewayClient): FleetService {
   return {
+    async updateVehicle(id, input) {
+      const profile = vehicleProfileSchema.parse(input)
+      const dto = await client.request('PUT', `/vehicles/${encodeURIComponent(id)}`, vehicleDtoSchema, {
+        body: { model: profile.model, license_plate: profile.licensePlate, vin: profile.vin },
+      })
+      if (dto.vehicleId !== id) throw new ApiError({ kind: 'contract', message: 'Saved vehicle identity could not be verified. Reload before retrying.' })
+      return toVehicle(dto)
+    },
+    async updateTracker(id, input) {
+      const profile = trackerProfileSchema.parse(input)
+      const dto = await client.request('PATCH', `/trackers/${encodeURIComponent(id)}/profile`, trackerDtoSchema, {
+        body: { model: profile.model, protocol: profile.protocol, firmware_version: profile.firmwareVersion, sim_number: profile.simNumber },
+      })
+      if (dto.trackerId !== id) throw new ApiError({ kind: 'contract', message: 'Saved tracker identity could not be verified. Reload before retrying.' })
+      return dto
+    },
+    async reassignTracker(id, input) {
+      const assignment = trackerReassignmentSchema.parse(input)
+      const dto = await client.request('POST', `/trackers/${encodeURIComponent(id)}/reassign`, trackerDtoSchema, {
+        body: { source_vehicle_id: assignment.sourceVehicleId, target_vehicle_id: assignment.targetVehicleId },
+      })
+      if (dto.trackerId !== id || dto.vehicleId !== assignment.targetVehicleId) throw new ApiError({ kind: 'contract', message: 'Saved tracker assignment could not be verified. Reload before retrying.' })
+      return dto
+    },
     async registerVehicle(input) {
       const parsed = vehicleRegistrationSchema.parse(input)
       const dto = await client.request('POST', '/vehicles', vehicleDtoSchema, {

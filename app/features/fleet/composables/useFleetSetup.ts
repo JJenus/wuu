@@ -7,6 +7,7 @@ import {
 import { queryKeys } from '../../core/queries/keys'
 import { errorMessage, isApiError } from '../../core/domain/errors'
 import type { TrackerRegistration, VehicleRegistration } from '../domain/registration'
+import type { VehicleProfile, TrackerProfile, TrackerReassignment } from '#shared/fleet-management'
 
 export function useFleetSetup() {
   const services = useWorkspaceServices()
@@ -21,6 +22,7 @@ export function useFleetSetup() {
     !!access.data.value?.permissions.includes(permission)
   const canCreate = computed(() => services.mode === 'preview' || permitted('vehicles.write'))
   const canAssign = computed(() => services.mode === 'live' && permitted('vehicles.assign_device'))
+  const canEdit = computed(() => services.mode === 'live' && permitted('vehicles.write'))
   const canReadTrackers = computed(() => services.mode === 'live' && permitted('devices.read'))
 
   async function submit<T>(permission: string, operation: () => Promise<T>): Promise<T | null> {
@@ -51,11 +53,18 @@ export function useFleetSetup() {
   return {
     canCreate,
     canAssign,
+    canEdit,
     canReadTrackers,
     busy,
     failure,
     accessError: computed(() => access.isError.value),
     retryAccess: () => access.refetch(),
+    updateVehicle: (id: string, input: VehicleProfile) =>
+      submit('vehicles.write', () => services.fleet.updateVehicle(id, input)),
+    updateTracker: (id: string, input: TrackerProfile) =>
+      submit('vehicles.assign_device', () => services.fleet.updateTracker(id, input)),
+    reassignTracker: (id: string, input: TrackerReassignment) =>
+      submit('vehicles.assign_device', () => services.fleet.reassignTracker(id, input)),
     registerVehicle: (input: VehicleRegistration) =>
       submit('vehicles.write', () => services.fleet.registerVehicle(input)),
     registerTracker: (input: TrackerRegistration) =>

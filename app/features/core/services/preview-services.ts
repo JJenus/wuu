@@ -37,6 +37,9 @@ export function createPreviewServices(): WorkspaceServices {
       },
     },
     fleet: {
+      updateVehicle: unavailableRegistration,
+      updateTracker: unavailableRegistration,
+      reassignTracker: unavailableRegistration,
       registerVehicle: unavailableRegistration,
       registerTracker: unavailableRegistration,
       listTrackers: unavailableRegistration,

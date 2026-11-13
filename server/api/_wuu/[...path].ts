@@ -6,6 +6,7 @@ import { assertSameOrigin, currentSession, ensureFreshSession } from '../../util
 import { z } from 'zod'
 import { alertTransitionAllowed, alertTransitionBody } from '../../utils/alert-transition'
 import { fleetRegistrationAllowed, fleetRegistrationBody } from '../../utils/fleet-registration'
+import { fleetManagementAllowed, fleetManagementBody } from '../../utils/fleet-management'
 import { geofenceWriteAllowed, geofenceWriteBody } from '../../utils/geofence-write'
 import { ruleRequestAllowed, ruleRequestBody } from '../../utils/geofence-rule'
 import { teamRequestAllowed, teamRequestBody, teamQueryAllowed } from '../../utils/team-request'
@@ -43,6 +44,7 @@ export default defineEventHandler(async (event) => {
   const subscription = target !== null && upstreamSuffix(target, upstreamApi.subscriptions) !== null
   const alertTransition = !!target && alertTransitionAllowed(method, target)
   const fleetRegistration = !!target && fleetRegistrationAllowed(method, target)
+  const fleetManagement = !!target && fleetManagementAllowed(method, target)
   const geofenceWrite = !!target && geofenceWriteAllowed(method, target)
   const ruleRequest = !!target && ruleRequestAllowed(method, target)
   const ruleWrite = ruleRequest && method !== 'GET'
@@ -59,7 +61,8 @@ export default defineEventHandler(async (event) => {
         ? !teamRequestAllowed(method, target!)
         : method !== 'GET' &&
           !alertTransition &&
-          !fleetRegistration &&
+           !fleetRegistration &&
+           !fleetManagement &&
           !geofenceWrite &&
           !ruleWrite)
   )
@@ -75,6 +78,8 @@ export default defineEventHandler(async (event) => {
     return jsonError(event, 400, 'Alert transitions do not accept query parameters.', requestId)
   if (fleetRegistration && Object.keys(query).length)
     return jsonError(event, 400, 'Fleet registration does not accept query parameters.', requestId)
+  if (fleetManagement && Object.keys(query).length)
+    return jsonError(event, 400, 'Fleet updates do not accept query parameters.', requestId)
   if (geofenceWrite && Object.keys(query).length)
     return jsonError(event, 400, 'Geofence writes do not accept query parameters.', requestId)
   if (ruleWrite && Object.keys(query).length)
@@ -136,7 +141,9 @@ export default defineEventHandler(async (event) => {
       body = JSON.stringify(
         teamWrite
           ? teamRequestBody(method, target, parsed)
-          : fleetRegistration
+           : fleetManagement
+             ? fleetManagementBody(target, parsed)
+           : fleetRegistration
             ? fleetRegistrationBody(target, parsed)
             : alertTransition
               ? alertTransitionBody(target, parsed)
@@ -152,7 +159,9 @@ export default defineEventHandler(async (event) => {
         400,
         teamWrite
           ? 'Invalid team request.'
-          : fleetRegistration
+           : fleetManagement
+             ? 'Invalid fleet update request.'
+           : fleetRegistration
             ? 'Invalid fleet registration request.'
             : alertTransition
               ? 'Invalid alert transition request.'

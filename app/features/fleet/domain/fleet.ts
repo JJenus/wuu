@@ -7,6 +7,8 @@ export interface Vehicle {
   plate: string
   type: string
   vin?: string | null
+  /** Unformatted editable fields; never persist the display placeholders above. */
+  profile?: import('#shared/fleet-management').VehicleProfile
   driver: string | null
   initials: string | null
   status: VehicleStatus
