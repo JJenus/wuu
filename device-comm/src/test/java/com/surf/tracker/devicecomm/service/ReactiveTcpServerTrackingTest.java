@@ -72,7 +72,8 @@ class ReactiveTcpServerTrackingTest {
             order.verify(connections).updateConnectionDevice("connection", "8168000008");
             order.verify(connections).updateLastSeen("connection");
         } else {
-            verifyNoInteractions(connections);
+            verify(connections).getLiveConnection("connection");
+            org.mockito.Mockito.verifyNoMoreInteractions(connections);
             if (outcome == Outcome.MALFORMED) verifyNoInteractions(publisher);
             else verify(publisher).publish(any());
         }

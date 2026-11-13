@@ -4,6 +4,8 @@ import com.surf.tracker.devicecomm.application.DeviceDataProcessor;
 import com.surf.tracker.devicecomm.domain.DeviceDataPacket;
 import com.surf.tracker.shared.domain.ConnectionInfo;
 import com.surf.tracker.shared.redis.RedisConnectionTracker;
+import com.surf.tracker.shared.commands.CommandWrite;
+import com.surf.tracker.shared.commands.WriteOutcome;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.channel.ChannelOption;
@@ -34,12 +36,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 public class ReactiveTcpServer {
     private static final Logger logger = LoggerFactory.getLogger(ReactiveTcpServer.class);
-    private static final AtomicInteger CONNECTION_COUNTER = new AtomicInteger(0);
+    private static final io.netty.util.AttributeKey<String> BOUND_DEVICE = io.netty.util.AttributeKey.valueOf("tracker.bound-device");
 
     private final DeviceDataProcessor deviceDataProcessor;
     private final RedisConnectionTracker connectionTracker;
@@ -105,7 +106,7 @@ public class ReactiveTcpServer {
             }
             server = tcp
                     .handle((inbound, outbound) -> {
-                        String connectionId = "conn-" + CONNECTION_COUNTER.incrementAndGet();
+                        String connectionId = "conn-" + java.util.UUID.randomUUID();
 
                         final String[] clientIp = new String[]{"unknown"};
                         final Connection[] nettyConnection = new Connection[1];
@@ -251,6 +252,10 @@ public class ReactiveTcpServer {
 
             // Extract device ID
             String deviceId = extractDeviceIdFromRawMessage(messageForParser);
+            Connection live = connectionTracker.getLiveConnection(connectionId);
+            String bound = live == null ? null : live.channel().attr(BOUND_DEVICE).get();
+            if (bound != null && !bound.equals(deviceId))
+                throw new com.surf.tracker.devicecomm.exception.ProtocolException("DEVICE_ID_CHANGED", "A connection cannot change device identity");
 
             // Create and process packet
             DeviceDataPacket packet = new DeviceDataPacket(
@@ -262,6 +267,7 @@ public class ReactiveTcpServer {
 
             // The connection pipeline owns scheduling and completion; do not detach here.
             deviceDataProcessor.processDeviceData(packet);
+            if (live != null && !"unknown".equals(deviceId)) live.channel().attr(BOUND_DEVICE).setIfAbsent(deviceId);
             // Only successfully parsed/published packets may claim device routing/activity.
             if (!"unknown".equals(deviceId)) {
                 connectionTracker.updateConnectionDevice(connectionId, deviceId);
@@ -378,5 +384,20 @@ public class ReactiveTcpServer {
                 return false;
             }
         }).subscribeOn(Schedulers.boundedElastic());
+    }
+
+    /** Protocol-neutral write to one exact, previously identified live connection. */
+    public WriteOutcome writeCommand(CommandWrite request) {
+        if (!request.expiresAt().isAfter(Instant.now())) return WriteOutcome.EXPIRED;
+        Connection live = connectionTracker.getLiveConnection(request.connectionId());
+        if (live == null || live.isDisposed()) return WriteOutcome.NOT_CONNECTED;
+        if (!request.deviceId().equals(live.channel().attr(BOUND_DEVICE).get())) return WriteOutcome.STALE_CONNECTION;
+        ConnectionInfo current = connectionTracker.getConnectionByDeviceId(request.deviceId());
+        if (current == null || !request.connectionId().equals(current.getConnectionId())) return WriteOutcome.STALE_CONNECTION;
+        try {
+            // No text conversion, appended delimiter, protocol lookup or command-payload logging.
+            live.outbound().sendByteArray(Mono.just(request.payload())).then().block(Duration.ofSeconds(5));
+            return WriteOutcome.SENT;
+        } catch (RuntimeException ambiguous) { return WriteOutcome.UNKNOWN; }
     }
 }
