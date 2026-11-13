@@ -19,7 +19,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 import java.time.Clock;
-import com.surf.tracker.devicecomm.application.DurableLocationPublisher;
+import com.surf.tracker.devicecomm.publish.DurableLocationPublisher;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Primary;

@@ -2,6 +2,10 @@ package com.surf.tracker.devicecomm.exception;
 
 import com.surf.tracker.shared.exception.InfrastructureException;
 
+/**
+ * A device frame or command was rejected. Messages must never echo untrusted
+ * device payload, because they are logged.
+ */
 public class ProtocolException extends InfrastructureException {
 
     public ProtocolException(String errorCode, String message) {
@@ -12,39 +16,22 @@ public class ProtocolException extends InfrastructureException {
         super(errorCode, message, cause);
     }
 
-    public static ProtocolException parserNotFound(String data) {
-
-        return new ProtocolException(
-            "PROTOCOL_PARSER_NOT_FOUND",
-            String.format("No parser found for the provided data%s", data)
-        );
-    }
-
-    public static ProtocolException invalidHeader(String protocolName) {
-        return new ProtocolException(
-            "PROTOCOL_INVALID_HEADER",
-            String.format("Invalid header for %s protocol", protocolName)
-        );
+    public static ProtocolException parserNotFound() {
+        return new ProtocolException("PROTOCOL_PARSER_NOT_FOUND", "No protocol recognizes the received frame");
     }
 
     public static ProtocolException parseError(String protocolName, String detail) {
-        return new ProtocolException(
-            "PROTOCOL_PARSE_ERROR",
-            String.format("Failed to parse %s data: %s", protocolName, detail)
-        );
+        return new ProtocolException("PROTOCOL_PARSE_ERROR",
+                String.format("Failed to parse %s frame: %s", protocolName, detail));
     }
 
-    public static ProtocolException unsupportedProtocol(int protocolNumber) {
-        return new ProtocolException(
-            "PROTOCOL_UNSUPPORTED",
-            String.format("Unsupported protocol number: 0x%02x", protocolNumber)
-        );
+    public static ProtocolException frameTooLarge(int maxLength) {
+        return new ProtocolException("PROTOCOL_FRAME_TOO_LARGE",
+                "Frame exceeds the maximum length of " + maxLength + " bytes");
     }
 
-    public static ProtocolException commandBuildError(String protocolName, String commandType) {
-        return new ProtocolException(
-            "PROTOCOL_COMMAND_BUILD_ERROR",
-            String.format("Failed to build %s command for %s protocol", commandType, protocolName)
-        );
+    public static ProtocolException unsupportedCommand(String protocolName, String command) {
+        return new ProtocolException("PROTOCOL_UNSUPPORTED_COMMAND",
+                String.format("%s does not support command %s", protocolName, command));
     }
 }

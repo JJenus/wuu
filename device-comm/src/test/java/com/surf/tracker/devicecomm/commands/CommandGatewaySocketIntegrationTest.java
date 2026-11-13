@@ -1,9 +1,9 @@
 package com.surf.tracker.devicecomm.commands;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.surf.tracker.devicecomm.application.DeviceDataProcessor;
-import com.surf.tracker.devicecomm.application.ParserFactory;
-import com.surf.tracker.devicecomm.infrastructure.AutoseekerProtocolParser;
+import com.surf.tracker.devicecomm.pipeline.IngestPipeline;
+import com.surf.tracker.devicecomm.pipeline.ProtocolRegistry;
+import com.surf.tracker.devicecomm.protocol.autoseeker.AutoseekerProtocol;
 import com.surf.tracker.devicecomm.service.ReactiveTcpServer;
 import com.surf.tracker.shared.commands.*;
 import com.surf.tracker.shared.domain.ConnectionInfo;
@@ -58,9 +58,9 @@ class CommandGatewaySocketIntegrationTest {
             org.springframework.boot.test.util.TestPropertyValues.of("tracking.tcp.server.port=0", "tracking.tcp.server.host=127.0.0.1").applyTo(context);
             context.registerBean(EventPublisher.class, () -> publisher);
             context.registerBean(RedisConnectionTracker.class, () -> connections);
-            context.registerBean(ParserFactory.class, () -> new ParserFactory(List.of(new AutoseekerProtocolParser())));
+            context.registerBean(ProtocolRegistry.class, () -> new ProtocolRegistry(List.of(new AutoseekerProtocol())));
             context.registerBean(Clock.class, Clock::systemUTC);
-            context.registerBean(DeviceDataProcessor.class); context.registerBean(ReactiveTcpServer.class); context.refresh();
+            context.registerBean(IngestPipeline.class); context.registerBean(ReactiveTcpServer.class); context.refresh();
             var tcp = context.getBean(ReactiveTcpServer.class); tcp.start();
             try (var gateway = new CommandGatewayServer(tcp, mapper, Clock.systemUTC(), "127.0.0.1", 0, SECRET, directory.toString(), 20)) {
                 gateway.start();

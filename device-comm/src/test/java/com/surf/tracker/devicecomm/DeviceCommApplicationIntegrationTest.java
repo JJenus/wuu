@@ -1,11 +1,11 @@
 package com.surf.tracker.devicecomm;
 
-import com.surf.tracker.devicecomm.application.DeviceDataProcessor;
-import com.surf.tracker.devicecomm.application.ParserFactory;
-import com.surf.tracker.devicecomm.infrastructure.AutoseekerProtocolParser;
+import com.surf.tracker.devicecomm.pipeline.IngestPipeline;
+import com.surf.tracker.devicecomm.pipeline.ProtocolRegistry;
+import com.surf.tracker.devicecomm.protocol.Frame;
+import com.surf.tracker.devicecomm.protocol.model.PositionReport;
 import com.surf.tracker.devicecomm.service.ReactiveTcpServer;
 import com.surf.tracker.shared.pubsub.ArtemisEventPublisher;
-import com.surf.tracker.shared.pubsub.DeviceCommandTransport;
 import com.surf.tracker.shared.pubsub.EventPublisher;
 import com.surf.tracker.shared.redis.RedisConnectionTracker;
 import org.junit.jupiter.api.Test;
@@ -35,16 +35,19 @@ class DeviceCommApplicationIntegrationTest {
                 "--tracking.telemetry.spool.directory=" + spool,
                 "--spring.main.keep-alive=false", "--tracking.tcp.autoseeker.timestamp-zone=Asia/Singapore")) {
             // then
-            assertThat(context.getBean(DeviceDataProcessor.class)).isNotNull();
+            assertThat(context.getBean(IngestPipeline.class)).isNotNull();
             assertThat(context.getBean(ReactiveTcpServer.class)).isNotNull();
             String packet = "*HQ,8168000008,V1,043602,A,2234.9273,N,11354.3980,E,000.06,000,100715,FBFBBFF,460,00,10342,4283,10,25,128#";
-            var configuredParser = context.getBean(AutoseekerProtocolParser.class);
-            assertThat(context.getBean(ParserFactory.class).getParser(packet)).isSameAs(configuredParser);
-            assertThat(configuredParser.parse(packet).timestamp()).isEqualTo(java.time.Instant.parse("2015-07-09T20:36:02Z"));
-            assertThat(context.getBean(DeviceCommandTransport.class)).isNotNull();
+            var frame = new Frame(packet.getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+            var registry = context.getBean(ProtocolRegistry.class);
+            var detected = registry.detect(frame);
+            assertThat(detected.name()).isEqualTo("Autoseeker");
+            assertThat(registry.byName("GT06")).isPresent();
+            var position = (PositionReport) detected.decode(frame, java.time.Instant.EPOCH).getFirst();
+            assertThat(position.point().timestamp()).isEqualTo(java.time.Instant.parse("2015-07-09T20:36:02Z"));
             assertThat(context.getBean(RedisConnectionTracker.class)).isNotNull();
             assertThat(context.getBean(EventPublisher.class)).isInstanceOf(
-                    com.surf.tracker.devicecomm.application.DurableLocationPublisher.class);
+                    com.surf.tracker.devicecomm.publish.DurableLocationPublisher.class);
             assertThat(context.getBean(ArtemisEventPublisher.class)).isNotNull();
             assertThat(context.getBean(Clock.class).getZone()).isEqualTo(java.time.ZoneOffset.UTC);
             assertThat(context.containsBean("entityManagerFactory")).isFalse();

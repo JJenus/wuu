@@ -1,8 +1,8 @@
 package com.surf.tracker.devicecomm.service;
 
-import com.surf.tracker.devicecomm.application.DeviceDataProcessor;
-import com.surf.tracker.devicecomm.application.ParserFactory;
-import com.surf.tracker.devicecomm.infrastructure.AutoseekerProtocolParser;
+import com.surf.tracker.devicecomm.pipeline.IngestPipeline;
+import com.surf.tracker.devicecomm.pipeline.ProtocolRegistry;
+import com.surf.tracker.devicecomm.protocol.autoseeker.AutoseekerProtocol;
 import com.surf.tracker.shared.events.LocationDataEvent;
 import com.surf.tracker.shared.pubsub.EventPublisher;
 import com.surf.tracker.shared.redis.RedisConnectionTracker;
@@ -58,9 +58,9 @@ class AutoseekerSocketIntegrationTest {
                     "tracking.tcp.server.max-pending-frames=1").applyTo(context);
             context.registerBean(EventPublisher.class, () -> publisher);
             context.registerBean(RedisConnectionTracker.class, () -> connections);
-            context.registerBean(ParserFactory.class, () -> new ParserFactory(List.of(new AutoseekerProtocolParser())));
+            context.registerBean(ProtocolRegistry.class, () -> new ProtocolRegistry(List.of(new AutoseekerProtocol())));
             context.registerBean(Clock.class, () -> Clock.fixed(Instant.parse("2026-11-12T00:00:00Z"), ZoneOffset.UTC));
-            context.registerBean(DeviceDataProcessor.class);
+            context.registerBean(IngestPipeline.class);
             context.registerBean(ReactiveTcpServer.class);
             context.refresh();
             var gateway = context.getBean(ReactiveTcpServer.class);
@@ -112,9 +112,9 @@ class AutoseekerSocketIntegrationTest {
                     "tracking.tcp.server.port=0", "tracking.tcp.server.host=127.0.0.1").applyTo(context);
             context.registerBean(EventPublisher.class, () -> publisher);
             context.registerBean(RedisConnectionTracker.class, () -> connections);
-            context.registerBean(ParserFactory.class, () -> new ParserFactory(List.of(new AutoseekerProtocolParser())));
+            context.registerBean(ProtocolRegistry.class, () -> new ProtocolRegistry(List.of(new AutoseekerProtocol())));
             context.registerBean(Clock.class, () -> Clock.fixed(Instant.parse("2026-11-12T00:00:00Z"), ZoneOffset.UTC));
-            context.registerBean(DeviceDataProcessor.class);
+            context.registerBean(IngestPipeline.class);
             context.registerBean(ReactiveTcpServer.class);
             context.refresh();
             var gateway = context.getBean(ReactiveTcpServer.class);
@@ -165,9 +165,9 @@ class AutoseekerSocketIntegrationTest {
                     "tracking.tcp.server.port=0", "tracking.tcp.server.host=127.0.0.1").applyTo(context);
             context.registerBean(EventPublisher.class, () -> publisher);
             context.registerBean(RedisConnectionTracker.class, () -> connections);
-            context.registerBean(ParserFactory.class, () -> new ParserFactory(List.of(new AutoseekerProtocolParser())));
+            context.registerBean(ProtocolRegistry.class, () -> new ProtocolRegistry(List.of(new AutoseekerProtocol())));
             context.registerBean(Clock.class, () -> Clock.fixed(Instant.parse("2026-11-12T00:00:00Z"), ZoneOffset.UTC));
-            context.registerBean(DeviceDataProcessor.class);
+            context.registerBean(IngestPipeline.class);
             context.registerBean(ReactiveTcpServer.class);
             context.refresh();
             var gateway = context.getBean(ReactiveTcpServer.class);
@@ -218,9 +218,9 @@ class AutoseekerSocketIntegrationTest {
         try (var context = new AnnotationConfigApplicationContext()) {
             context.registerBean(EventPublisher.class, () -> publisher);
             context.registerBean(RedisConnectionTracker.class, () -> connections);
-            context.registerBean(ParserFactory.class, () -> new ParserFactory(List.of(new AutoseekerProtocolParser())));
+            context.registerBean(ProtocolRegistry.class, () -> new ProtocolRegistry(List.of(new AutoseekerProtocol())));
             context.registerBean(Clock.class, () -> Clock.fixed(Instant.parse("2026-10-29T00:00:00Z"), ZoneOffset.UTC));
-            context.registerBean(DeviceDataProcessor.class);
+            context.registerBean(IngestPipeline.class);
             context.registerBean(ReactiveTcpServer.class);
             context.getEnvironment().getPropertySources().addFirst(new org.springframework.core.env.MapPropertySource(
                 "socket-test", java.util.Map.of("tracking.tcp.server.port", "0",

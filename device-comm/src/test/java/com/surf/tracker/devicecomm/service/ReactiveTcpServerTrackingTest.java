@@ -1,14 +1,17 @@
 package com.surf.tracker.devicecomm.service;
 
-import com.surf.tracker.devicecomm.application.DeviceDataProcessor;
-import com.surf.tracker.devicecomm.application.ParserFactory;
-import com.surf.tracker.devicecomm.domain.DeviceDataPacket;
-import com.surf.tracker.devicecomm.infrastructure.AutoseekerProtocolParser;
+import com.surf.tracker.devicecomm.pipeline.ConnectionSession;
+import com.surf.tracker.devicecomm.pipeline.IngestPipeline;
+import com.surf.tracker.devicecomm.pipeline.ProtocolRegistry;
+import com.surf.tracker.devicecomm.protocol.Frame;
+import com.surf.tracker.devicecomm.protocol.autoseeker.AutoseekerProtocol;
 import com.surf.tracker.shared.pubsub.EventPublisher;
 import com.surf.tracker.shared.redis.RedisConnectionTracker;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.test.util.ReflectionTestUtils;
+
+import java.nio.charset.StandardCharsets;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -22,11 +25,15 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 class ReactiveTcpServerTrackingTest {
+    private static Frame frame(String text) {
+        return new Frame(text.getBytes(StandardCharsets.US_ASCII));
+    }
+
     enum Outcome { SUCCESS, MALFORMED, PUBLICATION_FAILURE }
 
     @ParameterizedTest
     @EnumSource(Outcome.class)
-    void processRawMessage_updatesRoutingAndActivityOnlyAfterSuccessfulProcessing(Outcome outcome) throws Exception {
+    void processFrame_updatesRoutingAndActivityOnlyAfterSuccessfulProcessing(Outcome outcome) throws Exception {
         // given: real parser/processor and a deterministic worker-completion boundary.
         String valid = "*HQ,8168000008,V1,043602,A,2234.9273,N,11354.3980,E,000.06,000,100715,FBFBBFF,460,00,10342,4283,10,25,128#";
         var completed = new CountDownLatch(1);
@@ -39,12 +46,12 @@ class ReactiveTcpServerTrackingTest {
             completed.countDown();
             return null;
         }).when(connections).updateLastSeen("connection");
-        var processor = new DeviceDataProcessor(new ParserFactory(List.of(new AutoseekerProtocolParser())),
-                publisher, Clock.fixed(Instant.parse("2026-10-29T00:00:00Z"), ZoneOffset.UTC)) {
+        var registry = new ProtocolRegistry(List.of(new AutoseekerProtocol()));
+        var pipeline = new IngestPipeline(registry, publisher, Clock.fixed(Instant.parse("2026-10-29T00:00:00Z"), ZoneOffset.UTC)) {
             @Override
-            public void processDeviceData(DeviceDataPacket packet) {
+            public String ingest(Frame frame, Instant receivedAt, ConnectionSession session) {
                 try {
-                    super.processDeviceData(packet);
+                    return super.ingest(frame, receivedAt, session);
                 } catch (RuntimeException error) {
                     // An exception prevents the subsequent routing/activity statements.
                     completed.countDown();
@@ -52,17 +59,16 @@ class ReactiveTcpServerTrackingTest {
                 }
             }
         };
-        var gateway = new ReactiveTcpServer(processor, connections);
-        ReflectionTestUtils.setField(gateway, "messageDelimiter", "#");
+        var gateway = new ReactiveTcpServer(pipeline, registry, connections);
         // when
         if (outcome == Outcome.PUBLICATION_FAILURE) {
             org.assertj.core.api.Assertions.assertThatThrownBy(() ->
-                    ReflectionTestUtils.invokeMethod(gateway, "processRawMessage", valid, "connection", "127.0.0.1"))
+                    ReflectionTestUtils.invokeMethod(gateway, "processFrame", frame(valid), "connection", new ConnectionSession()))
                     .isInstanceOf(com.surf.tracker.shared.exception.InfrastructureException.class);
         } else {
-            ReflectionTestUtils.invokeMethod(gateway, "processRawMessage",
-                    outcome == Outcome.MALFORMED ? valid.replace("2234.9273", "NaN") : valid,
-                    "connection", "127.0.0.1");
+            ReflectionTestUtils.invokeMethod(gateway, "processFrame",
+                    frame(outcome == Outcome.MALFORMED ? valid.replace("2234.9273", "NaN") : valid),
+                    "connection", new ConnectionSession());
         }
         assertThat(completed.await(5, TimeUnit.SECONDS)).isTrue();
         // then: no fixed sleep is used to infer worker completion.
@@ -72,8 +78,7 @@ class ReactiveTcpServerTrackingTest {
             order.verify(connections).updateConnectionDevice("connection", "8168000008");
             order.verify(connections).updateLastSeen("connection");
         } else {
-            verify(connections).getLiveConnection("connection");
-            org.mockito.Mockito.verifyNoMoreInteractions(connections);
+            org.mockito.Mockito.verifyNoInteractions(connections);
             if (outcome == Outcome.MALFORMED) verifyNoInteractions(publisher);
             else verify(publisher).publish(any());
         }
