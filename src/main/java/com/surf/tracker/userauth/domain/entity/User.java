@@ -8,6 +8,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 @Entity
+@org.hibernate.annotations.DynamicUpdate
 @Table(name = "users")
 public class User {
 
