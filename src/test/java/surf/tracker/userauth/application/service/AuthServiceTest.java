@@ -413,6 +413,27 @@ class AuthServiceTest {
     }
 
     @Test
+    void getUserById_multiTenantIdentity_returnsOnlyRequestedTenantRoles() {
+        User user = userInOrg(1L);
+        Organization other = Organization.create("Other", "other");
+        other.setId(20L);
+        user.assignRole(Role.orgRole(other, "FOREIGN_ADMIN", "private membership"));
+        user.assignRole(Role.systemRole("SUPER_ADMIN", "system"));
+        when(userRepository.findByIdAndOrgId(1L, 10L)).thenReturn(Optional.of(user));
+        var response = service.getUserById(1L, 10L);
+        assertThat(response.getOrganizationId()).isEqualTo(10L);
+        assertThat(response.getRoles()).containsExactly("OPERATOR");
+    }
+
+    @Test
+    void createUser_missingDefaultTenantRole_rejectsBeforeCreatingOrphanAccount() {
+        when(roleRepository.findByNameAndOrgId("OPERATOR", 10L)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service.createUser("new@example.test", "eight123", "New", "Member", 10L))
+            .isInstanceOf(ValidationException.class);
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
     void assignRoles_systemRole_rejectsWithoutChangingMembership() {
         // given
         User user = userInOrg(1L);
