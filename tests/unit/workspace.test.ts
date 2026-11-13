@@ -26,6 +26,23 @@ describe('fleet workspace', () => {
     expect(summary.moving + summary.idle + summary.offline + summary.parked).toBe(8)
     expect(fleetSummary([]).total).toBe(0)
   })
+  it('does not turn missing or partial distance readings into a complete total', async () => {
+    const { vehicles } = await createPreviewService().load()
+    const vehicle = vehicles[0]!
+    expect(fleetSummary([]).distance).toBeNull()
+    expect(fleetSummary([{ ...vehicle, distance: null }]).distance).toBeNull()
+    expect(
+      fleetSummary([{ ...vehicle, distance: 1204.4 }, { ...vehicle, distance: null }]).distance,
+    ).toBeNull()
+  })
+  it('preserves measured zero and totals only complete readings', async () => {
+    const { vehicles } = await createPreviewService().load()
+    const vehicle = vehicles[0]!
+    expect(fleetSummary([{ ...vehicle, distance: 0 }]).distance).toBe(0)
+    expect(
+      fleetSummary([{ ...vehicle, distance: 1204.4 }, { ...vehicle, distance: 800.2 }]).distance,
+    ).toBe(2005)
+  })
   it('rejects missing and duplicate registrations', async () => {
     const { vehicles } = await createPreviewService().load()
     expect(validateVehicle({ name: '', plate: '' }, vehicles)).toBeTruthy()
