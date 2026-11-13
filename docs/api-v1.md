@@ -21,6 +21,12 @@ are retained, including distinct paginated and unpaginated `/list` operations.
 
 ## OpenAPI
 
+Account self-service addition (2026-11-13): `PUT /api/v1/users/me` updates only the
+authenticated user's first/last names, without `users.write`. It adds one operation,
+bringing the current total to **107**. Password change continues to use the existing
+authenticated endpoint. See `../../app/docs/self-account.md` for bounds, session
+handling and real workflow evidence. Earlier operation counts below are historical.
+
 Fleet-management addition (2026-11-13): `PATCH /api/v1/trackers/{trackerId}/profile`
 and `POST /api/v1/trackers/{trackerId}/reassign` bring the current inventory to
 **106 operations**. Both require `vehicles.assign_device`; vehicle PUT remains

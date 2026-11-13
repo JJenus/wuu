@@ -33,7 +33,7 @@ class ApiContractIntegrationTest {
             .toList();
 
         assertThat(applicationMappings).isNotEmpty();
-        assertThat(applicationMappings).hasSize(106);
+        assertThat(applicationMappings).hasSize(107);
         var operationIds = new java.util.HashSet<String>();
         for (var entry : applicationMappings) {
             assertThat(entry.getValue().getBeanType().getAnnotations())
