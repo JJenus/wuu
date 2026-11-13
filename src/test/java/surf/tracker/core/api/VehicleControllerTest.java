@@ -105,8 +105,7 @@ class VehicleControllerTest {
 
     @Test
     void updateVehicle_returnsUpdated() throws Exception {
-        when(vehicleService.getVehicle("VEH-001")).thenReturn(Optional.of(aVehicle()));
-        when(vehicleService.saveVehicle(any())).thenReturn(aVehicle());
+        when(vehicleService.updateProfile(eq("VEH-001"), any(UpdateVehicleRequest.class))).thenReturn(aVehicle());
 
         UpdateVehicleRequest request = new UpdateVehicleRequest();
         request.setModel("Van");
@@ -116,6 +115,7 @@ class VehicleControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.vehicleId", is("VEH-001")));
+        verify(vehicleService).updateProfile(eq("VEH-001"), argThat(profile -> "Van".equals(profile.getModel())));
     }
 
     @Test

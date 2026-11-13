@@ -85,7 +85,7 @@ class FleetManagementIntegrationTest {
         assertThat(assignedVehicle()).isEqualTo(source);
     }
 
-    @ParameterizedTest @ValueSource(strings = {"location", "raw", "seen", "command"})
+    @ParameterizedTest @ValueSource(strings = {"location", "raw", "seen", "command", "assignment", "online"})
     void reassign_usedTracker_rejectsWithoutMovingHistory(String evidence) throws Exception {
         new TransactionTemplate(transactions).executeWithoutResult(status -> {
             Tracker device = em.find(Tracker.class, tracker);
@@ -98,6 +98,11 @@ class FleetManagementIntegrationTest {
                     TrackerRawData raw = new TrackerRawData(); raw.setTracker(device); raw.setRawMessage("synthetic"); em.persist(raw);
                 }
                 case "seen" -> device.setLastSeen(Instant.parse("2026-01-01T12:00:00Z"));
+                case "online" -> device.setIsOnline(true);
+                case "assignment" -> {
+                    TrackerAssignment assignment = new TrackerAssignment(); assignment.setTracker(device);
+                    assignment.setVehicle(device.getVehicle()); em.persist(assignment);
+                }
                 case "command" -> jdbc.update("insert into device_commands(tracker_id,command_type,command_data) values (?,?,'synthetic')", tracker, "READ_STATUS");
             }
         });
@@ -148,6 +153,41 @@ class FleetManagementIntegrationTest {
             .content("{\"model\":\"Updated van\",\"licensePlate\":\"NEW\",\"vin\":\"123\"}")).andReturn().getResponse().getStatus()).isEqualTo(200);
         assertThat(jdbc.queryForObject("select model from vehicles where vehicle_id=?", String.class, source)).isEqualTo("Updated van");
         assertThat(jdbc.queryForObject("select trip_last_recorded_at from vehicles where vehicle_id=?", java.time.OffsetDateTime.class, source).toInstant()).isEqualTo(Instant.parse("2026-01-01T12:00:00Z"));
+    }
+
+    @Test void reassign_inFlightRecordedFix_cannotRacePastHistoryGuard() throws Exception {
+        CountDownLatch recorded = new CountDownLatch(1), release = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var ingestion = executor.submit(() -> {
+                new TransactionTemplate(transactions).executeWithoutResult(status -> {
+                    // Same tracker lock order as VehicleEventHandler, held through location commit.
+                    var device = em.createQuery("select t from Tracker t where t.trackerId=:id", Tracker.class)
+                        .setParameter("id", tracker).setLockMode(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE).getSingleResult();
+                    var fix = new TrackerLocation(51.5, -0.1, 0f, Instant.parse("2026-01-01T12:00:00Z"));
+                    fix.setTracker(device); em.persist(fix); em.flush(); recorded.countDown();
+                    try { if (!release.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("Test release timed out"); }
+                    catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new IllegalStateException(e); }
+                });
+                return true;
+            });
+            assertThat(recorded.await(10, TimeUnit.SECONDS)).isTrue();
+            CountDownLatch moving = new CountDownLatch(1);
+            var correction = executor.submit(() -> {
+                TenantContext.setCurrentOrgId(1L);
+                try { moving.countDown(); return move(source, target); }
+                finally { TenantContext.clear(); }
+            });
+            assertThat(moving.await(10, TimeUnit.SECONDS)).isTrue(); release.countDown();
+            assertThat(ingestion.get(10, TimeUnit.SECONDS)).isTrue();
+            assertThat(correction.get(10, TimeUnit.SECONDS)).isEqualTo(409);
+            assertThat(assignedVehicle()).isEqualTo(source);
+        } finally { release.countDown(); }
+    }
+
+    @Test void update_invalidTrackerMetadata_rejectsWithoutClearingSavedModel() throws Exception {
+        assertThat(mvc.perform(patch("/api/v1/trackers/" + tracker + "/profile").contentType(MediaType.APPLICATION_JSON)
+            .content("{\"protocol\":\"" + "x".repeat(21) + "\"}")).andReturn().getResponse().getStatus()).isEqualTo(400);
+        assertThat(jdbc.queryForObject("select model from trackers where tracker_id=?", String.class, tracker)).isEqualTo("Original");
     }
 
     @Test void reassign_blankDestination_rejectsBeforeMutation() throws Exception {

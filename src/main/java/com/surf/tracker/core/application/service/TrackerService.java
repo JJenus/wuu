@@ -62,8 +62,8 @@ public class TrackerService {
             || trackerRepository.hasLocations(trackerId) || trackerRepository.hasRawData(trackerId)
             || trackerRepository.hasCommands(trackerId) || trackerRepository.hasAssignmentHistory(trackerId))
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Only unused trackers can be reassigned. Recorded history or device activity must stay with its vehicle.");
-        if (tripRepository.findByVehicleVehicleIdAndIsActiveAndOrganizationId(source, true, orgId).isPresent()
-            || tripRepository.findByVehicleVehicleIdAndIsActiveAndOrganizationId(target, true, orgId).isPresent())
+        if (tripRepository.existsByVehicleVehicleIdAndVehicleOrganizationIdAndIsActive(source, orgId, true)
+            || tripRepository.existsByVehicleVehicleIdAndVehicleOrganizationIdAndIsActive(target, orgId, true))
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Neither vehicle may have an active trip when reassigning a tracker.");
         tracker.setVehicle(vehicleRepository.getReferenceById(target));
         return trackerRepository.saveAndFlush(tracker);

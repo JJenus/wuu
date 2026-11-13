@@ -21,6 +21,13 @@ are retained, including distinct paginated and unpaginated `/list` operations.
 
 ## OpenAPI
 
+Fleet-management addition (2026-11-13): `PATCH /api/v1/trackers/{trackerId}/profile`
+and `POST /api/v1/trackers/{trackerId}/reassign` bring the current inventory to
+**106 operations**. Both require `vehicles.assign_device`; vehicle PUT remains
+`vehicles.write`. See `../../app/docs/fleet-registration.md` for strict frontend
+payloads, guarded unused correction, checks and limitations. Historical 104-operation
+verification counts below describe the earlier cutover.
+
 The `api-v1` group is served at `/v3/api-docs/api-v1`; access requires
 `system.admin`. springdoc is pinned to **2.8.17**, whose published parent targets
 Spring Boot 3.5.x; 2.2.0 crashed with this application's Spring Framework at runtime.

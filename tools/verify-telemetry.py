@@ -93,6 +93,7 @@ def main() -> None:
     parser.add_argument("--verify-api-v1", action="store_true", help="Also verify real authenticated OpenAPI and canonical route boundaries")
     parser.add_argument("--verify-team", action="store_true", help="Run real tenant team administration browser acceptance")
     parser.add_argument("--verify-trips", action="store_true", help="Verify automatic trips from real TCP fixes without trip metadata fixtures")
+    parser.add_argument("--verify-fleet", action="store_true", help="Verify fleet edits and unused tracker reassignment through Java and real TCP")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
     artemis = args.artemis_home.resolve() / "bin/artemis"
@@ -357,7 +358,7 @@ def main() -> None:
             document = json.loads(result.body)
             operations = [operation for path, item in document["paths"].items()
                           for method, operation in item.items() if method in {"get", "post", "put", "patch", "delete"}]
-            if len(operations) != 104 or len({operation["operationId"] for operation in operations}) != 104:
+            if len(operations) != 106 or len({operation["operationId"] for operation in operations}) != 106:
                 raise AssertionError("OpenAPI operation inventory is incomplete or duplicated")
             if not all(path.startswith("/api/v1/") for path in document["paths"]):
                 raise AssertionError("OpenAPI advertises a legacy route")
@@ -367,16 +368,21 @@ def main() -> None:
                 if get(path, admin.access_token).status != 403:
                     raise AssertionError(f"Legacy/version fallback unexpectedly admitted: {path}")
             (base / "api-v1.json").write_bytes(result.body)
-            print("PASS: real HTTP OpenAPI generation, 104 operations, wire naming, admin-only access and rejected legacy paths", flush=True)
+            print("PASS: real HTTP OpenAPI generation, 106 operations, wire naming, admin-only access and rejected legacy paths", flush=True)
         test_env = {**env, "TRACKING_TEST_JAVA_ORIGIN": origin, "TRACKING_TEST_EMAIL": "owner@telemetry-test.example",
                     "TRACKING_TEST_PASSWORD": "eight123", "TRACKING_TEST_POSTGRES_PORT": str(pg_port),
                     "TRACKING_TEST_TCP_PORT": str(tcp_port), "TRACKING_TEST_DURABILITY": "true",
                     "TRACKING_TEST_INITIAL_COORDINATES": "51.50500, -0.10000", "TRACKING_TEST_HISTORY": "true",
                     "TRACKING_TEST_API_V1": "true" if args.verify_api_v1 else ""}
+        if args.verify_fleet:
+            test_env.update({"FLEET_TEST_JAVA_ORIGIN": origin, "FLEET_TEST_EMAIL": "owner@telemetry-test.example",
+                             "FLEET_TEST_PASSWORD": "eight123"})
         with (base / "browser.log").open("w") as output:
-            subprocess.run(["pnpm", "exec", "playwright", "test", "--config", "playwright.trips.config.ts" if args.verify_trips else "playwright.team.config.ts" if args.verify_team else "playwright.tracking.config.ts"],
+            subprocess.run(["pnpm", "exec", "playwright", "test", "--config", "playwright.fleet.config.ts" if args.verify_fleet else "playwright.trips.config.ts" if args.verify_trips else "playwright.team.config.ts" if args.verify_team else "playwright.tracking.config.ts",
+                            *(["--grep", "@java|management boundary"] if args.verify_fleet else [])],
                            cwd=args.frontend, env=test_env, stdout=output, stderr=subprocess.STDOUT, check=True, timeout=180)
-        print("PASS: automatic trip creation, persisted stop/restart, completion, membership and browser replay" if args.verify_trips else
+        print("PASS: fleet edits, unused tracker reassignment, real TCP target attribution and recorded-history move denial" if args.verify_fleet else
+              "PASS: automatic trip creation, persisted stop/restart, completion, membership and browser replay" if args.verify_trips else
               "PASS: real team account/profile/role/removal and authorization workflow" if args.verify_team else
               "PASS: recovered telemetry and duplicate-safe replay reach automatic browser refresh", flush=True)
     finally:

@@ -20,7 +20,8 @@ Source is **TRIP_ASSOCIATED** for new automatic trips: only explicitly linked sa
 fixes are returned, with no time-window fallback even when empty. Legacy trips retain
 **VEHICLE_TIME_WINDOW**, the vehicle's recorded fixes between start and end inclusive,
 not proof of membership. Active/future-ending windows stop at server time. Tracker
-reassignment remains unsupported; resolve old ownership/history before changes.
+reassignment of used trackers remains unsupported; only unused assignment correction
+is allowed. Stored history is never moved to another vehicle.
 See [automatic-trips.md](automatic-trips.md) for lifecycle policy and rollout.
 
 The response fetches at most `limit + 1` records and exposes truncation; it never

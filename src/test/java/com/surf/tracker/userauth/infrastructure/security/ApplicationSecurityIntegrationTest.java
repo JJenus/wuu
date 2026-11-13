@@ -31,6 +31,10 @@ class ApplicationSecurityIntegrationTest {
     @Test void application_anonymousSensitiveRoutes_areProtected() throws Exception {
         mvc.perform(get("/api/v1/users/me")).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/v1/trips/journey/history")).andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/v1/trackers/gps/reassign").contentType("application/json").content("{}"))
+            .andExpect(status().isUnauthorized());
+        mvc.perform(patch("/api/v1/trackers/gps/profile").contentType("application/json").content("{}"))
+            .andExpect(status().isUnauthorized());
         mvc.perform(post("/api/v1/auth/register").contentType("application/json").content("{}"))
             .andExpect(status().isUnauthorized());
         mvc.perform(get("/h2-console/")).andExpect(status().isUnauthorized());
@@ -57,6 +61,15 @@ class ApplicationSecurityIntegrationTest {
         mvc.perform(get("/api/v1/users/me").header("Authorization", "Bearer " + token))
             .andExpect(status().isOk());
         mvc.perform(get("/api/v1/trips/journey/history").header("Authorization", "Bearer " + token))
+            .andExpect(status().isForbidden());
+        mvc.perform(post("/api/v1/trackers/gps/reassign").header("Authorization", "Bearer " + token)
+                .contentType("application/json").content("{}"))
+            .andExpect(status().isForbidden());
+        mvc.perform(patch("/api/v1/trackers/gps/profile").header("Authorization", "Bearer " + token)
+                .contentType("application/json").content("{}"))
+            .andExpect(status().isForbidden());
+        mvc.perform(put("/api/v1/vehicles/van").header("Authorization", "Bearer " + token)
+                .contentType("application/json").content("{}"))
             .andExpect(status().isForbidden());
         mvc.perform(post("/api/v1/auth/logout").header("Authorization", "Bearer " + token))
             .andExpect(status().isNoContent());

@@ -15,6 +15,7 @@ import java.util.Optional;
 
 @Repository
 public interface TripRepository extends JpaRepository<Trip, String> {
+    boolean existsByVehicleVehicleIdAndVehicleOrganizationIdAndIsActive(String vehicleId, Long organizationId, Boolean isActive);
     
     @Query("SELECT t FROM Trip t WHERE t.vehicle.vehicleId = :vehicleId AND t.vehicle.organizationId = :organizationId")
     Page<Trip> findByVehicleVehicleIdAndOrganizationId(
