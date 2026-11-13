@@ -40,6 +40,7 @@ export default defineConfig({
         'app/features/maps/api/preview-search.ts',
         'app/features/maps/composables/useMapSearch.ts',
         'server/utils/wuu-gateway.ts',
+        'server/utils/upstream-api.ts',
         'shared/fleet-registration.ts',
         'server/utils/fleet-registration.ts',
         'server/utils/geofence-write.ts',

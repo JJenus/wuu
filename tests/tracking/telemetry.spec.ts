@@ -1,10 +1,13 @@
 import { createConnection } from 'node:net'
 import { execFileSync } from 'node:child_process'
 import { expect, test } from '@playwright/test'
+import { alertDtoSchema, alertPageSchema } from '../../app/features/alerts/api/contracts'
+import { normalizeWireKeys } from '../../app/features/core/api/wire-format'
 
 test('real TCP telemetry crosses Artemis into persisted positions and automatic map refresh @java', async ({
   page,
 }) => {
+  if (process.env.TRACKING_TEST_API_V1) test.setTimeout(120000)
   const tcpPort = process.env.TRACKING_TEST_TCP_PORT ?? ''
   const pgPort = process.env.TRACKING_TEST_POSTGRES_PORT ?? ''
   if (!/^[0-9]+$/.test(tcpPort) || !/^[0-9]+$/.test(pgPort))
@@ -107,6 +110,60 @@ test('real TCP telemetry crosses Artemis into persisted positions and automatic 
         truncated: true,
         points: [expect.objectContaining({ latitude: expect.any(Number) })],
       })
+    }
+    if (process.env.TRACKING_TEST_API_V1) {
+      // Actual browser -> centralized BFF registry -> canonical Java alert/geofence routes.
+      await page.goto('/geofences/new')
+      await page.getByLabel('Geofence name', { exact: true }).fill('Canonical native depot')
+      await page.getByRole('button', { name: 'Set circle using coordinates', exact: true }).click()
+      await page.getByLabel('Center latitude', { exact: true }).fill('51.5')
+      await page.getByLabel('Center longitude', { exact: true }).fill('-0.1')
+      await page.getByLabel('Radius (meters)', { exact: true }).fill('250')
+      await page.getByLabel('Assign LIVE MAP 01', { exact: true }).check()
+      await page.getByRole('button', { name: 'Create geofence', exact: true }).click()
+      await expect(page).toHaveURL(/\/geofences\/\d+$/)
+      await page.reload()
+      await expect(
+        page.getByRole('heading', { name: 'Canonical native depot', exact: true }),
+      ).toBeVisible()
+      await page.getByRole('button', { name: 'Add geofence rule', exact: true }).click()
+      await page.getByLabel('Rule key', { exact: true }).fill('native_route_rule')
+      await page.getByLabel('Rule name', { exact: true }).fill('Canonical native rule')
+      await page.getByRole('button', { name: 'Save rule', exact: true }).click()
+      const rule = page.getByRole('article', { name: 'Rule native_route_rule', exact: true })
+      await expect(rule).toContainText('Enabled')
+      await page.reload()
+      await rule.getByRole('button', { name: 'Disable Canonical native rule', exact: true }).click()
+      await expect(rule).toContainText('Disabled')
+      await page.reload()
+      await expect(rule).toContainText('Disabled')
+
+      const alertsResponse = await page.request.get('/api/_wuu/alerts')
+      expect(alertsResponse.status()).toBe(200)
+      const alerts = alertPageSchema.parse(normalizeWireKeys(await alertsResponse.json()))
+      const alert = alerts.content[0]
+      expect(alert).toBeDefined()
+      const headers = { origin: new URL(page.url()).origin }
+      const acknowledged = await page.request.post(
+        `/api/_wuu/alerts/${alert!.alertId}/acknowledge`,
+        { headers, data: {} },
+      )
+      expect(acknowledged.status()).toBe(200)
+      expect(alertDtoSchema.parse(normalizeWireKeys(await acknowledged.json())).acknowledged).toBe(
+        true,
+      )
+      const resolved = await page.request.post(`/api/_wuu/alerts/${alert!.alertId}/resolve`, {
+        headers,
+        data: { resolutionNotes: 'Verified canonical route persistence' },
+      })
+      expect(resolved.status()).toBe(200)
+      const saved = await page.request.get(`/api/_wuu/alerts/${alert!.alertId}`)
+      expect(saved.status()).toBe(200)
+      expect(alertDtoSchema.parse(normalizeWireKeys(await saved.json()))).toMatchObject({
+        resolved: true,
+        resolutionNotes: 'Verified canonical route persistence',
+      })
+      expect((await page.request.get('/api/_wuu/notifications')).status()).toBe(200)
     }
   } finally {
     socket.destroy()
