@@ -23,7 +23,7 @@ export const tripHistorySchema = z
   .object({
     tripId: z.string().min(1),
     vehicleId: z.string().min(1),
-    source: z.literal('VEHICLE_TIME_WINDOW'),
+    source: z.enum(['VEHICLE_TIME_WINDOW', 'TRIP_ASSOCIATED']),
     windowStart: z.iso.datetime({ offset: true }),
     windowEnd: z.iso.datetime({ offset: true }),
     truncated: z.boolean(),

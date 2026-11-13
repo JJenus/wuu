@@ -44,7 +44,7 @@ export default defineNuxtConfig({
   app: {
     head: {
       htmlAttrs: { lang: 'en' },
-      title: 'Wuu — Your fleet, in focus',
+      title: 'Wuu - Your fleet, in focus',
       meta: [
         { name: 'application-name', content: 'Wuu' },
         { name: 'apple-mobile-web-app-title', content: 'Wuu' },

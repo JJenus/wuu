@@ -9,7 +9,7 @@ export interface RecordedPoint {
 export interface TripHistory {
   tripId: string
   vehicleId: string
-  source: 'VEHICLE_TIME_WINDOW'
+  source: 'VEHICLE_TIME_WINDOW' | 'TRIP_ASSOCIATED'
   windowStart: string
   windowEnd: string
   truncated: boolean

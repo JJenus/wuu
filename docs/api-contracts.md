@@ -11,17 +11,22 @@ last-administrator protection remains enforced. No invitation email is simulated
 See [team-management.md](team-management.md) for exact behavior, checks and limits.
 This supersedes earlier statements that live team administration is disabled.
 
-## Recorded trip-window history — 2026-11-12
+## Recorded trip history and automatic lifecycle — 2026-11-13
 
 Live trip detail now reads GET `/api/v1/trips/{id}/history` through the existing
 sealed-session GET gateway. Java enforces `trips.read` and tenant-scoped trip and
 GPS queries. Typed responses contain at most 10,000 ordered recorded samples,
-window bounds and explicit truncation. Source is `VEHICLE_TIME_WINDOW`, not
-confirmed trip membership. Replay does not interpolate or draw inferred routes;
+window bounds and explicit truncation. New automatic trips use `TRIP_ASSOCIATED`
+for explicit persisted membership, with no inferred fallback. Legacy trips retain
+`VEHICLE_TIME_WINDOW`, not confirmed membership. Replay labels provenance and does
+not interpolate or draw inferred routes;
 after two minutes without a fix it hides the marker and marks a recording gap.
 Empty/error/partial states remain explicit; preview alone uses invented paths.
 See backend `../sidie/docs/recorded-history.md` for the contract, checks and limits.
-This supersedes historical statements that all live replay is disabled.
+Automatic starts, confirmed stops and gap splitting are implemented; see
+`../sidie/docs/automatic-trips.md` for policy, real TCP/browser verification and
+rollout limits. This supersedes historical statements that live replay or automatic
+trip association is unavailable. The 10,000-point cap remains.
 
 ## Canonical Java paths — 2026-11-12
 
@@ -252,7 +257,7 @@ Accepted fields: `tripId`, `vehicleId`, `startTime`, `endTime`, `isActive`, `tot
 - `vehicle` is the vehicle ID (not a friendly name); `driver`, origin, and destination are `null`.
 - `isActive` or a missing end time marks a trip in progress.
 - Start/end/duration and distance are normalized; missing values are explicit.
-- The API provides no GPS path, so live trip replay is not offered.
+- Recorded replay uses the separate history endpoint above, not an invented GPS path.
 
 ### Alerts
 

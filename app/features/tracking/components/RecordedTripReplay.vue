@@ -55,7 +55,13 @@ const scene = computed<MapScene>(() => ({
       <div>
         <h2>Recorded GPS replay</h2>
         <p class="form-hint">
-          Vehicle fixes within the trip time window · Not confirmed trip membership
+          {{
+            history?.source === 'TRIP_ASSOCIATED'
+              ? 'Recorded fixes associated with this trip · No inferred route'
+              : history
+                ? 'Vehicle fixes within the trip time window · Not confirmed trip membership'
+                : 'Recorded GPS history'
+          }}
         </p>
       </div>
       <UButton color="neutral" variant="outline" :loading="query.isFetching.value" @click="refresh"
