@@ -277,6 +277,12 @@ describe('live trip and geofence mapping', () => {
     expect(trip.startedAt).toBe('2026-10-22T10:00:00.000Z')
   })
 
+  it('keeps missing trip distance distinct from a measured zero', () => {
+    expect(toTrip({ tripId: 'missing' }).distance).toBeNull()
+    expect(toTrip({ tripId: 'unknown', totalDistanceKm: null }).distance).toBeNull()
+    expect(toTrip({ tripId: 'zero', totalDistanceKm: 0 }).distance).toBe(0)
+  })
+
   it('maps circle and polygon geofences without synthesizing missing geometry', () => {
     const circle = toGeofence({
       geofenceId: 1,
