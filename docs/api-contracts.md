@@ -1,5 +1,16 @@
 # Backend and live adapter contracts
 
+## Live team administration — 2026-11-13
+
+`/team` now uses the narrow `team` BFF alias for the existing tenant user APIs:
+list/detail, account creation, profile updates, tenant-role replacement and confirmed
+membership removal. Current users.read/write/assign_roles/delete and roles.read
+permissions control supported actions; Java remains authoritative. Bodies are strict,
+bounded and tenant/actor-free. Responses expose only active-tenant memberships;
+last-administrator protection remains enforced. No invitation email is simulated.
+See [team-management.md](team-management.md) for exact behavior, checks and limits.
+This supersedes earlier statements that live team administration is disabled.
+
 ## Recorded trip-window history — 2026-11-12
 
 Live trip detail now reads GET `/api/v1/trips/{id}/history` through the existing

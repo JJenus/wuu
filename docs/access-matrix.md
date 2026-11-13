@@ -1,5 +1,15 @@
 # Access matrix and role register
 
+## Team administration — 2026-11-13
+
+Live team reads require users.read; account/profile writes require users.write;
+role replacement requires users.assign_roles (plus roles.read for the UI catalog);
+membership removal requires users.delete and explicit confirmation. Every submission
+rechecks current effective permissions; Java enforces current tenant/user/role scope
+and prevents removing/demoting the last tenant administrator. Client role labels
+confer nothing. No invitations, role-definition writes or account-status toggles
+are enabled. See [team-management.md](team-management.md) for verified scope.
+
 ## Live geofence editing — 2026-11-10
 
 Current `alerts.write` enables creation/editing; the editor refreshes that

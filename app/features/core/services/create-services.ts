@@ -10,6 +10,7 @@ import { createLivePreferencesService } from '../../settings/api/live-preference
 import { createSubscriptionService } from '../../subscriptions/api/subscription-service'
 import { createAccessService } from '../../auth/api/access-service'
 import { createRoleService } from '../../roles/api/role-service'
+import { createTeamService } from '../../team/api/team-service'
 
 export function createServices(mode: DataMode, client: GatewayClient): WorkspaceServices {
   if (mode === 'preview') return createPreviewServices()
@@ -23,5 +24,6 @@ export function createServices(mode: DataMode, client: GatewayClient): Workspace
     subscriptions: createSubscriptionService(client),
     access: createAccessService(client),
     roles: createRoleService(client),
+    team: createTeamService(client),
   }
 }

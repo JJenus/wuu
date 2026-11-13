@@ -1,5 +1,15 @@
 # Architecture contract
 
+## Live team management — 2026-11-13
+
+`TeamManager` uses `useTeam` and `WorkspaceServices.team`; typed adapters own HTTP
+and schemas, Vue Query owns context/page-scoped reads, and the workflow owns
+permission refresh, mutation state, invalidation and honest uncertain-write errors.
+Shared strict team input schemas feed the narrow server-only gateway policy.
+Preview keeps sample members without simulated writes. Backend tenant response
+scoping and membership/default-role safeguards are covered by tests. See
+[team-management.md](team-management.md) for contracts and acceptance evidence.
+
 ## Canonical upstream API boundary — 2026-11-12
 
 `server/utils/upstream-api.ts` is the only application source declaring the Java

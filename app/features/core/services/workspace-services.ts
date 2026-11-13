@@ -7,6 +7,7 @@ import type { PreferencesService } from '../../settings/services/preferences-ser
 import type { SubscriptionService } from '../../subscriptions/api/subscription-service'
 import type { AccessService } from '../../auth/api/access-service'
 import type { RoleService } from '../../roles/api/role-service'
+import type { TeamService } from '../../team/api/team-service'
 
 export interface WorkspaceServices {
   mode: DataMode
@@ -18,4 +19,5 @@ export interface WorkspaceServices {
   subscriptions: SubscriptionService
   access: AccessService
   roles: RoleService
+  team: TeamService
 }

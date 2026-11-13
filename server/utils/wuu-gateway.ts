@@ -1,6 +1,7 @@
 import { upstreamApi } from './upstream-api'
 
 export const allowedBases = {
+  team: upstreamApi.team,
   vehicles: upstreamApi.vehicles,
   trackers: upstreamApi.trackers,
   trips: upstreamApi.trips,
@@ -63,6 +64,16 @@ export function upstreamPath(raw: string | undefined): string | null {
   if (resource === 'access' && rest.length) return null
   // The catalog is a tenant-selected collection; no client can address another org.
   if (resource === 'roles' && rest.length) return null
+  if (
+    resource === 'team' &&
+    rest.length &&
+    !(
+      rest.length <= 2 &&
+      /^[1-9][0-9]{0,15}$/.test(rest[0]!) &&
+      (rest.length === 1 || rest[1] === 'roles')
+    )
+  )
+    return null
   if (
     resource === 'geofence-rules' &&
     rest.length &&

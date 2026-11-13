@@ -6,6 +6,14 @@ export function createPreviewServices(): WorkspaceServices {
   const service = createPreviewService()
   return {
     mode: 'preview',
+    team: {
+      list: unavailableTeam,
+      get: unavailableTeam,
+      create: unavailableTeam,
+      update: unavailableTeam,
+      assignRoles: unavailableTeam,
+      remove: unavailableTeam,
+    },
     access: {
       async get() {
         throw new ApiError({
@@ -108,5 +116,12 @@ async function unavailableRules(): Promise<never> {
   throw new ApiError({
     kind: 'unavailable',
     message: 'Alert rules require a live workspace; preview monitoring is not simulated.',
+  })
+}
+
+async function unavailableTeam(): Promise<never> {
+  throw new ApiError({
+    kind: 'unavailable',
+    message: 'Preview team members are samples; live administration is not simulated.',
   })
 }

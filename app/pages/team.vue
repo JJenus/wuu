@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useDataSource } from '~/features/core/composables/useDataSource'
+import TeamManager from '~/features/team/components/TeamManager.vue'
 const source = useDataSource()
 const search = ref('')
 const members = [
@@ -41,18 +42,16 @@ const visible = computed(() =>
       title="Good people. Clear access."
       description="The right visibility for everyone on your team."
       eyebrow="TEAM & ACCESS"
-      ><UButton to="/admin/roles" color="neutral" variant="outline" icon="i-lucide-shield-check"
+      ><UButton
+        v-if="source.isPreview"
+        to="/admin/roles"
+        color="neutral"
+        variant="outline"
+        icon="i-lucide-shield-check"
         >Explore role templates</UButton
       ></UiPageHeading
     >
-    <div v-if="source.isLive" class="info-banner warning-banner">
-      <UIcon name="i-lucide-shield-alert" />
-      <p>
-        <strong>Team management is not connected in live mode.</strong> The member, invitation, and
-        role-assignment contracts are not verified, so no sample people are shown here. Effective
-        backend permissions and tenant boundaries remain release gates.
-      </p>
-    </div>
+    <TeamManager v-if="source.isLive" />
     <template v-else>
       <div class="info-banner warning-banner">
         <UIcon name="i-lucide-shield-alert" />

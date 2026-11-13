@@ -16,6 +16,7 @@ export const upstreamApi = Object.freeze({
   subscriptions: `${apiBase}/subscriptions`,
   access: `${users}/me/access`,
   roles: `${apiBase}/roles`,
+  team: users,
   me: `${users}/me`,
   login: `${auth}/login`,
   refresh: `${auth}/refresh`,
