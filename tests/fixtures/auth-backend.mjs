@@ -3,6 +3,8 @@ import { createServer } from 'node:http'
 import { randomUUID } from 'node:crypto'
 const sessions = new Map()
 const refreshTokens = new Map()
+const accountProfiles = new Map()
+const accountPasswords = new Map()
 const enrollments = new Map()
 const alertStates = new Map()
 const planId = '00000000-0000-4000-8000-000000000001'
@@ -52,7 +54,7 @@ createServer(async (request, response) => {
   if (path === '/api/v1/auth/login') {
     const input = JSON.parse(body)
     if (input.email === 'limited@example.com') return send(429, { code: 'RATE_LIMITED' })
-    if (input.password !== 'test-only-password') return send(401, { code: 'INVALID_CREDENTIALS' })
+    if (input.password !== (accountPasswords.get(input.email) ?? 'test-only-password')) return send(401, { code: 'INVALID_CREDENTIALS' })
     const token = `private-access-${randomUUID()}`
     const refreshToken = `private-refresh-${randomUUID()}`
     sessions.set(token, input.email)
@@ -95,6 +97,18 @@ createServer(async (request, response) => {
   const token = request.headers.authorization?.replace('Bearer ', '')
   const email = sessions.get(token)
   if (!email) return send(401, { code: 'UNAUTHENTICATED' })
+  if (path === '/api/v1/auth/change-password' && request.method === 'POST') {
+    const input = JSON.parse(body)
+    if (input.old_password !== (accountPasswords.get(email) ?? 'test-only-password')) return send(401, { code: 'INVALID_CREDENTIALS' })
+    accountPasswords.set(email, input.new_password)
+    for (const [key, value] of sessions) if (value === email) sessions.delete(key)
+    for (const [key, value] of refreshTokens) if (value.email === email) refreshTokens.delete(key)
+    return send(204)
+  }
+  if (path === '/api/v1/users/me' && request.method === 'PUT') {
+    const input = JSON.parse(body)
+    accountProfiles.set(email, { first_name: input.first_name || null, last_name: input.last_name || null })
+  }
   if (email.startsWith('alert-ui-') && !alertStates.has(email))
     alertStates.set(email, {
       alert_id: 1,
@@ -224,6 +238,7 @@ createServer(async (request, response) => {
       email,
       first_name: 'Fleet',
       last_name: 'Operator',
+      ...accountProfiles.get(email),
       organization_id: 12,
       roles: ['SUPER_ADMIN'],
       enabled: true,
