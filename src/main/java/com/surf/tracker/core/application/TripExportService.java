@@ -9,6 +9,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
+import jakarta.persistence.criteria.Predicate;
 
 import java.io.OutputStream;
 import java.io.PrintWriter;
@@ -18,7 +23,6 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Consumer;
 
 @Service
 @Transactional(readOnly = true)
@@ -49,63 +53,30 @@ public class TripExportService {
             OutputStream out
     ) {
         Long orgId = TenantContext.getCurrentOrgId();
+        if (orgId == null || orgId <= 0) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Active organization required");
+        }
+        if (startDate != null && endDate != null && startDate.isAfter(endDate)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "start must not be after end");
+        }
+        Specification<Trip> filters = (trip, query, builder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(builder.equal(trip.get("vehicle").get("organizationId"), orgId));
+            if (vehicleId != null) predicates.add(builder.equal(trip.get("vehicle").get("vehicleId"), vehicleId));
+            if (startDate != null) predicates.add(builder.greaterThanOrEqualTo(trip.get("startTime"), startDate));
+            if (endDate != null) predicates.add(builder.lessThanOrEqualTo(trip.get("startTime"), endDate));
+            return builder.and(predicates.toArray(Predicate[]::new));
+        };
         try (PrintWriter w = new PrintWriter(out)) {
             w.println(CSV_HEADER);
-
-            Consumer<Trip> rowWriter = trip -> {
-                String[] row = toRow(trip);
-                w.println(String.join(",", row));
-            };
-
-            if (vehicleId != null && startDate != null && endDate != null) {
-                findTripsByVehicleAndRange(vehicleId, startDate, endDate, orgId, rowWriter);
-            } else if (vehicleId != null && startDate != null) {
-                tripsByVehicleSince(vehicleId, startDate, orgId, rowWriter);
-            } else if (vehicleId != null) {
-                tripsByVehicle(vehicleId, orgId, rowWriter);
-            } else {
-                Pageable pageable = PageRequest.of(0, 500);
-                Page<Trip> page;
-                do {
-                    page = tripRepository.findByOrganizationId(orgId, pageable);
-                    page.forEach(rowWriter);
-                    pageable = pageable.next();
-                } while (page.hasNext());
-            }
+            Pageable pageable = PageRequest.of(0, 500, Sort.by("startTime", "tripId"));
+            Page<Trip> page;
+            do {
+                page = tripRepository.findAll(filters, pageable);
+                page.forEach(trip -> w.println(String.join(",", toRow(trip))));
+                pageable = pageable.next();
+            } while (page.hasNext());
         }
-    }
-
-    private void tripsByVehicle(String vehicleId, Long orgId, Consumer<Trip> rowWriter) {
-        Pageable pageable = PageRequest.of(0, 500);
-        Page<Trip> page;
-        do {
-            page = tripRepository.findByVehicleVehicleIdAndOrganizationId(vehicleId, orgId, pageable);
-            page.forEach(rowWriter);
-            pageable = pageable.next();
-        } while (page.hasNext());
-    }
-
-    private void tripsByVehicleSince(String vehicleId, Instant startDate, Long orgId, Consumer<Trip> rowWriter) {
-        Pageable pageable = PageRequest.of(0, 500);
-        Page<Trip> page;
-        do {
-            page = tripRepository.findByVehicleVehicleIdAndOrganizationId(vehicleId, orgId, pageable);
-            page.getContent().stream()
-                    .filter(t -> t.getStartTime().compareTo(startDate) >= 0)
-                    .forEach(rowWriter);
-            pageable = pageable.next();
-        } while (page.hasNext());
-    }
-
-    private void findTripsByVehicleAndRange(String vehicleId, Instant startDate, Instant endDate, Long orgId, Consumer<Trip> rowWriter) {
-        Pageable pageable = PageRequest.of(0, 500);
-        Page<Trip> page;
-        do {
-            page = tripRepository.findByVehicleVehicleIdAndStartTimeBetweenAndOrganizationId(
-                    vehicleId, startDate, endDate, orgId, pageable);
-            page.forEach(rowWriter);
-            pageable = pageable.next();
-        } while (page.hasNext());
     }
 
     private String[] toRow(Trip trip) {

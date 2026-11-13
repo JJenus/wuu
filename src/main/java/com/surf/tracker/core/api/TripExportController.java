@@ -44,7 +44,7 @@ public class TripExportController {
     }
 
     @GetMapping("/export")
-    @Operation(operationId = "tripsExport", summary = "Download trip summaries as CSV", description = "Requires trips.export (separately from trips.read). Optional vehicleId, start and end filter the tenant-authorized export. Dates are ISO-8601 instants. Returns text/csv with an attachment filename trips-yyyyMMdd-HHmmss.csv in UTC; no JSON pagination envelope. The controller buffers the export before returning it.")
+    @Operation(operationId = "tripsExport", summary = "Download trip summaries as CSV", description = "Requires trips.export (separately from trips.read) and an active tenant. Optional vehicleId, start and end are combined; either date bound also works without a vehicle. Dates are ISO-8601 instants and inclusively filter trip start time, not overlap or completion time. start after end returns 400. Returns text/csv with an attachment filename trips-yyyyMMdd-HHmmss.csv in UTC; no JSON pagination envelope. Rows are ordered by start time then trip ID. The controller buffers the export before returning it.")
     @ApiResponse(responseCode = "200", description = "CSV attachment", headers = @Header(name = "Content-Disposition", description = "attachment; filename=\"trips-yyyyMMdd-HHmmss.csv\"", schema = @Schema(type = "string")), content = @Content(mediaType = "text/csv", schema = @Schema(type = "string", format = "binary")))
     public ResponseEntity<InputStreamResource> exportTrips(
             @RequestParam(value = "vehicleId", required = false) String vehicleId,

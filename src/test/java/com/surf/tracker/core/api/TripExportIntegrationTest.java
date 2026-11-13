@@ -48,6 +48,7 @@ class TripExportIntegrationTest {
         properties.add("spring.datasource.username", () -> postgres ? "reporting_test" : "sa");
         properties.add("spring.datasource.password", () -> "");
         properties.add("spring.datasource.driver-class-name", () -> postgres ? "org.postgresql.Driver" : "org.h2.Driver");
+        properties.add("spring.jpa.database-platform", () -> postgres ? "org.hibernate.dialect.PostgreSQLDialect" : "org.hibernate.dialect.H2Dialect");
         properties.add("spring.flyway.locations", () -> postgres ? "classpath:db/postgresql" : "classpath:db/migration");
         properties.add("spring.flyway.postgresql.transactional-lock", () -> false);
     }

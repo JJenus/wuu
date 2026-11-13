@@ -69,7 +69,13 @@ operation as available merely because a Java handler is mapped.
   ErrorResponse's current default timestamp is the epoch, not occurrence time.
 - Tracker list filters have precedence rather than conjunction: status, online,
   battery threshold, then stale. Descriptions reflect this existing behavior.
-- CSV export requires `trips.export`, returns `text/csv` and an attachment header.
+- CSV export requires `trips.export` and a positive active tenant, returns `text/csv`
+  and an attachment header. As of 2026-11-14, optional `vehicleId`, `start` and `end`
+  are combined in the database query; dates also work independently and without a
+  vehicle. Bounds inclusively filter trip start time, not overlap/completion time.
+  Reversed bounds return 400. Rows sort by start time then trip ID in 500-row pages;
+  the controller still buffers the full result. The frontend still exports loaded
+  records independently. Checks and limits: `../../app/docs/reporting.md`.
 - Enrollment has 201 for creation and 200 for receipt replay; it does not prove
   payment or paid access. Catalog version is distinct from API major version.
 - The optional frontend local account picker targets a separately supported

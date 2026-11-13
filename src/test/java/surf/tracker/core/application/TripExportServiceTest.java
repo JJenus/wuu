@@ -7,23 +7,28 @@ import com.surf.tracker.core.domain.enums.TripStartReason;
 import com.surf.tracker.core.infrastructure.repository.TripRepository;
 import com.surf.tracker.shared.security.TenantContext;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.Clock;
+import java.time.ZoneOffset;
 import java.util.List;
 
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -34,7 +39,6 @@ class TripExportServiceTest {
     @Mock
     private TripRepository tripRepository;
 
-    @InjectMocks
     private TripExportService service;
 
     private Trip trip;
@@ -43,6 +47,8 @@ class TripExportServiceTest {
     @BeforeEach
     void setUp() {
         TenantContext.setCurrentOrgId(ORG_ID);
+        service = new TripExportService(tripRepository,
+            Clock.fixed(Instant.parse("2026-08-30T11:00:00Z"), ZoneOffset.UTC));
 
         vehicle = new Vehicle();
         vehicle.setVehicleId("vehicle-001");
@@ -62,10 +68,38 @@ class TripExportServiceTest {
         trip.setIsActive(false);
     }
 
+    @AfterEach
+    void clearTenant() { TenantContext.clear(); }
+
+    @ParameterizedTest
+    @ValueSource(longs = {0, -1})
+    void exportToCsv_nonPositiveTenant_returnsForbidden(long organization) {
+        // given
+        TenantContext.setCurrentOrgId(organization);
+        // when / then
+        assertThatThrownBy(() -> service.exportToCsv(null, null, null, new ByteArrayOutputStream()))
+            .isInstanceOfSatisfying(org.springframework.web.server.ResponseStatusException.class,
+                error -> assertThat(error.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.FORBIDDEN));
+    }
+
+    @Test
+    void exportToCsv_activeTrip_reportsElapsedDurationWithoutInventingEndTime() {
+        // given
+        trip.setEndTime(null);
+        trip.setIsActive(true);
+        when(tripRepository.findAll(org.mockito.ArgumentMatchers.<Specification<Trip>>any(), any(Pageable.class)))
+            .thenReturn(new PageImpl<>(List.of(trip)));
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        // when
+        service.exportToCsv("vehicle-001", null, null, out);
+        // then
+        String row = out.toString(StandardCharsets.UTF_8).lines().skip(1).findFirst().orElseThrow();
+        assertThat(row).contains("2026-08-30T10:00:00Z,,60,").endsWith(",true");
+    }
+
     @Test
     void exportToCsv_writesHeaderAndRow() {
-        when(tripRepository.findByVehicleVehicleIdAndOrganizationId(
-                eq("vehicle-001"), eq(ORG_ID), any(Pageable.class)))
+        when(tripRepository.findAll(org.mockito.ArgumentMatchers.<Specification<Trip>>any(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(trip)));
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -81,7 +115,7 @@ class TripExportServiceTest {
 
     @Test
     void exportToCsv_allVehicles_noFilter() {
-        when(tripRepository.findByOrganizationId(eq(ORG_ID), any(Pageable.class)))
+        when(tripRepository.findAll(org.mockito.ArgumentMatchers.<Specification<Trip>>any(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(trip)));
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -92,11 +126,10 @@ class TripExportServiceTest {
     }
 
     @Test
-    void exportToCsv_withDateRange_usesBetween() {
+    void exportToCsv_withDateRange_writesMatchingRows() {
         Instant start = Instant.parse("2026-08-30T00:00:00Z");
         Instant end = Instant.parse("2026-08-30T23:59:59Z");
-        when(tripRepository.findByVehicleVehicleIdAndStartTimeBetweenAndOrganizationId(
-                eq("vehicle-001"), eq(start), eq(end), eq(ORG_ID), any(Pageable.class)))
+        when(tripRepository.findAll(org.mockito.ArgumentMatchers.<Specification<Trip>>any(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(trip)));
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -108,8 +141,7 @@ class TripExportServiceTest {
 
     @Test
     void exportToCsv_emptyResult_writesHeaderOnly() {
-        when(tripRepository.findByVehicleVehicleIdAndOrganizationId(
-                eq("vehicle-001"), eq(ORG_ID), any(Pageable.class)))
+        when(tripRepository.findAll(org.mockito.ArgumentMatchers.<Specification<Trip>>any(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of()));
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -126,8 +158,7 @@ class TripExportServiceTest {
         Vehicle v = new Vehicle();
         v.setVehicleId("v,1,with,commas");
         trip.setVehicle(v);
-        when(tripRepository.findByVehicleVehicleIdAndOrganizationId(
-                eq("v,1,with,commas"), eq(ORG_ID), any(Pageable.class)))
+        when(tripRepository.findAll(org.mockito.ArgumentMatchers.<Specification<Trip>>any(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(trip)));
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
