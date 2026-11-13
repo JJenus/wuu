@@ -85,6 +85,17 @@ public class VehicleService {
     }
 
     @Transactional
+    public Vehicle updateProfile(String vehicleId, com.surf.tracker.core.api.dto.UpdateVehicleRequest request) {
+        Long orgId = TenantContext.getCurrentOrgId();
+        if (orgId == null || orgId <= 0)
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN, "Active organization required");
+        Vehicle vehicle = vehicleRepository.findForTelemetry(vehicleId, orgId)
+            .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Vehicle not found"));
+        vehicle.setModel(request.getModel()); vehicle.setLicensePlate(request.getLicensePlate()); vehicle.setVin(request.getVin());
+        return vehicleRepository.saveAndFlush(vehicle);
+    }
+
+    @Transactional
     public void updateVehicleAccStatus(String vehicleId, boolean accStatus, Instant timestamp) {
         Long orgId = TenantContext.getCurrentOrgId();
         Vehicle vehicle = vehicleRepository.findById(vehicleId)

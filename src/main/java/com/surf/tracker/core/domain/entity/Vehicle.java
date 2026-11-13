@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
+@org.hibernate.annotations.DynamicUpdate
 @Table(name = "vehicles")
 public class Vehicle {
 

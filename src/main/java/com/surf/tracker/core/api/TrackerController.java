@@ -100,6 +100,22 @@ public class TrackerController {
         }
     }
 
+    @PatchMapping("/{trackerId}/profile")
+    @Operation(operationId = "trackersProfile", summary = "Edit tracker registration metadata", description = "Requires vehicles.assign_device. Replaces model, protocol, firmware_version and sim_number only; omitted fields clear metadata. Device ID, assignment and measured status are preserved.")
+    public ResponseEntity<TrackerResponse> updateProfile(@PathVariable String trackerId,
+            @jakarta.validation.Valid @RequestBody TrackerProfileRequest request) {
+        return ResponseEntity.ok(toResponse(trackerService.updateProfile(trackerId, request)));
+    }
+
+    @PostMapping("/{trackerId}/reassign")
+    @Operation(operationId = "trackersReassign", summary = "Correct an unused tracker assignment", description = "Requires vehicles.assign_device and an active tenant. Explicit source_vehicle_id must match current assignment; target_vehicle_id must belong to the same tenant. Recorded locations, raw data, device activity, commands, assignment history or an active trip on either vehicle prevent a move (409). No unassignment or cross-tenant transfer. Device identity is immutable.")
+    @ApiResponse(responseCode = "409", description = "Tracker used, active trip, or stale assignment")
+    @ApiResponse(responseCode = "404", description = "Tracker or destination not found in tenant scope")
+    public ResponseEntity<TrackerResponse> reassign(@PathVariable String trackerId,
+            @jakarta.validation.Valid @RequestBody ReassignTrackerRequest request) {
+        return ResponseEntity.ok(toResponse(trackerService.reassign(trackerId, request)));
+    }
+
     @PutMapping("/{trackerId}")
     @Operation(operationId = "trackersUpdate", summary = "Update tracker fields", description = "Requires vehicles.assign_device. Accepts model, protocol, firmware_version, sim_number, battery_level, signal_strength and status through the tracker service. Does not take a new device ID or vehicle assignment.")
     @ApiResponse(responseCode = "404", description = "Tracker not found")

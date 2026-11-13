@@ -16,6 +16,23 @@ import java.util.Optional;
 
 @Repository
 public interface TrackerRepository extends JpaRepository<Tracker, String> {
+    // Lock only the tracker first, matching ingestion's tracker-before-vehicle order.
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT t FROM Tracker t WHERE t.trackerId = :trackerId AND t.vehicle.vehicleId IN " +
+        "(SELECT v.vehicleId FROM Vehicle v WHERE v.organizationId = :organizationId)")
+    Optional<Tracker> findForManagement(@Param("trackerId") String trackerId, @Param("organizationId") Long organizationId);
+
+    @Query("SELECT (COUNT(l) > 0) FROM TrackerLocation l WHERE l.tracker.trackerId = :trackerId")
+    boolean hasLocations(@Param("trackerId") String trackerId);
+
+    @Query("SELECT (COUNT(r) > 0) FROM TrackerRawData r WHERE r.tracker.trackerId = :trackerId")
+    boolean hasRawData(@Param("trackerId") String trackerId);
+
+    @Query("SELECT (COUNT(c) > 0) FROM DeviceCommand c WHERE c.tracker.trackerId = :trackerId")
+    boolean hasCommands(@Param("trackerId") String trackerId);
+
+    @Query("SELECT (COUNT(a) > 0) FROM TrackerAssignment a WHERE a.tracker.trackerId = :trackerId")
+    boolean hasAssignmentHistory(@Param("trackerId") String trackerId);
     // Trusted device-ingress ownership lookup; HTTP paths must keep organization filters.
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT t FROM Tracker t JOIN FETCH t.vehicle WHERE t.deviceId = :deviceId")

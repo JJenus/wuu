@@ -5,6 +5,11 @@ import com.surf.tracker.core.domain.entity.Vehicle;
 import com.surf.tracker.core.domain.enums.TrackerStatus;
 import com.surf.tracker.core.infrastructure.repository.TrackerRepository;
 import com.surf.tracker.core.infrastructure.repository.VehicleRepository;
+import com.surf.tracker.core.infrastructure.repository.TripRepository;
+import com.surf.tracker.core.api.dto.TrackerProfileRequest;
+import com.surf.tracker.core.api.dto.ReassignTrackerRequest;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import com.surf.tracker.shared.security.TenantContext;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -22,10 +27,54 @@ public class TrackerService {
 
     private final TrackerRepository trackerRepository;
     private final VehicleRepository vehicleRepository;
+    private final TripRepository tripRepository;
 
-    public TrackerService(TrackerRepository trackerRepository, VehicleRepository vehicleRepository) {
+    public TrackerService(TrackerRepository trackerRepository, VehicleRepository vehicleRepository, TripRepository tripRepository) {
         this.trackerRepository = trackerRepository;
         this.vehicleRepository = vehicleRepository;
+        this.tripRepository = tripRepository;
+    }
+
+    @Transactional
+    public Tracker updateProfile(String trackerId, TrackerProfileRequest profile) {
+        Tracker tracker = managedTracker(trackerId);
+        tracker.setModel(profile.model()); tracker.setProtocol(profile.protocol());
+        tracker.setFirmwareVersion(profile.firmwareVersion()); tracker.setSimNumber(profile.simNumber());
+        return trackerRepository.saveAndFlush(tracker);
+    }
+
+    @Transactional
+    public Tracker reassign(String trackerId, ReassignTrackerRequest request) {
+        Tracker tracker = managedTracker(trackerId);
+        Long orgId = TenantContext.getCurrentOrgId();
+        String source = request.sourceVehicleId().trim(), target = request.targetVehicleId().trim();
+        // Check destination scope before reporting conflicts, without exposing foreign inventory.
+        if (vehicleRepository.findByIdAndOrganizationId(target, orgId).isEmpty())
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Vehicle not found");
+        if (!tracker.getVehicle().getVehicleId().equals(source))
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Assignment changed. Reload the tracker before retrying.");
+        if (source.equals(target)) return tracker;
+        // A consistent vehicle order prevents opposite moves from deadlocking each other.
+        for (String id : java.util.stream.Stream.of(source, target).sorted().toList())
+            vehicleRepository.findForTelemetry(id, orgId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Vehicle not found"));
+        if (tracker.getLastSeen() != null || Boolean.TRUE.equals(tracker.getIsOnline())
+            || trackerRepository.hasLocations(trackerId) || trackerRepository.hasRawData(trackerId)
+            || trackerRepository.hasCommands(trackerId) || trackerRepository.hasAssignmentHistory(trackerId))
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Only unused trackers can be reassigned. Recorded history or device activity must stay with its vehicle.");
+        if (tripRepository.findByVehicleVehicleIdAndIsActiveAndOrganizationId(source, true, orgId).isPresent()
+            || tripRepository.findByVehicleVehicleIdAndIsActiveAndOrganizationId(target, true, orgId).isPresent())
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Neither vehicle may have an active trip when reassigning a tracker.");
+        tracker.setVehicle(vehicleRepository.getReferenceById(target));
+        return trackerRepository.saveAndFlush(tracker);
+    }
+
+    private Tracker managedTracker(String trackerId) {
+        Long orgId = TenantContext.getCurrentOrgId();
+        if (orgId == null || orgId <= 0)
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Active organization required");
+        return trackerRepository.findForManagement(trackerId, orgId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tracker not found"));
     }
 
     @Transactional(readOnly = true)

@@ -86,14 +86,7 @@ public class VehicleController {
     @ApiResponse(responseCode = "200", description = "Updated vehicle profile")
     public ResponseEntity<VehicleResponse> updateVehicle(@PathVariable String vehicleId,
                                                          @jakarta.validation.Valid @RequestBody UpdateVehicleRequest request) {
-        Vehicle vehicle = vehicleService.getVehicle(vehicleId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Vehicle not found"));
-
-        vehicle.setModel(request.getModel());
-        vehicle.setLicensePlate(request.getLicensePlate());
-        vehicle.setVin(request.getVin());
-
-        Vehicle updated = vehicleService.saveVehicle(vehicle);
+        Vehicle updated = vehicleService.updateProfile(vehicleId, request);
         return ResponseEntity.ok(toResponse(updated));
     }
 
