@@ -2,6 +2,9 @@
 import { useAssignedTrackers, useFleetSetup } from '../composables/useFleetSetup'
 import { errorMessage } from '../../core/domain/errors'
 import RegisterTrackerModal from './RegisterTrackerModal.vue'
+import EditTrackerModal from './EditTrackerModal.vue'
+import ReassignTrackerModal from './ReassignTrackerModal.vue'
+import type { FleetTracker } from '../domain/registration'
 
 const props = defineProps<{ vehicleId: string }>()
 const { canAssign, canReadTrackers, accessError, retryAccess } = useFleetSetup()
@@ -10,6 +13,17 @@ const trackers = useAssignedTrackers(
   () => canReadTrackers.value,
 )
 const open = ref(false)
+const selected = ref<FleetTracker | null>(null)
+const editOpen = ref(false),
+  moveOpen = ref(false)
+function edit(tracker: FleetTracker) {
+  selected.value = tracker
+  editOpen.value = true
+}
+function reassign(tracker: FleetTracker) {
+  selected.value = tracker
+  moveOpen.value = true
+}
 </script>
 
 <template>
@@ -64,16 +78,37 @@ const open = ref(false)
             <dt>SIM number</dt>
             <dd>{{ tracker.simNumber || 'Not provided' }}</dd>
           </div>
+          <div v-if="canAssign">
+            <dt>Manage</dt>
+            <dd class="flex flex-wrap gap-2">
+              <UButton
+                size="sm"
+                variant="outline"
+                :aria-label="`Edit tracker ${tracker.trackerId}`"
+                @click="edit(tracker)"
+                >Edit details</UButton
+              >
+              <UButton
+                size="sm"
+                variant="outline"
+                :aria-label="`Reassign tracker ${tracker.trackerId}`"
+                @click="reassign(tracker)"
+                >Reassign unused tracker</UButton
+              >
+            </dd>
+          </div>
         </dl>
         <p v-if="!trackers.data.value?.length" class="muted">
           No trackers are registered to this vehicle.
         </p>
       </template>
       <p class="form-hint">
-        Registration does not prove a hardware connection. Multiple trackers may be registered;
-        unassign and reassign are not available.
+        Registration does not prove a hardware connection. Multiple trackers may be registered; only
+        unused trackers can be reassigned within this tenant. Unassignment is unavailable.
       </p>
     </div>
     <RegisterTrackerModal :key="vehicleId" v-model:open="open" :vehicle-id="vehicleId" />
+    <EditTrackerModal v-if="selected" v-model:open="editOpen" :tracker="selected" />
+    <ReassignTrackerModal v-if="selected" v-model:open="moveOpen" :tracker="selected" />
   </section>
 </template>

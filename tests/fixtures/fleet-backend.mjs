@@ -83,7 +83,8 @@ createServer(async (request, response) => {
     if (profile) Object.assign(tracker, body)
     else {
       if (!fleet.vehicles.has(body.target_vehicle_id)) return send(404, {})
-      if (tracker.vehicle_id !== body.source_vehicle_id) return send(409, { message: 'Assignment changed' })
+      if (tracker.vehicle_id !== body.source_vehicle_id)
+        return send(409, { message: 'Assignment changed' })
       tracker.vehicle_id = body.target_vehicle_id
     }
     return send(200, tracker)

@@ -4,6 +4,10 @@ import { useWorkspace } from '~/features/workspace/composables/useWorkspace'
 import { useWorkspaceRecord } from '~/features/workspace/composables/useWorkspaceRecord'
 import FleetMap from '~/features/fleet/components/FleetMap.vue'
 import AssignedTrackers from '~/features/fleet/components/AssignedTrackers.vue'
+import EditVehicleModal from '~/features/fleet/components/EditVehicleModal.vue'
+import { useFleetSetup } from '~/features/fleet/composables/useFleetSetup'
+const { canEdit } = useFleetSetup()
+const editOpen = ref(false)
 const route = useRoute()
 const source = useDataSource()
 const { alerts, trips, alertsQuery, tripsQuery } = useWorkspace('fleet')
@@ -75,6 +79,13 @@ const sourceLabel = computed(() => (source.isPreview ? 'Sample data' : 'Live dat
             <div class="panel-heading">
               <h2>Vehicle information</h2>
               <span class="preview-tag">{{ sourceLabel }}</span>
+              <UButton
+                v-if="canEdit && vehicle.profile"
+                size="sm"
+                variant="outline"
+                @click="editOpen = true"
+                >Edit vehicle</UButton
+              >
             </div>
             <div class="section-body">
               <dl class="detail-info">
@@ -128,6 +139,12 @@ const sourceLabel = computed(() => (source.isPreview ? 'Sample data' : 'Live dat
           </section>
         </div>
         <AssignedTrackers v-if="!source.isPreview" :key="vehicle.id" :vehicle-id="vehicle.id" />
+        <EditVehicleModal
+          v-if="!source.isPreview && vehicle.profile"
+          :key="vehicle.id"
+          v-model:open="editOpen"
+          :vehicle="vehicle"
+        />
         <section class="panel mt-6">
           <div class="panel-heading">
             <h2>Recent journeys</h2>

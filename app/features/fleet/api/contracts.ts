@@ -54,7 +54,11 @@ export function toVehicle(dto: VehicleDto, now: number = Date.now()): Vehicle {
     plate,
     type: dto.model?.trim() || 'Vehicle type not provided',
     vin: dto.vin ?? null,
-    profile: { model: dto.model ?? null, licensePlate: dto.licensePlate ?? null, vin: dto.vin ?? null },
+    profile: {
+      model: dto.model ?? null,
+      licensePlate: dto.licensePlate ?? null,
+      vin: dto.vin ?? null,
+    },
     driver: null,
     initials: null,
     status: vehicleStatusFromTelemetry({

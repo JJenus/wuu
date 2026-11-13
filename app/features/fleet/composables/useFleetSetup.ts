@@ -82,3 +82,15 @@ export function useAssignedTrackers(vehicleId: () => string, enabled: () => bool
     retry: false,
   })
 }
+
+export function useFleetDestinations(enabled: () => boolean) {
+  const services = useWorkspaceServices()
+  const context = useWorkspaceContextValue()
+  return useQuery({
+    queryKey: queryKeys.fleet.list(context),
+    queryFn: ({ signal }) => services.fleet.list({ signal }),
+    enabled: computed(() => !import.meta.server && services.mode === 'live' && enabled()),
+    staleTime: 0,
+    retry: false,
+  })
+}

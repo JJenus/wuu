@@ -77,7 +77,8 @@ async function submit() {
         </UFormField>
         <p class="form-hint">
           Device IDs must be unique across the fleet. This registers the assignment only, not a
-          connection or hardware attestation. Reassignment is not available.
+          connection or hardware attestation. Only unused trackers can later be reassigned within
+          this tenant.
         </p>
         <p v-if="failure" role="alert" class="form-error">{{ failure }}</p>
       </UForm>

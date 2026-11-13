@@ -61,8 +61,8 @@ export default defineEventHandler(async (event) => {
         ? !teamRequestAllowed(method, target!)
         : method !== 'GET' &&
           !alertTransition &&
-           !fleetRegistration &&
-           !fleetManagement &&
+          !fleetRegistration &&
+          !fleetManagement &&
           !geofenceWrite &&
           !ruleWrite)
   )
@@ -141,17 +141,17 @@ export default defineEventHandler(async (event) => {
       body = JSON.stringify(
         teamWrite
           ? teamRequestBody(method, target, parsed)
-           : fleetManagement
-             ? fleetManagementBody(target, parsed)
-           : fleetRegistration
-            ? fleetRegistrationBody(target, parsed)
-            : alertTransition
-              ? alertTransitionBody(target, parsed)
-              : geofenceWrite
-                ? geofenceWriteBody(target, parsed)
-                : ruleWrite
-                  ? ruleRequestBody(target, parsed)
-                  : schema.parse(parsed),
+          : fleetManagement
+            ? fleetManagementBody(target, parsed)
+            : fleetRegistration
+              ? fleetRegistrationBody(target, parsed)
+              : alertTransition
+                ? alertTransitionBody(target, parsed)
+                : geofenceWrite
+                  ? geofenceWriteBody(target, parsed)
+                  : ruleWrite
+                    ? ruleRequestBody(target, parsed)
+                    : schema.parse(parsed),
       )
     } catch {
       return jsonError(
@@ -159,17 +159,17 @@ export default defineEventHandler(async (event) => {
         400,
         teamWrite
           ? 'Invalid team request.'
-           : fleetManagement
-             ? 'Invalid fleet update request.'
-           : fleetRegistration
-            ? 'Invalid fleet registration request.'
-            : alertTransition
-              ? 'Invalid alert transition request.'
-              : geofenceWrite
-                ? 'Invalid geofence edit request.'
-                : ruleWrite
-                  ? 'Invalid geofence rule request.'
-                  : 'Invalid subscription request.',
+          : fleetManagement
+            ? 'Invalid fleet update request.'
+            : fleetRegistration
+              ? 'Invalid fleet registration request.'
+              : alertTransition
+                ? 'Invalid alert transition request.'
+                : geofenceWrite
+                  ? 'Invalid geofence edit request.'
+                  : ruleWrite
+                    ? 'Invalid geofence rule request.'
+                    : 'Invalid subscription request.',
         requestId,
       )
     }
