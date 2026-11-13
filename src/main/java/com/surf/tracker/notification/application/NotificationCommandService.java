@@ -69,15 +69,9 @@ public class NotificationCommandService {
     }
 
     public void markAllAsRead(String userId) {
-        List<Delivery> deliveries = deliveryRepository.findForRecipient(
-            NotificationScope.user(userId), NotificationScope.tenant(), null, null, null,
-            org.springframework.data.domain.PageRequest.of(0, 1000)
-        ).getContent();
-
-        Instant now = clock.instant();
-        for (Delivery delivery : deliveries) {
-            eventRepository.save(DeliveryEvent.opened(delivery.getDeliveryId(), "Bulk read", now));
-        }
+        String recipient = NotificationScope.user(userId);
+        String tenant = NotificationScope.tenant();
+        eventRepository.markUnreadForRecipient(recipient, tenant, clock.instant());
     }
 
     public void deleteDelivery(String deliveryId) {
