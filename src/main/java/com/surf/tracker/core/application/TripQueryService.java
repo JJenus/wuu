@@ -47,10 +47,13 @@ public class TripQueryService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Trip not found"));
         var now = clock.instant();
         var end = trip.getEndTime() == null || trip.getEndTime().isAfter(now) ? now : trip.getEndTime();
-        var points = locations.findRecordedWindow(trip.getVehicle().getVehicleId(), organizationId,
-                trip.getStartTime(), end, PageRequest.of(0, limit + 1));
+        var points = trip.isRecordedPointsAssociated()
+                ? locations.findAssociatedTrip(tripId, organizationId, PageRequest.of(0, limit + 1))
+                : locations.findRecordedWindow(trip.getVehicle().getVehicleId(), organizationId,
+                    trip.getStartTime(), end, PageRequest.of(0, limit + 1));
         return new TripHistoryResponse(tripId, trip.getVehicle().getVehicleId(),
-                TripHistoryResponse.Source.VEHICLE_TIME_WINDOW, trip.getStartTime(), end,
+                trip.isRecordedPointsAssociated() ? TripHistoryResponse.Source.TRIP_ASSOCIATED
+                    : TripHistoryResponse.Source.VEHICLE_TIME_WINDOW, trip.getStartTime(), end,
                 points.size() > limit, points.stream().limit(limit).map(p -> new TripHistoryResponse.Point(
                         p.getLocationId(), p.getRecordedAt(), p.getLatitude(), p.getLongitude(), p.getSpeedKmh())).toList());
     }

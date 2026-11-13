@@ -14,6 +14,15 @@ import java.util.List;
 @Repository
 public interface TrackerLocationRepository extends JpaRepository<TrackerLocation, Long> {
 
+    @Query("SELECT tl FROM TrackerLocation tl WHERE tl.trip.tripId = :tripId " +
+            "AND tl.trip.vehicle.organizationId = :organizationId " +
+            "AND tl.tracker.vehicle.vehicleId = tl.trip.vehicle.vehicleId " +
+            "AND tl.tracker.vehicle.organizationId = :organizationId " +
+            "AND tl.validity = 'A' AND tl.latitude BETWEEN -90 AND 90 " +
+            "AND tl.longitude BETWEEN -180 AND 180 ORDER BY tl.recordedAt, tl.locationId")
+    List<TrackerLocation> findAssociatedTrip(@Param("tripId") String tripId,
+            @Param("organizationId") Long organizationId, Pageable pageable);
+
     @Query("SELECT tl FROM TrackerLocation tl WHERE tl.tracker.vehicle.vehicleId = :vehicleId " +
             "AND tl.tracker.vehicle.organizationId = :organizationId " +
             "AND tl.recordedAt >= :start AND tl.recordedAt <= :end " +

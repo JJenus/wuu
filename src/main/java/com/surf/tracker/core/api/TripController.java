@@ -52,7 +52,7 @@ public class TripController {
     }
 
     @GetMapping("/{tripId}/history")
-    @Operation(operationId = "tripsHistory", summary = "Get recorded fixes in a trip window", description = "Requires trips.read and a positive active tenant ID. limit must be 1–10000 (default 10000). Returns stored fixes for the trip's vehicle/time window and a truncated flag, not inferred trip membership or interpolated route geometry. Window end is capped at the current server time for active or future-ended trips.")
+    @Operation(operationId = "tripsHistory", summary = "Get recorded trip history", description = "Requires trips.read and a positive active tenant ID. limit must be 1–10000 (default 10000). New automatic trips return explicitly associated fixes (source TRIP_ASSOCIATED); legacy trips retain labelled vehicle/time-window records (VEHICLE_TIME_WINDOW). There is no inferred fallback for associated trips. Both expose truncation and do not interpolate a route. Active window end is capped at current server time.")
     @ApiResponse(responseCode = "400", description = "Invalid history limit or query")
     @ApiResponse(responseCode = "404", description = "Trip or authorized vehicle not found")
     @ApiResponse(responseCode = "200", description = "Recorded vehicle/time-window fixes with truncation metadata")

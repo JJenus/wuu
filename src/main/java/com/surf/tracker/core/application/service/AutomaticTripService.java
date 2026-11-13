@@ -41,7 +41,8 @@ public class AutomaticTripService {
 
         Trip trip = trips.findByVehicleVehicleIdAndIsActiveAndOrganizationId(vehicle.getVehicleId(), true,
             vehicle.getOrganizationId()).orElse(null);
-        TripPoint last = trip == null ? null : points.findFirstByTripTripIdOrderByPointOrderDesc(trip.getTripId()).orElse(null);
+        TripPoint last = trip == null ? null : points.findFirstByTripTripIdAndTripVehicleOrganizationIdOrderByPointOrderDesc(
+            trip.getTripId(), vehicle.getOrganizationId()).orElse(null);
         if (trip != null && at.isBefore(trip.getStartTime())) return;
         if (last != null && Duration.between(last.getLocation().getRecordedAt(), at).getSeconds() > maxGapSeconds) {
             trip.endTrip(TripEndReason.TIMEOUT, last.getLocation());
