@@ -29,6 +29,11 @@ const history = {
 } as const
 
 describe('recorded history', () => {
+  it('accepts explicit trip membership independently of the legacy time-window source', async () => {
+    const body = { ...history, source: 'TRIP_ASSOCIATED' }
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } }))
+    await expect(createLiveTripService(createGatewayClient({ fetchImpl })).history('journey')).resolves.toMatchObject({ source: 'TRIP_ASSOCIATED' })
+  })
   it('uses only exact recorded samples, never interpolates, and hides markers in gaps', () => {
     expect(recordedSample(history.points, Date.parse(history.windowStart))).toBeNull()
     expect(recordedSample(history.points, Date.parse('2026-11-12T12:00:15Z'))).toEqual(
