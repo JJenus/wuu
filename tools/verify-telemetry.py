@@ -91,6 +91,7 @@ def main() -> None:
     parser.add_argument("--frontend", type=Path, default=Path(__file__).resolve().parents[2] / "app")
     parser.add_argument("--pg-bin", type=Path, default=Path("/usr/lib/postgresql/18/bin"))
     parser.add_argument("--verify-api-v1", action="store_true", help="Also verify real authenticated OpenAPI and canonical route boundaries")
+    parser.add_argument("--verify-team", action="store_true", help="Run real tenant team administration browser acceptance")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
     artemis = args.artemis_home.resolve() / "bin/artemis"
@@ -362,9 +363,10 @@ def main() -> None:
                     "TRACKING_TEST_INITIAL_COORDINATES": "51.50500, -0.10000", "TRACKING_TEST_HISTORY": "true",
                     "TRACKING_TEST_API_V1": "true" if args.verify_api_v1 else ""}
         with (base / "browser.log").open("w") as output:
-            subprocess.run(["pnpm", "exec", "playwright", "test", "--config", "playwright.tracking.config.ts"],
+            subprocess.run(["pnpm", "exec", "playwright", "test", "--config", "playwright.team.config.ts" if args.verify_team else "playwright.tracking.config.ts"],
                            cwd=args.frontend, env=test_env, stdout=output, stderr=subprocess.STDOUT, check=True, timeout=180)
-        print("PASS: recovered telemetry and duplicate-safe replay reach automatic browser refresh", flush=True)
+        print("PASS: real team account/profile/role/removal and authorization workflow" if args.verify_team else
+              "PASS: recovered telemetry and duplicate-safe replay reach automatic browser refresh", flush=True)
     finally:
         for process in reversed(processes):
             stop(process)

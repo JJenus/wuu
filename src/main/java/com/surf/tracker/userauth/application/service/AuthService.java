@@ -275,7 +275,7 @@ public class AuthService {
                 .orElseThrow(() -> new BusinessRuleException("ROLE_NOT_FOUND", "role " + roleId + " not found"));
             if (!role.isOrgScoped() || !Objects.equals(role.getOrg().getId(), orgId)) {
                 throw new ValidationException("ROLE_ORG_MISMATCH",
-                    "role " + role.getName() + " is not scoped to org " + orgId);
+                    "requested role is not assignable in the active tenant");
             }
             assigned.add(role);
         }

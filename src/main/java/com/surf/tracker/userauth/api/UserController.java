@@ -52,7 +52,7 @@ public class UserController {
     }
 
     @GetMapping
-    @Operation(operationId = "usersList", summary = "List tenant users", description = "Requires users.read. Zero-based page defaults to 0, size to 50; results are sorted by createdAt descending. A session without an active tenant receives an empty page. Other tenants' users are not included.")
+    @Operation(operationId = "usersList", summary = "List tenant users", description = "Requires users.read. Zero-based page defaults to 0, size to 50; results are sorted by createdAt descending. A session without an active tenant receives an empty page. Other tenants' users and role memberships are not included; organization_id and roles describe only the active tenant.")
     public ResponseEntity<PagedResponse<UserResponse>> list(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
@@ -67,7 +67,7 @@ public class UserController {
     }
 
     @PostMapping
-    @Operation(operationId = "usersCreate", summary = "Create a user in the active tenant", description = "Requires users.write and an active tenant. Validates email/password/profile fields and derives organization from the session. This operation is not public self-registration or arbitrary tenant/role assignment.")
+    @Operation(operationId = "usersCreate", summary = "Create a user in the active tenant", description = "Requires users.write and an active tenant with an OPERATOR role. Creates an enabled account with that initial tenant role; a missing default role is rejected before creating an account. Validates email/password/profile fields and derives organization from the session. This is not an invitation-email operation, public self-registration or arbitrary tenant/role assignment.")
     @ApiResponse(responseCode = "201", description = "Tenant user created")
     public ResponseEntity<UserResponse> create(@Valid @RequestBody CreateUserRequest request) {
         Long orgId = TenantContext.getCurrentOrgId();
@@ -97,7 +97,7 @@ public class UserController {
     }
 
     @DeleteMapping("/{id}")
-    @Operation(operationId = "usersDelete", summary = "Delete a tenant user", description = "Requires users.delete. Deletes through the tenant-scoped auth service using the numeric user ID. Success returns 204 without a body.")
+    @Operation(operationId = "usersDelete", summary = "Remove tenant membership", description = "Requires users.delete. Removes the numeric user's roles in the active tenant, never their global identity or memberships elsewhere. Revokes all of that account's sessions. The last TENANT_ADMIN cannot be removed. Success returns 204 without a body.")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Long id) {
         Long orgId = TenantContext.getCurrentOrgId();
