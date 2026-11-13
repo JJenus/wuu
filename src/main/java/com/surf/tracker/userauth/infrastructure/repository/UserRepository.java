@@ -12,6 +12,10 @@ import java.util.Optional;
 
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
+    @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE User u SET u.firstName = :firstName, u.lastName = :lastName, u.updatedAt = :now WHERE u.id = :userId")
+    int updateOwnNames(@Param("userId") Long userId, @Param("firstName") String firstName,
+                      @Param("lastName") String lastName, @Param("now") java.time.Instant now);
 
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"roles", "roles.org", "roles.permissions"})
     @Query("SELECT u FROM User u WHERE u.id = :id")

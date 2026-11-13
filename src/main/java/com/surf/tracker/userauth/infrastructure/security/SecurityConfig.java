@@ -51,6 +51,7 @@ public class SecurityConfig {
                     V1 + "/commands/*/send", V1 + "/commands/*/deliver", V1 + "/commands/*/fail").denyAll()
                 .requestMatchers("/actuator/**", "/v3/api-docs/**", "/swagger-ui/**").hasAuthority("system.admin")
                 .requestMatchers(HttpMethod.GET, V1 + "/users/me", V1 + "/users/me/access").authenticated()
+                .requestMatchers(HttpMethod.PUT, V1 + "/users/me").authenticated()
                 .requestMatchers(HttpMethod.GET, V1 + "/roles").hasAuthority("roles.read")
                 .requestMatchers(V1 + "/users/*/roles").hasAuthority("users.assign_roles")
                 .requestMatchers(HttpMethod.GET, V1 + "/users/**").hasAuthority("users.read")

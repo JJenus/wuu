@@ -38,6 +38,13 @@ public class UserController {
         return ResponseEntity.ok(authService.getCurrentUser(userId));
     }
 
+    @PutMapping("/me")
+    @Operation(operationId = "usersUpdateMe", summary = "Update the authenticated user's own names", description = "Any active authenticated session may replace its own first_name and last_name; users.write is not required. Both strings are required, max 100 characters each; blank values clear a name. Identity is derived from the session. Email, roles, organization, password and account status fields are rejected. No session is revoked by a names-only change.")
+    public ResponseEntity<UserResponse> updateMe(@Valid @RequestBody UpdateOwnProfileRequest request) {
+        return ResponseEntity.ok().header("Cache-Control", "private, no-store")
+            .body(authService.updateOwnProfile(TenantContext.getCurrentUserId(), request.firstName(), request.lastName()));
+    }
+
     @GetMapping("/me/access")
     @Operation(operationId = "usersCurrentAccess", summary = "Get current effective permissions", description = "Returns user_id, organization_id, sorted current database permissions and access expiry. Requires an authenticated AuthPrincipal, not users.read. Cache-Control is private, no-store. Role claims are not treated as permissions; this is not an authorization decision for a later request.")
     public ResponseEntity<CurrentAccessResponse> currentAccess(@AuthenticationPrincipal AuthPrincipal principal) {

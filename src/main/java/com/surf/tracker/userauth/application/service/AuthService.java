@@ -246,6 +246,16 @@ public class AuthService {
     }
 
     @Transactional
+    public UserResponse updateOwnProfile(Long userId, String firstName, String lastName) {
+        if (userId == null || userId <= 0) throw new AuthException("UNAUTHENTICATED", "authentication required");
+        // Narrow SQL update cannot overwrite a concurrent password/status change or membership.
+        int changed = userRepository.updateOwnNames(userId, firstName.trim().isEmpty() ? null : firstName.trim(),
+            lastName.trim().isEmpty() ? null : lastName.trim(), clock.instant());
+        if (changed != 1) throw new BusinessRuleException("USER_NOT_FOUND", "user not found");
+        return getCurrentUser(userId);
+    }
+
+    @Transactional
     public UserResponse createUser(String email, String password, String firstName, String lastName, Long orgId) {
         if (orgId == null) throw new org.springframework.security.access.AccessDeniedException("Tenant required");
         Role defaultRole = roleRepository.findByNameAndOrgId("OPERATOR", orgId)
