@@ -45,9 +45,11 @@ operation as available merely because a Java handler is mapped.
 - Organization permissions include method-level security, not just URL matchers.
 - Notification endpoints are self-service in the active tenant; a supplied user
   identifier cannot select a different user. Templates require `system.admin`.
-- `NotificationQueryService.getUserNotifications` currently ignores `unreadOnly`.
-  The operation description records this mismatch; business behavior was not
-  changed as part of endpoint/documentation cleanup.
+- `unreadOnly=true` now excludes deliveries with a persisted `OPENED` event,
+  filtering before pagination and total counts. Read state is independent of
+  delivery status; `DELIVERED` does not imply read. Default false still includes
+  both read and unread deliveries. The existing bulk-read implementation is capped
+  at the first 1000 scoped deliveries; removal of that limit remains separate work.
 - Notifications retain Spring `Page`; other resources retain their existing
   project pagination envelopes. This is documented, not silently redesigned.
 - MVC errors use `ErrorResponse`, while security filters may return only `code`.
@@ -120,7 +122,34 @@ Checks actually run:
   the corrected test follows the real UI and passes without changing app behavior.
 
 Remaining work is **field-level documentation and separately scoped behavior
-fixes**, notably ignored `unreadOnly` and epoch error timestamps listed above.
+fixes**, including epoch error timestamps and the bulk-read cap listed above.
 No compatibility aliases were added; no production deployment or production
 database/broker changes were performed. Physical device/command transport and
 release certification remain separate from this API contract verification.
+
+### Notification unread follow-up — 2026-11-13
+
+Outcome: authenticated GET `/api/v1/notifications/user/{userId}?unreadOnly=true`
+now uses a tenant/recipient-scoped `NOT EXISTS` query against `OPENED` delivery
+events. This avoids joining duplicate events into duplicate rows and applies
+filtering/counting in SQL before pagination. Existing false/default behavior and
+provider delivery lifecycle are unchanged. The user must be the authenticated
+database user; no caller-selected recipient or tenant is admitted. No migration,
+new response fields, provider calls or frontend capabilities were introduced.
+
+Documented all ten `NotificationResponse` fields and the `unreadOnly` query
+parameter. The OpenAPI test verifies generated descriptions; the existing bulk-read
+1000-delivery limitation is now disclosed rather than advertised as unbounded.
+
+RED: four persistence regressions ran, three failed (unread count was 3 rather
+than 2; individually/bulk-read records still appeared). GREEN:
+`./mvnw -B -Dtest=NotificationReadIntegrationTest,NotificationReadHttpIntegrationTest,NotificationScopeTest,ApiContractIntegrationTest verify`
+passed **16 focused tests** and executable packaging. Checks cover database
+pagination/totals, false/default semantics, duplicate open events, non-open provider
+events, persisted individual/bulk-read changes for a small inbox, tenant/recipient
+isolation, missing context, and generated field docs. A real random-port HTTP test
+logs in with a real session, reads pages, marks a delivery read, marks the small
+inbox read, re-reads saved state and checks anonymous/foreign-recipient denial.
+This uses the migrated H2 test database, not PostgreSQL or an external provider.
+No whole-stack or frontend tests were rerun for this backend-only increment; the
+earlier whole-stack evidence above belongs to API standardization, not this fix.

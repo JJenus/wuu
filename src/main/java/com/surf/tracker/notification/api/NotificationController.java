@@ -81,7 +81,7 @@ public class NotificationController {
     }
 
     @PostMapping("/user/{userId}/read-all")
-    @Operation(operationId = "notificationsMarkAllRead", summary = "Mark user notifications as read", description = "Requires an authenticated bearer session and service-authorized access to userId. Marks notifications read through the command service; success is HTTP 200 with no body. Alert acknowledgement/resolution is separate.")
+    @Operation(operationId = "notificationsMarkAllRead", summary = "Mark user notifications as read", description = "Requires an authenticated bearer session and service-authorized access to userId. Existing implementation processes at most the first 1000 scoped deliveries; larger inboxes may retain unread deliveries. Success is HTTP 200 with no body. Alert acknowledgement/resolution is separate.")
     public ResponseEntity<Void> markAllAsRead(@PathVariable String userId) {
         commandService.markAllAsRead(userId);
         return ResponseEntity.ok().build();

@@ -99,6 +99,10 @@ class ApiContractIntegrationTest {
         assertThat(enroll.has("200") && enroll.has("201") && enroll.has("409")).isTrue();
         assertThat(paths.path("/api/v1/auth/logout").path("post").path("responses").path("204").has("content")).isFalse();
         assertThat(schemas.path("ChangePasswordRequest").path("properties").path("new_password").path("minLength").asInt()).isEqualTo(8);
+        schemas.path("NotificationResponse").path("properties").forEach(property ->
+            assertThat(property.path("description").asText()).isNotBlank());
+        var notificationParameters = paths.path("/api/v1/notifications/user/{userId}").path("get").path("parameters");
+        assertThat(notificationParameters.findValuesAsText("description").toString()).contains("OPENED event");
     }
 
     @Test @WithMockUser(authorities = "trips.read")
