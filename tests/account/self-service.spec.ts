@@ -174,3 +174,39 @@ test('mobile password validation blocks mismatches, short and oversized UTF-8 pa
   }
   expect(writes).toBe(0)
 })
+
+test('failed profile update retains its draft and waits for an explicit retry', async ({
+  page,
+}) => {
+  await account(page)
+  let writes = 0
+  await page.route('**/api/auth/profile', async (route) => {
+    writes++
+    await route.fulfill({
+      status: 503,
+      contentType: 'application/json',
+      body: JSON.stringify({ message: 'Synthetic profile outage' }),
+    })
+  })
+  const profile = page.getByRole('region', { name: 'Your profile' })
+  await profile.getByLabel('First name', { exact: true }).fill('Retained draft')
+  await profile.getByRole('button', { name: 'Save profile', exact: true }).click()
+  await expect(profile.getByRole('alert')).toContainText('Reload before retrying')
+  await expect(profile.getByLabel('First name', { exact: true })).toHaveValue('Retained draft')
+  expect(writes).toBe(1)
+  await page.unroute('**/api/auth/profile')
+  await profile.getByRole('button', { name: 'Save profile', exact: true }).click()
+  await expect(profile.getByRole('status')).toContainText('Profile saved')
+})
+
+test('account controls are disabled before hydration attaches event handlers', async ({ page, browser }) => {
+  await account(page)
+  const context = await browser.newContext({ javaScriptEnabled: false, storageState: await page.context().storageState() })
+  try {
+    const unhydrated = await context.newPage()
+    await unhydrated.goto('/settings')
+    await expect(unhydrated.getByRole('region', { name: 'Your profile' }).getByLabel('First name', { exact: true })).toBeDisabled()
+    await expect(unhydrated.getByRole('region', { name: 'Change password' }).getByLabel('Current password', { exact: true })).toBeDisabled()
+    await expect(unhydrated.getByRole('button', { name: 'Change password', exact: true })).toBeDisabled()
+  } finally { await context.close() }
+})
