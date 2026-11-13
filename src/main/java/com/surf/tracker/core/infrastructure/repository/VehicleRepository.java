@@ -16,6 +16,10 @@ import java.util.Optional;
 @Repository
 public interface VehicleRepository extends JpaRepository<Vehicle, String> {
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT v FROM Vehicle v WHERE v.vehicleId = :vehicleId AND v.organizationId = :organizationId")
+    Optional<Vehicle> findForTelemetry(@Param("vehicleId") String vehicleId, @Param("organizationId") Long organizationId);
+
     // Trusted alert-ingress boundary: serialize replay checks with creation per vehicle.
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT v FROM Vehicle v WHERE v.vehicleId = :vehicleId")

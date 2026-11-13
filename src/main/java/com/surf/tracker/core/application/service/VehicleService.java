@@ -29,18 +29,20 @@ public class VehicleService {
     private final TripRepository tripRepository;
     private final TrackerLocationRepository locationRepository;
     private final Clock clock;
+    private final AutomaticTripService automaticTrips;
     @org.springframework.beans.factory.annotation.Value("${tracking.telemetry.max-future-skew-seconds:300}")
     private int maxFutureSkewSeconds = 300;
 
     public VehicleService(VehicleRepository vehicleRepository,
                           TrackerRepository trackerRepository,
                           TripRepository tripRepository,
-                          TrackerLocationRepository locationRepository, Clock clock) {
+                           TrackerLocationRepository locationRepository, Clock clock, AutomaticTripService automaticTrips) {
         this.vehicleRepository = vehicleRepository;
         this.trackerRepository = trackerRepository;
         this.tripRepository = tripRepository;
         this.locationRepository = locationRepository;
         this.clock = clock;
+        this.automaticTrips = automaticTrips;
     }
 
     @Transactional
@@ -99,7 +101,7 @@ public class VehicleService {
     @Transactional
     public void updateVehicleLocation(String vehicleId, String deviceId, LocationPoint locationPoint) {
         Long orgId = TenantContext.getCurrentOrgId();
-        Vehicle vehicle = vehicleRepository.findById(vehicleId)
+        Vehicle vehicle = vehicleRepository.findForTelemetry(vehicleId, orgId)
             .orElseThrow(() -> new IllegalArgumentException("Vehicle not found: " + vehicleId));
 
         if (!orgId.equals(vehicle.getOrganizationId())) {
@@ -122,6 +124,7 @@ public class VehicleService {
         trackerRepository.save(tracker);
 
         TrackerLocation saved = locationRepository.save(location);
+        automaticTrips.record(vehicle, saved);
 
         if (!locationPoint.timestamp().isAfter(clock.instant().plusSeconds(maxFutureSkewSeconds))
                 && (vehicle.getCurrentLocation() == null || vehicle.getCurrentLocation().getRecordedAt() == null

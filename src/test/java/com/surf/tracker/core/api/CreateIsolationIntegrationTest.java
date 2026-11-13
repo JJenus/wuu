@@ -60,7 +60,7 @@ class CreateIsolationIntegrationTest {
 
     @Configuration
     @EnableJpaRepositories(basePackageClasses = VehicleRepository.class)
-    @Import({VehicleService.class, TrackerService.class})
+    @Import({VehicleService.class, TrackerService.class, com.surf.tracker.core.application.service.AutomaticTripService.class})
     static class Config {
         @Bean
         Clock clock() { return Clock.fixed(NOW, ZoneOffset.UTC); }

@@ -63,6 +63,35 @@ public class Trip {
     
     @Column(name = "is_active")
     private Boolean isActive = true;
+
+    @Column(name = "stationary_since")
+    private Instant stationarySince;
+
+    @Column(name = "recorded_points_associated", nullable = false)
+    private boolean recordedPointsAssociated;
+
+    public Instant getStationarySince() { return stationarySince; }
+    public void setStationarySince(Instant value) { stationarySince = value; }
+    public boolean isRecordedPointsAssociated() { return recordedPointsAssociated; }
+    public void setRecordedPointsAssociated(boolean value) { recordedPointsAssociated = value; }
+
+    /** Append a persisted fix without materializing the entire historical collection. */
+    public TripPoint recordLocation(TrackerLocation location, TrackerLocation previous, int order) {
+        TripPoint point = new TripPoint();
+        point.setTrip(this);
+        point.setLocation(location);
+        point.setPointOrder(order);
+        float distance = calculateDistance(previous, location);
+        point.setSegmentDistanceKm(distance);
+        point.setSegmentDurationMinutes(previous == null ? 0f :
+            Duration.between(previous.getRecordedAt(), location.getRecordedAt()).toMillis() / 60000f);
+        location.setTrip(this);
+        totalDistanceKm = (totalDistanceKm == null ? 0 : totalDistanceKm) + distance;
+        if (location.getSpeedKmh() != null && (maxSpeedKmh == null || location.getSpeedKmh() > maxSpeedKmh))
+            maxSpeedKmh = location.getSpeedKmh();
+        updateAverageAt(location.getRecordedAt());
+        return point;
+    }
     
     @OneToMany(mappedBy = "trip", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("pointOrder ASC")
@@ -100,33 +129,34 @@ public class Trip {
     }
     
     public void endTrip(TripEndReason reason, TrackerLocation endLocation) {
+        if (endLocation == null || endLocation.getRecordedAt() == null)
+            throw new IllegalArgumentException("Trip completion requires a recorded end fix");
+        if (!Boolean.TRUE.equals(isActive)) return;
         this.endTime = endLocation.getRecordedAt();
         this.endLocation = endLocation;
         this.endReason = reason;
         this.isActive = false;
         
-        // Calculate final statistics
-        calculateStatistics();
-        
         // Add final location point
-        if (endLocation != null) {
+        if (!recordedPointsAssociated) {
             TrackerLocation lastLocation = getLastLocationPoint();
-            if (lastLocation != null) {
+            if (lastLocation != null && lastLocation != endLocation &&
+                    (lastLocation.getLocationId() == null || !lastLocation.getLocationId().equals(endLocation.getLocationId()))) {
                 Float segmentDistance = calculateDistance(lastLocation, endLocation);
                 addLocationPoint(endLocation, segmentDistance);
             }
         }
+        calculateStatistics();
     }
     
     public void calculateStatistics() {
-        if (startTime != null && endTime != null) {
-            Duration duration = Duration.between(startTime, endTime);
-            long hours = duration.toHours();
-            
-            if (hours > 0 && totalDistanceKm != null && totalDistanceKm > 0) {
-                this.averageSpeedKmh = totalDistanceKm / hours;
-            }
-        }
+        if (endTime != null) updateAverageAt(endTime);
+    }
+
+    private void updateAverageAt(Instant at) {
+        if (startTime == null || at == null) return;
+        double hours = Duration.between(startTime, at).toMillis() / 3600000d;
+        averageSpeedKmh = hours > 0 && totalDistanceKm != null ? (float) (totalDistanceKm / hours) : 0f;
     }
     
     private TrackerLocation getLastLocationPoint() {
@@ -146,7 +176,8 @@ public class Trip {
         double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
                 + Math.cos(Math.toRadians(loc1.getLatitude()))
                 * Math.cos(Math.toRadians(loc2.getLatitude()))
-                * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+                  * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        a = Math.max(0, Math.min(1, a));
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return (float) (earthRadiusKm * c);
     }

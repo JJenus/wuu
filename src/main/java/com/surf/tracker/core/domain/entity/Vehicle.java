@@ -71,6 +71,12 @@ public class Vehicle {
     @Column(name = "organization_id")
     private Long organizationId;
 
+    @Column(name = "trip_last_recorded_at")
+    private Instant tripLastRecordedAt;
+
+    public Instant getTripLastRecordedAt() { return tripLastRecordedAt; }
+    public void setTripLastRecordedAt(Instant value) { tripLastRecordedAt = value; }
+
     @OneToMany(mappedBy = "vehicle", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Trip> trips = new ArrayList<>();
 
