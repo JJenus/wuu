@@ -15,6 +15,7 @@ import time
 from types import FrameType
 from typing import Callable
 import urllib.request
+import urllib.error
 import xml.etree.ElementTree as XML
 
 
@@ -61,6 +62,12 @@ class QueueSnapshot:
     messages: int
 
 
+@dataclass(frozen=True)
+class HttpResult:
+    status: int
+    body: bytes
+
+
 def free_port() -> int:
     with socket.socket() as server:
         server.bind(("127.0.0.1", 0))
@@ -83,6 +90,7 @@ def main() -> None:
     parser.add_argument("--artemis-home", type=Path, required=True)
     parser.add_argument("--frontend", type=Path, default=Path(__file__).resolve().parents[2] / "app")
     parser.add_argument("--pg-bin", type=Path, default=Path("/usr/lib/postgresql/18/bin"))
+    parser.add_argument("--verify-api-v1", action="store_true", help="Also verify real authenticated OpenAPI and canonical route boundaries")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
     artemis = args.artemis_home.resolve() / "bin/artemis"
@@ -222,6 +230,7 @@ def main() -> None:
             with urllib.request.urlopen(request, timeout=20) as response:
                 return response.read()
 
+        owner_account: TokenResponse | None = None
         for label, device in [("owner", "8168000008"), ("foreign", "8168000009")]:
             # Decode unknown HTTP JSON only here and retain a concrete token response.
             registration = json.loads(post("/api/v1/auth/register", Registration(
@@ -233,6 +242,7 @@ def main() -> None:
             post("/api/v1/vehicles", VehicleInput(vehicle, "LIVE MAP 01" if label == "owner" else "FOREIGN MAP"), account.access_token)
             post("/api/v1/trackers", TrackerInput("tracker-" + label, device, vehicle), account.access_token)
             if label == "owner":
+                owner_account = account
                 post("/api/v1/alerts/rules/templates/overspeed", OverspeedRule(
                     "durable-speed", "Durable telemetry speed", 10, [vehicle], True), account.access_token)
         wait_until("initial durable intake consumer", has_consumer)
@@ -305,10 +315,52 @@ def main() -> None:
                       ('foreign-native', 'telemetry-foreign', '2020-01-01T00:00:00Z', '2020-01-01T01:00:00Z', false)""")
         stop(backend)
         backend = start("backend-history-restarted", backend_command, "Started TrackingEngineApplication", env)
+        if args.verify_api_v1:
+            def get(path: str, token: str | None = None) -> HttpResult:
+                request = urllib.request.Request(origin + path, headers={"authorization": "Bearer " + token} if token else {})
+                try:
+                    with urllib.request.urlopen(request, timeout=20) as response:
+                        return HttpResult(response.status, response.read())
+                except urllib.error.HTTPError as error:
+                    return HttpResult(error.code, error.read())
+
+            assert owner_account is not None
+            if get("/v3/api-docs/api-v1").status != 401 or get("/v3/api-docs/api-v1", owner_account.access_token).status != 403:
+                raise AssertionError("OpenAPI is not administrator-only")
+            admin_registration = json.loads(post("/api/v1/auth/register", Registration(
+                "docs-admin@telemetry-test.example", "eight123", "API", "Docs", "Disposable API docs")))
+            admin = TokenResponse(admin_registration["access_token"])
+            # Out-of-band authorization fixture in this owned disposable database only.
+            # Public registration never grants system.admin, and no token claims are forged.
+            sql("""INSERT INTO permissions(permission_key, description) VALUES ('system.admin', 'Disposable docs check')
+                   ON CONFLICT(permission_key) DO NOTHING;
+                   INSERT INTO role_permissions(role_id, permission_id)
+                   SELECT ur.role_id, p.id FROM user_roles ur JOIN users u ON u.id=ur.user_id
+                   CROSS JOIN permissions p WHERE u.email='docs-admin@telemetry-test.example' AND p.permission_key='system.admin'
+                   ON CONFLICT DO NOTHING""")
+            result = get("/v3/api-docs/api-v1", admin.access_token)
+            if result.status != 200:
+                raise AssertionError(f"Authenticated OpenAPI failed: HTTP {result.status}")
+            # The OpenAPI document is a genuinely dynamic schema boundary, not a domain DTO.
+            document = json.loads(result.body)
+            operations = [operation for path, item in document["paths"].items()
+                          for method, operation in item.items() if method in {"get", "post", "put", "patch", "delete"}]
+            if len(operations) != 104 or len({operation["operationId"] for operation in operations}) != 104:
+                raise AssertionError("OpenAPI operation inventory is incomplete or duplicated")
+            if not all(path.startswith("/api/v1/") for path in document["paths"]):
+                raise AssertionError("OpenAPI advertises a legacy route")
+            if "vehicle_id" not in document["components"]["schemas"]["CreateVehicleRequest"]["properties"]:
+                raise AssertionError("OpenAPI wire fields do not match HTTP snake_case")
+            for path in ["/alerts", "/api/notifications", "/api/v2/alerts"]:
+                if get(path, admin.access_token).status != 403:
+                    raise AssertionError(f"Legacy/version fallback unexpectedly admitted: {path}")
+            (base / "api-v1.json").write_bytes(result.body)
+            print("PASS: real HTTP OpenAPI generation, 104 operations, wire naming, admin-only access and rejected legacy paths", flush=True)
         test_env = {**env, "TRACKING_TEST_JAVA_ORIGIN": origin, "TRACKING_TEST_EMAIL": "owner@telemetry-test.example",
                     "TRACKING_TEST_PASSWORD": "eight123", "TRACKING_TEST_POSTGRES_PORT": str(pg_port),
                     "TRACKING_TEST_TCP_PORT": str(tcp_port), "TRACKING_TEST_DURABILITY": "true",
-                    "TRACKING_TEST_INITIAL_COORDINATES": "51.50500, -0.10000", "TRACKING_TEST_HISTORY": "true"}
+                    "TRACKING_TEST_INITIAL_COORDINATES": "51.50500, -0.10000", "TRACKING_TEST_HISTORY": "true",
+                    "TRACKING_TEST_API_V1": "true" if args.verify_api_v1 else ""}
         with (base / "browser.log").open("w") as output:
             subprocess.run(["pnpm", "exec", "playwright", "test", "--config", "playwright.tracking.config.ts"],
                            cwd=args.frontend, env=test_env, stdout=output, stderr=subprocess.STDOUT, check=True, timeout=180)

@@ -117,6 +117,45 @@ class ApiContractIntegrationTest {
         }
     }
 
+    @Test @WithMockUser(authorities = "system.admin")
+    void openApi_everyMappedOperation_hasUniqueMetadataSecurityAndResolvableSchemas() throws Exception {
+        var response = mvc.perform(get("/v3/api-docs/api-v1")).andExpect(status().isOk()).andReturn().getResponse();
+        var document = mapper.readTree(response.getContentAsString());
+        var expectedIds = mappings.getHandlerMethods().values().stream()
+            .filter(handler -> handler.getBeanType().isAnnotationPresent(com.surf.tracker.main.api.ApiV1.class))
+            .map(handler -> handler.getMethodAnnotation(io.swagger.v3.oas.annotations.Operation.class).operationId())
+            .collect(java.util.stream.Collectors.toSet());
+        var actualIds = new java.util.HashSet<String>();
+        document.path("paths").forEach(path -> path.forEach(operation -> {
+            String id = operation.path("operationId").asText();
+            assertThat(actualIds.add(id)).as("unique generated operation ID: " + id).isTrue();
+            assertThat(operation.path("description").asText()).isNotBlank();
+            assertThat(operation.path("summary").asText()).isNotBlank();
+            boolean publicAuth = java.util.Set.of("authLogin", "authRegister", "authRefresh").contains(id);
+            assertThat(operation.path("security").isEmpty()).as(id).isEqualTo(publicAuth);
+            if (!publicAuth) assertThat(operation.path("security").get(0).has("bearerAuth")).as(id).isTrue();
+            assertThat(operation.path("responses").has("401")).as(id).isTrue();
+        }));
+        assertThat(actualIds).containsExactlyInAnyOrderElementsOf(expectedIds);
+        for (var ref : document.findValues("$ref")) {
+            assertThat(ref.asText()).startsWith("#/");
+            assertThat(document.at(ref.asText().substring(1)).isMissingNode()).as(ref.asText()).isFalse();
+        }
+    }
+
+    @Test void routing_everyProtectedV1Operation_rejectsAnonymousAccessBeforeBinding() throws Exception {
+        for (var entry : mappings.getHandlerMethods().entrySet()) {
+            var handler = entry.getValue();
+            if (!handler.getBeanType().isAnnotationPresent(com.surf.tracker.main.api.ApiV1.class)
+                    || handler.hasMethodAnnotation(io.swagger.v3.oas.annotations.security.SecurityRequirements.class)) continue;
+            for (var path : entry.getKey().getPatternValues())
+                for (var method : entry.getKey().getMethodsCondition().getMethods())
+                    mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request(
+                        org.springframework.http.HttpMethod.valueOf(method.name()), path.replaceAll("\\{[^}]+}", "1")))
+                        .andExpect(status().isUnauthorized());
+        }
+    }
+
     @Test @WithMockUser(authorities = {"alerts.read", "alerts.write", "system.admin"})
     void routing_legacyAndUnknownVersionPaths_remainRejected() throws Exception {
         for (String path : java.util.List.of("/alerts", "/api/notifications", "/api/v2/alerts")) {

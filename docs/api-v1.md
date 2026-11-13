@@ -22,7 +22,10 @@ are retained, including distinct paginated and unpaginated `/list` operations.
 ## OpenAPI
 
 The `api-v1` group is served at `/v3/api-docs/api-v1`; access requires
-`system.admin`. Existing springdoc dependencies are unchanged. The contract has
+`system.admin`. springdoc is pinned to **2.8.17**, whose published parent targets
+Spring Boot 3.5.x; 2.2.0 crashed with this application's Spring Framework at runtime.
+The schema resolver uses the application's Jackson mapper so generated field names
+match actual snake_case JSON rather than Swagger's default camelCase. The contract has
 metadata, stable unique operation IDs, resource tags, per-operation descriptions,
 bearer security, public auth exceptions and security-error descriptions. Actual
 request/response DTO signatures remain the source of generated schemas; selected
@@ -68,25 +71,56 @@ matchers continue to use effective external URLs, not relative controller paths.
 
 ## Verification status
 
-Work is isolated in `/home/jjenus/workspace/apps/tracker-api-standard`, with
-independent `sidie` and `app` worktrees on `feat/api-v1-standard`. The original
-workspace and its build outputs are not edited.
+Verified in the original repositories after local merges `c4b0d74` / `e6d3ac7`,
+with the owner's runtime-check authorization, on **2026-11-13**. The prior isolated
+worktree/static-only status is superseded. The unrelated local `app/nuxt.config.ts`
+title edit was preserved and excluded from verification commits.
 
-Before the owner imposed the no-install/no-build constraint, an initial Maven
-test attempt compiled the new test but failed on ambiguous handler-mapping bean
-injection, before routing assertions ran. A qualifier corrects that test wiring.
-This is not valid RED/GREEN behavior evidence. Frontend dependency installation
-also completed before that constraint; no dependency manifests or versions were
-changed. No further installs, builds, app servers or runtime suites are authorized.
+Two defects were reproduced as RED and fixed to GREEN:
 
-Updated tests cover the canonical route inventory, operation metadata, generated
-OpenAPI security/paths, absence of old paths and consumer path policies. They
-remain unrun after changes. Static checks do not establish runtime correctness,
-springdoc compatibility, tenant-isolation acceptance or complete schema fidelity.
-Static checks passed for 15 marked controllers and 104 unique documented operation
-IDs, relative controller mappings, preserved security rule order/authorities,
-TypeScript parsing, UI/server API boundaries and unchanged dependency/device/shared
-modules. The baseline includes a trip-history operation added since the original
-103-operation audit. These counts describe source, not runtime acceptance.
-Run the focused suites and real affected workflows only when resources are
-authorized. Do not merge/publish this branch as runtime-verified on static checks.
+1. `/v3/api-docs/api-v1` threw `NoSuchMethodError: ControllerAdviceBean(Object)`.
+   Updated springdoc 2.2.0 → 2.8.17, retaining Boot 3.5.9. The published
+   [2.8.17 POM](https://repo.maven.apache.org/maven2/org/springdoc/springdoc-openapi/2.8.17/springdoc-openapi-2.8.17.pom)
+   targets Boot 3.5.13; no framework major upgrade or exception-handler bypass.
+2. Generated request/response fields were camelCase despite actual snake_case HTTP
+   JSON. Registered a `ModelResolver` with the existing application mapper; runtime
+   field-name, required-property and password-minimum assertions now pass.
+
+Checks actually run:
+
+- Initial focused backend run: 60 passed, one OpenAPI linkage error. After fixes,
+  `./mvnw -B verify` passed **708 tests** and executable packaging.
+- `ApiContractIntegrationTest` covers all **104** mapped/generated operations,
+  unique IDs/descriptions, bearer/public exceptions, resolvable local schema refs,
+  snake_case DTO properties, required registration fields, eight-character password
+  minimum, CSV media/attachment headers, enrollment 200/201/409 and empty 204 bodies.
+  It checks anonymous access to every protected operation, admin-only docs/UI,
+  rejection of legacy/unknown versions, and disabled operations remaining denied
+  even to administrators. This inventories contracts, not all business scenarios.
+- Frontend focused route/policy tests: **41 passed**. Ten additional boundary-checker
+  fixtures verify forbidden component/workflow HTTP, API imports, client-side
+  upstream details and repeated server prefixes, plus admitted adapter/registry use.
+- Full frontend unit run: **227 passed, 1 failed** (existing branding assertion
+  against the preserved local title edit). With only `tests/unit/branding.test.ts`
+  explicitly excluded: **226 passed**, **94.83% lines / 86.37% branches**; the server
+  route registry is now included in coverage. These are scoped domain/adapter/policy
+  measurements, not whole-UI coverage. Java coverage is not instrumented.
+- `pnpm typecheck`, `pnpm check:boundaries`, and `pnpm build` passed. Browser suites:
+  `playwright.auth.config.ts` **42**, fleet **4**, geofence **14** passed. These use
+  contract fixtures; they are not presented as actual-Java acceptance.
+- `python3 tools/verify-telemetry.py --artemis-home /home/jjenus/.cache/tracker-tests/apache-artemis-2.40.0 --verify-api-v1`
+  passed real loopback TCP/Artemis/PostgreSQL/Redis/Java/browser acceptance. Actual
+  authenticated HTTP generated the 104-operation spec, rejected anonymous/non-admin
+  docs access and legacy/version fallback. A dedicated test account receives
+  `system.admin` only through an out-of-band fixture in the disposable database.
+  The actual BFF/browser created and reloaded a geofence, created/reloaded/disabled
+  its rule, acknowledged/resolved/re-read a real alert, and read notifications.
+  Existing outage/restart/history/tenant-denial checks still passed. An initial
+  expanded browser attempt omitted the editor's coordinate-shape initialization;
+  the corrected test follows the real UI and passes without changing app behavior.
+
+Remaining work is **field-level documentation and separately scoped behavior
+fixes**, notably ignored `unreadOnly` and epoch error timestamps listed above.
+No compatibility aliases were added; no production deployment or production
+database/broker changes were performed. Physical device/command transport and
+release certification remain separate from this API contract verification.
