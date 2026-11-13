@@ -2,6 +2,7 @@ import type { AuthUser } from '../domain/auth'
 import { safeReturnPath } from '../domain/auth'
 import { authRequest, type AuthSession } from '../api/auth-client'
 import { errorMessage, isApiError } from '../../core/domain/errors'
+import type { SelfProfileInput, PasswordChangeInput } from '#shared/self-account'
 
 let renewalTimer: ReturnType<typeof setTimeout> | undefined
 let renewalGeneration = 0
@@ -108,6 +109,76 @@ export function useAuth() {
       busy.value = false
     }
   }
+  function discardLocalSession() {
+    renewalGeneration += 1
+    stopRenewal()
+    user.value = null
+    expiresAt.value = 0
+  }
+
+  async function updateProfile(input: SelfProfileInput): Promise<boolean> {
+    if (busy.value) return false
+    busy.value = true
+    error.value = ''
+    const generation = renewalGeneration
+    try {
+      const session = await authRequest('profile', input)
+      if (generation !== renewalGeneration || !session) return false
+      // An older in-flight renewal must not overwrite the names just saved.
+      renewalGeneration += 1
+      adopt(session)
+      return true
+    } catch (failure) {
+      error.value = errorMessage(failure, 'Profile could not be saved.')
+      if (isApiError(failure) && [401, 403].includes(failure.status ?? 0)) {
+        discardLocalSession()
+        await navigateTo('/sign-in?expired=1', { external: true })
+      } else if (
+        !isApiError(failure) ||
+        ['network', 'timeout', 'contract', 'server'].includes(failure.kind)
+      )
+        error.value +=
+          ' The update may have been saved. Reload before retrying; it will not be replayed automatically.'
+      return false
+    } finally {
+      busy.value = false
+    }
+  }
+
+  async function changePassword(input: PasswordChangeInput): Promise<boolean> {
+    if (busy.value) return false
+    busy.value = true
+    error.value = ''
+    renewalGeneration += 1
+    const generation = renewalGeneration
+    stopRenewal()
+    try {
+      await authRequest('change-password', input)
+      if (generation !== renewalGeneration) return false
+      discardLocalSession()
+      await navigateTo('/sign-in?password=changed', { external: true })
+      return true
+    } catch (failure) {
+      if (generation !== renewalGeneration) return false
+      if (isApiError(failure) && [400, 429].includes(failure.status ?? 0)) {
+        error.value = errorMessage(failure)
+        scheduleRenewal()
+        return false
+      }
+      discardLocalSession()
+      // A lost browser response may hide a committed change. Forget/revoke the
+      // old session best-effort, but never repeat the password mutation.
+      try {
+        await authRequest('logout')
+      } catch {
+        /* The sign-in page explains uncertainty. */
+      }
+      await navigateTo('/sign-in?password=uncertain', { external: true })
+      return false
+    } finally {
+      busy.value = false
+    }
+  }
   return {
     user,
     expiresAt,
@@ -117,6 +188,8 @@ export function useAuth() {
     error,
     signIn,
     signOut,
+    updateProfile,
+    changePassword,
     renew,
     restore,
     scheduleRenewal,

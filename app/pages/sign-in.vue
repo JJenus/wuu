@@ -46,6 +46,13 @@ async function submit() {
         <p class="text-muted mt-2">Sign in to your Wuu workspace.</p>
       </div>
       <template v-if="source === 'live'">
+        <p v-if="route.query.password === 'changed'" role="status" class="text-muted">
+          Password changed. All account sessions have ended. Sign in with your new password.
+        </p>
+        <p v-if="route.query.password === 'uncertain'" role="alert" class="text-warning">
+          Password change could not be confirmed. Try signing in with your new password first. If it
+          was not changed, use your previous password. The change was not retried automatically.
+        </p>
         <p v-if="route.query.expired" role="status" class="text-muted">
           Your session expired. Sign in again to continue.
         </p>

@@ -5,6 +5,7 @@ import { usePreferences } from '~/features/workspace/composables/usePreferences'
 import type { Preferences } from '~/features/workspace/domain/types'
 import EffectiveAccessPanel from '~/features/auth/components/EffectiveAccessPanel.vue'
 import RoleCatalogPanel from '~/features/roles/components/RoleCatalogPanel.vue'
+import AccountSettings from '~/features/auth/components/AccountSettings.vue'
 
 const source = useDataSource()
 const { preferences, isPending, isError, error, refetch, savePreferences, isSaving } =
@@ -75,6 +76,7 @@ async function save() {
       description="A workspace that works the way you do."
       eyebrow="WORKSPACE SETTINGS"
     />
+    <AccountSettings v-if="!source.isPreview" />
     <EffectiveAccessPanel v-if="!source.isPreview" />
     <RoleCatalogPanel />
     <UiAsyncState

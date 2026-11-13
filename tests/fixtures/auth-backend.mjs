@@ -54,7 +54,8 @@ createServer(async (request, response) => {
   if (path === '/api/v1/auth/login') {
     const input = JSON.parse(body)
     if (input.email === 'limited@example.com') return send(429, { code: 'RATE_LIMITED' })
-    if (input.password !== (accountPasswords.get(input.email) ?? 'test-only-password')) return send(401, { code: 'INVALID_CREDENTIALS' })
+    if (input.password !== (accountPasswords.get(input.email) ?? 'test-only-password'))
+      return send(401, { code: 'INVALID_CREDENTIALS' })
     const token = `private-access-${randomUUID()}`
     const refreshToken = `private-refresh-${randomUUID()}`
     sessions.set(token, input.email)
@@ -99,7 +100,8 @@ createServer(async (request, response) => {
   if (!email) return send(401, { code: 'UNAUTHENTICATED' })
   if (path === '/api/v1/auth/change-password' && request.method === 'POST') {
     const input = JSON.parse(body)
-    if (input.old_password !== (accountPasswords.get(email) ?? 'test-only-password')) return send(401, { code: 'INVALID_CREDENTIALS' })
+    if (input.old_password !== (accountPasswords.get(email) ?? 'test-only-password'))
+      return send(401, { code: 'INVALID_CREDENTIALS' })
     accountPasswords.set(email, input.new_password)
     for (const [key, value] of sessions) if (value === email) sessions.delete(key)
     for (const [key, value] of refreshTokens) if (value.email === email) refreshTokens.delete(key)
@@ -107,7 +109,10 @@ createServer(async (request, response) => {
   }
   if (path === '/api/v1/users/me' && request.method === 'PUT') {
     const input = JSON.parse(body)
-    accountProfiles.set(email, { first_name: input.first_name || null, last_name: input.last_name || null })
+    accountProfiles.set(email, {
+      first_name: input.first_name || null,
+      last_name: input.last_name || null,
+    })
   }
   if (email.startsWith('alert-ui-') && !alertStates.has(email))
     alertStates.set(email, {
