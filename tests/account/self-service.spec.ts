@@ -199,14 +199,32 @@ test('failed profile update retains its draft and waits for an explicit retry', 
   await expect(profile.getByRole('status')).toContainText('Profile saved')
 })
 
-test('account controls are disabled before hydration attaches event handlers', async ({ page, browser }) => {
+test('account controls are disabled before hydration attaches event handlers', async ({
+  page,
+  browser,
+}) => {
   await account(page)
-  const context = await browser.newContext({ javaScriptEnabled: false, storageState: await page.context().storageState() })
+  const context = await browser.newContext({
+    javaScriptEnabled: false,
+    storageState: await page.context().storageState(),
+  })
   try {
     const unhydrated = await context.newPage()
     await unhydrated.goto('/settings')
-    await expect(unhydrated.getByRole('region', { name: 'Your profile' }).getByLabel('First name', { exact: true })).toBeDisabled()
-    await expect(unhydrated.getByRole('region', { name: 'Change password' }).getByLabel('Current password', { exact: true })).toBeDisabled()
-    await expect(unhydrated.getByRole('button', { name: 'Change password', exact: true })).toBeDisabled()
-  } finally { await context.close() }
+    await expect(
+      unhydrated
+        .getByRole('region', { name: 'Your profile' })
+        .getByLabel('First name', { exact: true }),
+    ).toBeDisabled()
+    await expect(
+      unhydrated
+        .getByRole('region', { name: 'Change password' })
+        .getByLabel('Current password', { exact: true }),
+    ).toBeDisabled()
+    await expect(
+      unhydrated.getByRole('button', { name: 'Change password', exact: true }),
+    ).toBeDisabled()
+  } finally {
+    await context.close()
+  }
 })

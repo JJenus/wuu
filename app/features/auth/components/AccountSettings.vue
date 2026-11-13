@@ -3,6 +3,11 @@ import { useAuth } from '../composables/useAuth'
 import { selfProfileSchema, passwordChangeFormSchema } from '#shared/self-account'
 
 const auth = useAuth()
+const hydrated = ref(false)
+const blocked = computed(() => !hydrated.value || auth.busy.value)
+onMounted(() => {
+  hydrated.value = true
+})
 const profile = reactive({
   firstName: auth.user.value?.first_name ?? '',
   lastName: auth.user.value?.last_name ?? '',
@@ -25,6 +30,7 @@ watch(profile, () => {
   if (dirty.value) profileNotice.value = ''
 })
 async function saveProfile() {
+  if (blocked.value) return
   profileFailure.value = ''
   profileNotice.value = ''
   if (!(await auth.updateProfile(selfProfileSchema.parse(profile)))) {
@@ -44,6 +50,7 @@ function clearPasswords() {
   passwords.confirmPassword = ''
 }
 async function savePassword() {
+  if (blocked.value) return
   passwordFailure.value = ''
   try {
     if (
@@ -79,7 +86,7 @@ onBeforeUnmount(clearPasswords)
               v-model="profile.firstName"
               autocomplete="given-name"
               :maxlength="100"
-              :disabled="auth.busy.value"
+              :disabled="blocked"
               class="w-full"
           /></UFormField>
           <UFormField label="Last name" name="lastName"
@@ -87,7 +94,7 @@ onBeforeUnmount(clearPasswords)
               v-model="profile.lastName"
               autocomplete="family-name"
               :maxlength="100"
-              :disabled="auth.busy.value"
+              :disabled="blocked"
               class="w-full"
           /></UFormField>
           <p class="form-hint">
@@ -95,7 +102,7 @@ onBeforeUnmount(clearPasswords)
           </p>
           <p v-if="profileFailure" role="alert" class="form-error">{{ profileFailure }}</p>
           <p v-if="profileNotice" role="status">{{ profileNotice }}</p>
-          <UButton type="submit" :loading="auth.busy.value" :disabled="!dirty || auth.busy.value"
+          <UButton type="submit" :loading="auth.busy.value" :disabled="!dirty || blocked"
             >Save profile</UButton
           >
         </UForm>
@@ -120,7 +127,7 @@ onBeforeUnmount(clearPasswords)
               type="password"
               autocomplete="current-password"
               :maxlength="128"
-              :disabled="auth.busy.value"
+              :disabled="blocked"
               class="w-full"
           /></UFormField>
           <UFormField label="New password" name="newPassword" required
@@ -129,7 +136,7 @@ onBeforeUnmount(clearPasswords)
               type="password"
               autocomplete="new-password"
               :maxlength="72"
-              :disabled="auth.busy.value"
+              :disabled="blocked"
               class="w-full"
           /></UFormField>
           <UFormField label="Confirm new password" name="confirmPassword" required
@@ -138,7 +145,7 @@ onBeforeUnmount(clearPasswords)
               type="password"
               autocomplete="new-password"
               :maxlength="72"
-              :disabled="auth.busy.value"
+              :disabled="blocked"
               class="w-full"
           /></UFormField>
           <p class="form-hint">
@@ -146,7 +153,9 @@ onBeforeUnmount(clearPasswords)
             saved in browser storage.
           </p>
           <p v-if="passwordFailure" role="alert" class="form-error">{{ passwordFailure }}</p>
-          <UButton type="submit" :loading="auth.busy.value">Change password</UButton>
+          <UButton type="submit" :loading="auth.busy.value" :disabled="blocked"
+            >Change password</UButton
+          >
         </UForm>
       </div>
     </section>
