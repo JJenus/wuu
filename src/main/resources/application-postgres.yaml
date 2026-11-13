@@ -9,6 +9,9 @@ spring:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
   flyway:
     locations: classpath:db/postgresql
+    postgresql:
+      # Session-level migration locking is required for non-transactional concurrent indexes.
+      transactional-lock: false
   artemis:
     broker-url: ${ARTEMIS_BROKER_URL:tcp://localhost:61616}
     user: ${ARTEMIS_USER}

@@ -143,6 +143,11 @@ spring:
 
 # TCP Server Configuration
 tracking:
+  trips:
+    start-speed-kmh: ${TRIP_START_SPEED_KMH:5}
+    stationary-speed-kmh: ${TRIP_STATIONARY_SPEED_KMH:1}
+    stop-seconds: ${TRIP_STOP_SECONDS:300}
+    max-gap-seconds: ${TRIP_MAX_GAP_SECONDS:900}
   tcp:
     server:
       port: ${TCP_PORT:8888}

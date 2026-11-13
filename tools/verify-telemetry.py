@@ -92,6 +92,7 @@ def main() -> None:
     parser.add_argument("--pg-bin", type=Path, default=Path("/usr/lib/postgresql/18/bin"))
     parser.add_argument("--verify-api-v1", action="store_true", help="Also verify real authenticated OpenAPI and canonical route boundaries")
     parser.add_argument("--verify-team", action="store_true", help="Run real tenant team administration browser acceptance")
+    parser.add_argument("--verify-trips", action="store_true", help="Verify automatic trips from real TCP fixes without trip metadata fixtures")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
     artemis = args.artemis_home.resolve() / "bin/artemis"
@@ -179,8 +180,8 @@ def main() -> None:
         snapshot = queue_snapshot("retained")
         return snapshot is not None and snapshot.durable and snapshot.consumers == 0 and snapshot.messages == 2
 
-    def packet(when: datetime, latitude: str) -> str:
-        return f"*HQ,8168000008,V1,{when:%H%M%S},A,{latitude},N,00006.0000,W,012.96,000,{when:%d%m%y},FBFBBFF,460,00,10342,4283,10,25,128#"
+    def packet(when: datetime, latitude: str, speed: str = "012.96") -> str:
+        return f"*HQ,8168000008,V1,{when:%H%M%S},A,{latitude},N,00006.0000,W,{speed},000,{when:%d%m%y},FBFBBFF,460,00,10342,4283,10,25,128#"
 
     try:
         with (base / "init.log").open("w") as output:
@@ -220,6 +221,8 @@ def main() -> None:
                           "--server.address=127.0.0.1", f"--server.port={java_port}",
                           f"--spring.data.redis.port={redis_port}", "--userauth.password.bcrypt-strength=4",
                           "--tracking.alert-outbox.poll-delay-ms=3600000"]
+        if args.verify_trips:
+            backend_command.append("--tracking.trips.stop-seconds=2")  # Shorten observed-stop evidence only in this owned fixture.
         backend = start("backend", backend_command, "Started TrackingEngineApplication", env)
         origin = f"http://127.0.0.1:{java_port}"
 
@@ -306,9 +309,17 @@ def main() -> None:
         pg_started = True
         wait_until("location after database recovery", lambda: sql("SELECT count(*) FROM tracker_location_data") == "3")
         print("PASS: disk capture, abrupt gateway restart, backend/database outages, broker journal restart, deduplication and late-fix handling", flush=True)
-        # Only trip metadata is provisioned out of band: every GPS fix still came
-        # through the real TCP pipeline. Automatic trip creation is not claimed.
-        sql("""INSERT INTO trips (trip_id, vehicle_id, start_time, end_time, is_active)
+        # Legacy replay mode seeds trip metadata; --verify-trips instead uses only
+        # automatically created trips. Every GPS fix comes through real TCP intake.
+        if args.verify_trips:
+            wait_until("distinct stop timestamp", lambda: int(datetime.now(timezone.utc).timestamp()) > int(sql(
+                "SELECT extract(epoch from date_trunc('second', max(recorded_at)))::bigint FROM tracker_location_data")))
+            with socket.create_connection(("127.0.0.1", tcp_port), timeout=20) as peer:
+                peer.sendall(packet(datetime.now(timezone.utc), "5130.3000", "000.00").encode("ascii"))
+            wait_until("persisted automatic stationary state", lambda: sql(
+                "SELECT count(*) FROM trips WHERE is_active=true AND stationary_since IS NOT NULL") == "1")
+        else:
+            sql("""INSERT INTO trips (trip_id, vehicle_id, start_time, end_time, is_active)
                SELECT 'recorded-native', 'tracking-map-vehicle', min(recorded_at), max(recorded_at), false
                FROM tracker_location_data WHERE tracker_id='tracker-owner';
                INSERT INTO trips (trip_id, vehicle_id, start_time, end_time, is_active)
@@ -363,9 +374,10 @@ def main() -> None:
                     "TRACKING_TEST_INITIAL_COORDINATES": "51.50500, -0.10000", "TRACKING_TEST_HISTORY": "true",
                     "TRACKING_TEST_API_V1": "true" if args.verify_api_v1 else ""}
         with (base / "browser.log").open("w") as output:
-            subprocess.run(["pnpm", "exec", "playwright", "test", "--config", "playwright.team.config.ts" if args.verify_team else "playwright.tracking.config.ts"],
+            subprocess.run(["pnpm", "exec", "playwright", "test", "--config", "playwright.trips.config.ts" if args.verify_trips else "playwright.team.config.ts" if args.verify_team else "playwright.tracking.config.ts"],
                            cwd=args.frontend, env=test_env, stdout=output, stderr=subprocess.STDOUT, check=True, timeout=180)
-        print("PASS: real team account/profile/role/removal and authorization workflow" if args.verify_team else
+        print("PASS: automatic trip creation, persisted stop/restart, completion, membership and browser replay" if args.verify_trips else
+              "PASS: real team account/profile/role/removal and authorization workflow" if args.verify_team else
               "PASS: recovered telemetry and duplicate-safe replay reach automatic browser refresh", flush=True)
     finally:
         for process in reversed(processes):

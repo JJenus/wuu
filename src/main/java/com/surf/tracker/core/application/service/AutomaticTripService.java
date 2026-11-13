@@ -35,6 +35,10 @@ public class AutomaticTripService {
 
     public void record(Vehicle vehicle, TrackerLocation fix) {
         var at = fix.getRecordedAt();
+        var prior = vehicle.getCurrentLocation();
+        // Lazy rollout initialization avoids a fleet-wide data backfill or inventing old trip membership.
+        if (vehicle.getTripLastRecordedAt() == null && prior != null && prior.getRecordedAt() != null
+            && !prior.getRecordedAt().isAfter(clock.instant())) vehicle.setTripLastRecordedAt(prior.getRecordedAt());
         if (!fix.isValid() || fix.getSpeedKmh() == null || !Float.isFinite(fix.getSpeedKmh())
             || fix.getSpeedKmh() < 0 || at.isAfter(clock.instant())
             || vehicle.getTripLastRecordedAt() != null && !at.isAfter(vehicle.getTripLastRecordedAt())) return;
@@ -63,7 +67,9 @@ public class AutomaticTripService {
             trip = trips.save(trip);
         }
         // Legacy active trips retain their labelled time-window history semantics.
-        points.save(trip.recordLocation(fix, last == null ? null : last.getLocation(), last == null ? 1 : last.getPointOrder() + 1));
+        TripPoint point = trip.recordLocation(fix, last == null ? null : last.getLocation(), last == null ? 1 : last.getPointOrder() + 1);
+        point.setCreatedAt(clock.instant());
+        points.save(point);
         if (fix.getSpeedKmh() <= stationarySpeed) {
             if (trip.getStationarySince() == null) trip.setStationarySince(at);
             if (Duration.between(trip.getStationarySince(), at).getSeconds() >= stopSeconds)

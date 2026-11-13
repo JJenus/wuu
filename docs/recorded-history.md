@@ -1,4 +1,4 @@
-# Recorded GPS trip-window replay — 2026-11-12
+# Recorded GPS trip replay — updated 2026-11-13
 
 Outcome: live trip details replay saved GPS coordinates, speed and source timestamps,
 not preview paths. Preview remains explicitly illustrative and unchanged.
@@ -16,12 +16,12 @@ The concrete response contains `trip_id`, `vehicle_id`, `source`, `window_start`
 longitude, nullable speed in km/h). The browser normalizes snake_case and validates
 the complete shape, coordinate bounds, ordering and window membership.
 
-Source is **VEHICLE_TIME_WINDOW**: ingestion currently saves locations without trip
-associations. These are the vehicle's recorded fixes between trip start and end,
-inclusive, not proof of trip membership. Active/future-ending windows stop at the
-server's current time. Tracker reassignment remains unsupported; current tracker
-ownership is used, so old work/history must be resolved before ownership changes.
-Automatic trip creation/association is not implemented by this increment.
+Source is **TRIP_ASSOCIATED** for new automatic trips: only explicitly linked saved
+fixes are returned, with no time-window fallback even when empty. Legacy trips retain
+**VEHICLE_TIME_WINDOW**, the vehicle's recorded fixes between start and end inclusive,
+not proof of membership. Active/future-ending windows stop at server time. Tracker
+reassignment remains unsupported; resolve old ownership/history before changes.
+See [automatic-trips.md](automatic-trips.md) for lifecycle policy and rollout.
 
 The response fetches at most `limit + 1` records and exposes truncation; it never
 pretends a capped result is complete. There is no continuation/page interface yet:
@@ -69,6 +69,7 @@ No production database, broker or device was changed.
   recorded fixes, gaps, end sample, reload, empty history, foreign-trip 404,
   invalid-limit 400 and truncated reads. Existing outage recovery still passes.
 
-Remaining limits: capped histories need a future continuation/filter workflow;
-automatic trip lifecycle/association and physical tracker retransmission are still
-unverified/unimplemented. This is not production-readiness certification.
+The checks above describe the original replay increment. Automatic lifecycle and
+association acceptance now passes as documented in [automatic-trips.md](automatic-trips.md).
+Remaining limits: capped histories need continuation/filtering; physical tracker
+retransmission is unverified. This is not production-readiness certification.
