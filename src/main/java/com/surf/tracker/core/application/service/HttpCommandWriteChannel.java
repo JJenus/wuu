@@ -25,7 +25,7 @@ import java.util.concurrent.TimeUnit;
 
 /** One bounded request to an explicitly configured gateway. No redirects or retry loop. */
 @Component
-public class HttpCommandWriteChannel implements CommandWriteChannel {
+public class HttpCommandWriteChannel implements CommandWriteChannel, AutoCloseable {
     private final ObjectMapper mapper;
     private final boolean enabled;
     private final URI endpoint;
@@ -46,7 +46,7 @@ public class HttpCommandWriteChannel implements CommandWriteChannel {
         this.secret = secret;
         if (enabled) {
             URI address = URI.create(origin);
-            boolean loopback = List.of("localhost", "127.0.0.1", "[::1]", "::1").contains(address.getHost());
+            boolean loopback = address.getHost() != null && List.of("localhost", "127.0.0.1", "[::1]", "::1").contains(address.getHost());
             if (address.getHost() == null || address.getUserInfo() != null || address.getQuery() != null
                 || address.getFragment() != null || !(address.getPath().isEmpty() || address.getPath().equals("/"))
                 || !("https".equals(address.getScheme()) || "http".equals(address.getScheme()) && loopback)
@@ -54,8 +54,8 @@ public class HttpCommandWriteChannel implements CommandWriteChannel {
                 throw new IllegalArgumentException("Command channel requires HTTPS (or loopback HTTP), a bare origin and a strong shared secret");
             this.endpoint = address.resolve("/internal/command-writes");
         } else endpoint = null;
-        this.client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(timeoutSeconds))
-            .followRedirects(HttpClient.Redirect.NEVER).build();
+        this.client = enabled ? HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(timeoutSeconds))
+            .followRedirects(HttpClient.Redirect.NEVER).build() : null;
     }
 
     @Override public CommandWriteResult write(CommandWrite command) {
@@ -77,6 +77,9 @@ public class HttpCommandWriteChannel implements CommandWriteChannel {
         finally { if (pending != null && !pending.isDone()) pending.cancel(true); }
         return new CommandWriteResult(command.attemptId(), WriteOutcome.UNKNOWN);
     }
+
+    @jakarta.annotation.PreDestroy
+    @Override public void close() { if (client != null) client.close(); }
 
     private static final class BoundedResponseBody implements HttpResponse.BodySubscriber<byte[]> {
         private final CompletableFuture<byte[]> result = new CompletableFuture<>();

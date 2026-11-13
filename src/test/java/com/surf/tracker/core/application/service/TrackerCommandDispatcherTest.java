@@ -3,7 +3,6 @@ package com.surf.tracker.core.application.service;
 import com.surf.tracker.core.domain.entity.Tracker;
 import com.surf.tracker.core.infrastructure.repository.TrackerRepository;
 import com.surf.tracker.shared.commands.*;
-import com.surf.tracker.shared.domain.ConnectionInfo;
 import com.surf.tracker.shared.redis.RedisConnectionTracker;
 import com.surf.tracker.shared.security.TenantContext;
 import org.junit.jupiter.api.AfterEach;
@@ -33,7 +32,7 @@ class TrackerCommandDispatcherTest {
         authorize();
         Tracker tracker = new Tracker(); tracker.setTrackerId("tracker"); tracker.setDeviceId("gps");
         when(trackers.findByIdAndOrganizationId("tracker", 1L)).thenReturn(Optional.of(tracker));
-        when(connections.getConnectionByDeviceId("gps")).thenReturn(new ConnectionInfo("connection", "gps", "127.0.0.1", NOW, NOW));
+        when(connections.getConnectionIdByDeviceId("gps")).thenReturn("connection");
         UUID id = UUID.randomUUID();
         when(channel.write(any())).thenReturn(new CommandWriteResult(id, WriteOutcome.SENT));
         var dispatcher = new TrackerCommandDispatcher(trackers, connections, channel, Clock.fixed(NOW, ZoneOffset.UTC));

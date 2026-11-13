@@ -143,6 +143,12 @@ spring:
 
 # TCP Server Configuration
 tracking:
+  commands:
+    channel:
+      enabled: ${COMMAND_CHANNEL_ENABLED:false}
+      origin: ${COMMAND_GATEWAY_ORIGIN:}
+      secret: ${COMMAND_CHANNEL_SECRET:}
+      timeout-seconds: ${COMMAND_CHANNEL_TIMEOUT_SECONDS:10}
   trips:
     start-speed-kmh: ${TRIP_START_SPEED_KMH:5}
     stationary-speed-kmh: ${TRIP_STATIONARY_SPEED_KMH:1}

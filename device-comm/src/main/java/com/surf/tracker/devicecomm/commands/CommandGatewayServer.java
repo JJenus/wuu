@@ -67,6 +67,7 @@ public class CommandGatewayServer implements AutoCloseable {
                 .httpRequestDecoder(spec -> spec.maxInitialLineLength(256).maxHeaderSize(2048))
                 .doOnConnection(connection -> connection.addHandlerLast(new io.netty.handler.timeout.ReadTimeoutHandler(5)))
                 .handle(this::handle).bindNow();
+            org.slf4j.LoggerFactory.getLogger(CommandGatewayServer.class).info("Command gateway listening on {}:{}", host, server.port());
         } catch (RuntimeException failure) { journal.close(); journal = null; throw failure; }
     }
 

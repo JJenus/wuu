@@ -21,6 +21,7 @@ public final class CommandWriteJournal implements AutoCloseable {
     private final int maxReceipts;
     private final FileChannel owner;
     private final FileLock lock;
+    private boolean closed;
     public record Entry(String fingerprint, WriteOutcome outcome) {}
 
     public CommandWriteJournal(Path directory, ObjectMapper mapper, int maxReceipts) throws IOException {
@@ -37,6 +38,7 @@ public final class CommandWriteJournal implements AutoCloseable {
     }
 
     public synchronized WriteOutcome execute(CommandWrite request, Supplier<WriteOutcome> write) throws IOException {
+        if (closed) return WriteOutcome.UNKNOWN;
         Path receipt = directory.resolve(request.attemptId() + ".json");
         String fingerprint;
         try { fingerprint = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(mapper.writeValueAsBytes(request))); }
@@ -68,5 +70,7 @@ public final class CommandWriteJournal implements AutoCloseable {
         }
         try (var parent = FileChannel.open(directory, READ)) { parent.force(true); }
     }
-    @Override public void close() throws IOException { lock.release(); owner.close(); }
+    @Override public synchronized void close() throws IOException {
+        if (!closed) { closed = true; lock.release(); owner.close(); }
+    }
 }

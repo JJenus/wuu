@@ -65,7 +65,7 @@ def main() -> None:
         with (base / "backend-channel.log").open("w") as output:
             subprocess.run([str(root / "mvnw"), "-B", "-Dtest=CommandChannelNativeIT", "test"], cwd=root,
                            env=env, stdout=output, stderr=subprocess.STDOUT, check=True, timeout=180)
-        print("PASS: backend dispatcher/client -> authenticated independent gateway -> exact binary TCP bytes; duplicate/conflict/expiry handling", flush=True)
+        print("PASS: backend dispatcher/client -> authenticated independent gateway -> exact binary TCP bytes; duplicate/conflict/expiry handling and reconnect-safe routing", flush=True)
     finally:
         for process in reversed(children):
             if process.poll() is None:

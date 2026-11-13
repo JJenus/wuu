@@ -20,6 +20,15 @@ spring:
     password: ${ARTEMIS_PASSWORD:admin}
 
 tracking:
+  commands:
+    gateway:
+      # Private transport only. No public raw-command or hardware-control API is enabled.
+      enabled: ${COMMAND_GATEWAY_ENABLED:false}
+      host: ${COMMAND_GATEWAY_HOST:127.0.0.1}
+      port: ${COMMAND_GATEWAY_PORT:8890}
+      secret: ${COMMAND_CHANNEL_SECRET:}
+      journal-directory: ${COMMAND_WRITE_JOURNAL_DIRECTORY:./data/command-writes}
+      max-receipts: ${COMMAND_WRITE_MAX_RECEIPTS:10000}
   telemetry:
     spool:
       # A dedicated persistent, private filesystem volume is required in production.

@@ -19,6 +19,9 @@ import reactor.netty.Connection;
 @Component
 public class RedisConnectionTracker {
     private static final Logger logger = LoggerFactory.getLogger(RedisConnectionTracker.class);
+    private static final org.springframework.data.redis.core.script.RedisScript<Long> REMOVE_OWNED_ROUTE =
+            new org.springframework.data.redis.core.script.DefaultRedisScript<>(
+                    "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) else return 0 end", Long.class);
 
     private final RedisTemplate<String, Object> redisTemplate;
     private final ValueOperations<String, Object> valueOps;
@@ -107,8 +110,7 @@ public class RedisConnectionTracker {
         // Remove reverse lookup if we have device ID
         if (metadata != null && metadata.getDeviceId() != null &&
                 !"unknown".equals(metadata.getDeviceId())) {
-            String deviceKey = getDeviceConnectionKey(metadata.getDeviceId());
-            redisTemplate.delete(deviceKey);
+            removeDeviceRouteIfOwned(metadata.getDeviceId(), connectionId);
         }
 
         // Remove live connection
@@ -141,15 +143,19 @@ public class RedisConnectionTracker {
     }
 
     public ConnectionInfo getConnectionByDeviceId(String deviceId) {
-        // First get connectionId from reverse lookup
-        String deviceKey = getDeviceConnectionKey(deviceId);
-        Object value = valueOps.get(deviceKey);
-
-        if (value instanceof String connectionId) {
+        String connectionId = getConnectionIdByDeviceId(deviceId);
+        if (connectionId != null) {
             return getConnectionInfo(connectionId);
         }
 
         return null;
+    }
+
+    /** The command sender needs only the opaque route token, not gateway metadata naming. */
+    public String getConnectionIdByDeviceId(String deviceId) {
+        // The existing Redis template stores heterogeneous values; accept only a String at this boundary.
+        Object value = valueOps.get(getDeviceConnectionKey(deviceId));
+        return value instanceof String connectionId ? connectionId : null;
     }
 
     public Connection getLiveConnection(String connectionId) {
@@ -196,8 +202,7 @@ public class RedisConnectionTracker {
                     redisTemplate.delete(key);
                     logger.info("Cleaned up stale connection: {}", connectionId);
 
-                    String deviceKey = getDeviceConnectionKey(metadata.getDeviceId());
-                    redisTemplate.delete(deviceKey);
+                    removeDeviceRouteIfOwned(metadata.getDeviceId(), connectionId);
                 }
             }
         }
@@ -205,6 +210,11 @@ public class RedisConnectionTracker {
 
     private String getConnectionKey(String connectionId) {
         return "tracker:connection:" + connectionId;
+    }
+
+    private void removeDeviceRouteIfOwned(String deviceId, String connectionId) {
+        // Atomic compare-and-delete: an older socket must not erase a replacement's route.
+        redisTemplate.execute(REMOVE_OWNED_ROUTE, java.util.List.of(getDeviceConnectionKey(deviceId)), connectionId);
     }
 
     private String getDeviceConnectionKey(String deviceId) {
