@@ -66,7 +66,8 @@ public class ReactiveTcpServer {
     private FramingSpec framing;
     private volatile boolean running = false;
 
-    public ReactiveTcpServer(IngestPipeline pipeline, ProtocolRegistry registry,
+    public ReactiveTcpServer(@org.springframework.beans.factory.annotation.Qualifier("tcpIngestPipeline") IngestPipeline pipeline,
+                             @org.springframework.beans.factory.annotation.Qualifier("tcpProtocolRegistry") ProtocolRegistry registry,
                              RedisConnectionTracker connectionTracker) {
         this.pipeline = pipeline;
         this.registry = registry;
@@ -164,6 +165,8 @@ public class ReactiveTcpServer {
         return Flux.defer(() -> {
             DelimitedFrameDecoder decoder = switch (framing) {
                 case FramingSpec.Delimited delimited -> new DelimitedFrameDecoder(delimited);
+                case FramingSpec.Preframed ignored ->
+                        throw new IllegalStateException("Pre-framed protocols belong on a message transport, not raw TCP");
             };
             return bytes.concatMapIterable(decoder::feed);
         });

@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Phone tracker</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --ink:#14181f; --muted:#5b6575; --line:#dde1e8; --accent:#0b6bcb; --ok:#13794a; --bad:#b42318; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0f1318; --card:#181d25; --ink:#e8ebf0; --muted:#98a2b3; --line:#2a313c; --accent:#5aa2ff; --ok:#4cc38a; --bad:#ff7b72; } }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif; }
+  main { max-width:30rem; margin:0 auto; padding:1.25rem 16px 3rem; }
+  h1 { font-size:1.25rem; margin:.5rem 0 1rem; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:1rem; margin-bottom:1rem; }
+  label { display:block; font-size:.85rem; color:var(--muted); margin-bottom:.35rem; }
+  input { width:100%; padding:.7rem; border:1px solid var(--line); border-radius:8px; background:transparent; color:inherit; font:inherit; }
+  button { width:100%; margin-top:.75rem; padding:.85rem; border:0; border-radius:10px; background:var(--accent); color:#fff; font:inherit; font-weight:600; }
+  button.stop { background:transparent; color:var(--bad); border:1px solid var(--bad); }
+  button:disabled { opacity:.5; }
+  .status { display:flex; align-items:center; gap:.5rem; font-weight:600; }
+  .dot { width:.7rem; height:.7rem; border-radius:50%; background:var(--muted); }
+  .dot.ok { background:var(--ok); } .dot.bad { background:var(--bad); }
+  dl { display:grid; grid-template-columns:auto 1fr; gap:.4rem 1rem; margin:.75rem 0 0; }
+  dt { color:var(--muted); } dd { margin:0; text-align:right; font-variant-numeric:tabular-nums; }
+  .note { font-size:.85rem; color:var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Phone tracker</h1>
+  <section class="card">
+    <div class="status"><span id="dot" class="dot"></span><span id="state">Not tracking</span></div>
+    <dl>
+      <dt>Speed</dt><dd id="speed">–</dd>
+      <dt>Position</dt><dd id="pos">–</dd>
+      <dt>Accuracy</dt><dd id="acc">–</dd>
+      <dt>Last sent</dt><dd id="sent">–</dd>
+    </dl>
+  </section>
+  <section class="card" id="setup">
+    <label for="token">Pairing token</label>
+    <input id="token" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Paste the token from the platform">
+    <button id="toggle" type="button">Start tracking</button>
+    <p class="note" id="msg" role="status"></p>
+  </section>
+  <p class="note">Keep this page open and the screen on. Your position is sent only while tracking is on.</p>
+</main>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const tokenInput = $('token'), toggle = $('toggle');
+  let socket = null, watchId = null, wakeLock = null, tracking = false, ready = false, retry = 0, reconnectTimer = null;
+  let last = null, lastSentAt = 0, battery = null;
+
+  // The token travels in the URL fragment, which browsers never send to servers or logs.
+  const fromHash = new URLSearchParams(location.hash.slice(1)).get('t');
+  if (fromHash) { tokenInput.value = fromHash; history.replaceState(null, '', location.pathname); }
+
+  const setState = (text, kind) => { $('state').textContent = text; $('dot').className = 'dot ' + (kind || ''); };
+  const say = text => { $('msg').textContent = text || ''; };
+
+  function haversineKmh(a, b) {
+    const R = 6371000, rad = Math.PI / 180;
+    const dLat = (b.lat - a.lat) * rad, dLng = (b.lng - a.lng) * rad;
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLng / 2) ** 2;
+    const metres = 2 * R * Math.asin(Math.sqrt(h)), seconds = (b.ts - a.ts) / 1000;
+    return seconds > 0 ? (metres / seconds) * 3.6 : 0;
+  }
+
+  function connect() {
+    const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
+    ready = false;
+    socket = new WebSocket(`${scheme}://${location.host}/ingest`);
+    socket.onopen = () => socket.send(JSON.stringify({ token: tokenInput.value.trim() }));
+    socket.onmessage = event => {
+      let reply; try { reply = JSON.parse(event.data); } catch { return; }
+      if (reply.type === 'ready') { ready = true; retry = 0; setState('Tracking', 'ok'); say(''); }
+      else if (reply.type === 'rejected') say('Last position was not accepted (' + reply.code + ').');
+    };
+    socket.onclose = () => {
+      if (!tracking) return;
+      const wasReady = ready; ready = false;
+      if (!wasReady && retry >= 2) { stop('Pairing failed. Ask for a new token.'); return; }
+      setState('Reconnecting…', 'bad');
+      reconnectTimer = setTimeout(connect, Math.min(1000 * 2 ** retry++, 15000));
+    };
+  }
+
+  function onFix(position) {
+    const c = position.coords, ts = position.timestamp;
+    const fix = { lat: c.latitude, lng: c.longitude, ts };
+    // Phones often report no speed; derive it from the previous fix rather than sending a made-up value.
+    let kmh = c.speed != null && isFinite(c.speed) ? c.speed * 3.6 : (last ? haversineKmh(last, fix) : 0);
+    last = fix;
+    $('speed').textContent = kmh.toFixed(1) + ' km/h';
+    $('pos').textContent = fix.lat.toFixed(5) + ', ' + fix.lng.toFixed(5);
+    $('acc').textContent = Math.round(c.accuracy) + ' m';
+    if (!ready || ts - lastSentAt < 1000) return;
+    lastSentAt = ts;
+    const body = { lat: fix.lat, lng: fix.lng, speed_kmh: Math.round(kmh * 10) / 10, accuracy_m: Math.round(c.accuracy), ts };
+    if (battery != null) body.battery_pct = battery;
+    socket.send(JSON.stringify(body));
+    $('sent').textContent = new Date().toLocaleTimeString();
+  }
+
+  async function start() {
+    if (!tokenInput.value.trim()) { say('Paste the pairing token first.'); return; }
+    if (!('geolocation' in navigator)) { say('This browser has no location support.'); return; }
+    if (!isSecureContext) { say('Location needs a secure (https) connection.'); return; }
+    tracking = true; retry = 0; toggle.textContent = 'Stop tracking'; toggle.className = 'stop'; setState('Connecting…');
+    try { if (navigator.getBattery) { const b = await navigator.getBattery(); battery = Math.round(b.level * 100); b.onlevelchange = () => { battery = Math.round(b.level * 100); }; } } catch {}
+    try { if (navigator.wakeLock) wakeLock = await navigator.wakeLock.request('screen'); } catch {}
+    watchId = navigator.geolocation.watchPosition(onFix,
+      err => { stop(err.code === 1 ? 'Location permission was denied.' : 'Could not read your location.'); },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
+    connect();
+  }
+
+  function stop(message) {
+    tracking = false; ready = false; clearTimeout(reconnectTimer);
+    if (watchId != null) navigator.geolocation.clearWatch(watchId); watchId = null;
+    if (socket) { socket.onclose = null; socket.close(); socket = null; }
+    if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
+    toggle.textContent = 'Start tracking'; toggle.className = ''; setState('Not tracking'); say(message || '');
+  }
+
+  toggle.addEventListener('click', () => tracking ? stop() : start());
+  document.addEventListener('visibilitychange', async () => {
+    if (tracking && document.visibilityState === 'visible' && navigator.wakeLock && !wakeLock) {
+      try { wakeLock = await navigator.wakeLock.request('screen'); } catch {}
+    }
+  });
+})();
+</script>
+</body>
+</html>

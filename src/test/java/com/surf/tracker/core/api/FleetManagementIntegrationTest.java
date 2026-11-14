@@ -57,7 +57,7 @@ class FleetManagementIntegrationTest {
         });
         TenantContext.setCurrentOrgId(1L);
         mvc = com.surf.tracker.main.api.ApiMockMvc.standaloneSetup(
-            new TrackerController(trackers, Clock.systemUTC()), new VehicleController(null, vehicles)).build();
+            new TrackerController(trackers, new com.surf.tracker.core.application.service.PhonePairingService(Clock.systemUTC(), "", 720, ""), Clock.systemUTC()), new VehicleController(null, vehicles)).build();
     }
 
     @AfterEach void clear() { TenantContext.clear(); }

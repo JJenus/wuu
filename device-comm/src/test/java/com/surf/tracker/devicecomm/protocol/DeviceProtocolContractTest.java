@@ -29,7 +29,8 @@ public abstract class DeviceProtocolContractTest {
     /** Frames the protocol must recognize and decode, one device per frame. */
     protected abstract List<String> validFrames();
 
-    protected static Frame frame(String text) {
+    /** Override for transports whose frames carry an authenticated identity. */
+    protected Frame frame(String text) {
         return new Frame(text.getBytes(StandardCharsets.UTF_8));
     }
 
@@ -57,6 +58,10 @@ public abstract class DeviceProtocolContractTest {
         assertThatThrownBy(() -> protocol().decode(frame(garbage), RECEIVED_AT)).isInstanceOf(ProtocolException.class);
     }
 
+    private Frame frameOf(byte[] bytes) {
+        return frame(new String(bytes, StandardCharsets.ISO_8859_1));
+    }
+
     @Test
     void recognizes_arbitraryBytes_neverThrows() {
         // given: deterministic fuzz
@@ -65,7 +70,7 @@ public abstract class DeviceProtocolContractTest {
             byte[] bytes = new byte[1 + random.nextInt(80)];
             random.nextBytes(bytes);
             // when / then
-            assertThat(protocol().recognizes(new Frame(bytes))).isNotNull();
+            assertThat(protocol().recognizes(frameOf(bytes))).isNotNull();
         }
     }
 
@@ -86,19 +91,19 @@ public abstract class DeviceProtocolContractTest {
     }
 
     @Test
-    void framing_isDelimitedAndStable() {
+    void framing_isDeclaredAndStable() {
         // given / when / then
-        assertThat(protocol().framing()).isInstanceOf(FramingSpec.Delimited.class).isEqualTo(protocol().framing());
+        assertThat(protocol().framing()).isNotNull().isEqualTo(protocol().framing());
     }
 
     @Test
     void commands_everySupportedCommand_encodesNonEmptyAsciiTerminatedByDelimiter() {
         // given
-        var delimiter = ((FramingSpec.Delimited) protocol().framing()).delimiter();
         // when / then
         for (DeviceCommand command : protocol().commands().supported()) {
             byte[] wire = protocol().commands().encode(command, "865205030330012", RECEIVED_AT);
-            assertThat(wire).isNotEmpty().endsWith(delimiter);
+            assertThat(wire).isNotEmpty();
+            if (protocol().framing() instanceof FramingSpec.Delimited delimited) assertThat(wire).endsWith(delimited.delimiter());
             assertThat(new String(wire, StandardCharsets.US_ASCII)).contains("865205030330012");
         }
     }

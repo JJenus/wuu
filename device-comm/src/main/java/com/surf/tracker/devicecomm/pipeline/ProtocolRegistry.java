@@ -4,7 +4,7 @@ import com.surf.tracker.devicecomm.exception.ProtocolException;
 import com.surf.tracker.devicecomm.protocol.DeviceProtocol;
 import com.surf.tracker.devicecomm.protocol.Frame;
 import com.surf.tracker.devicecomm.protocol.FramingSpec;
-import org.springframework.stereotype.Component;
+import com.surf.tracker.devicecomm.protocol.Transport;
 
 import java.util.Comparator;
 import java.util.HashSet;
@@ -13,10 +13,16 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
-/** Every {@link DeviceProtocol} bean, ordered by detection priority. Adding a protocol needs no edit here. */
-@Component
+/**
+ * The protocols served on one listener, ordered by detection priority. Adding a protocol needs no edit here:
+ * {@code ProtocolConfig} builds one registry per {@link Transport} from every {@link DeviceProtocol} bean.
+ */
 public class ProtocolRegistry {
     private final List<DeviceProtocol> protocols;
+
+    public static ProtocolRegistry forTransport(List<DeviceProtocol> all, Transport transport) {
+        return new ProtocolRegistry(all.stream().filter(protocol -> protocol.transport() == transport).toList());
+    }
 
     public ProtocolRegistry(List<DeviceProtocol> protocols) {
         if (protocols.isEmpty()) throw new IllegalStateException("At least one device protocol must be registered");

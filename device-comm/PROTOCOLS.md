@@ -41,3 +41,28 @@ Alarms with no mapping (e.g. VIBRATION) are counted as `device.alarm.unmapped`. 
 
 Status-only frames (GT06 heartbeat/V3/V5) carry health but no position, so they are still not published: there is no fix
 to attach them to. A dedicated status event would be the next step.
+
+## Phone / browser adapter (live demos)
+
+A phone is just another protocol on a second transport. `DeviceProtocol.transport()` selects the listener
+(`TCP` or `WEBSOCKET`); `ProtocolConfig` builds one registry and one `IngestPipeline` per transport, so protocols on a
+listener always share framing and the same decode, identity, publish flow applies. `PhoneProtocol` uses
+`FramingSpec.Preframed` (one WebSocket message = one frame).
+
+Identity is never taken from the payload. `PhoneIngestServer` (off unless `tracking.phone.enabled=true`) requires the
+first WebSocket message to be `{"token": "<pairing token>"}`, verifies it, then stamps every later frame with the
+token's device id (`Frame.authenticatedDeviceId`). `PhoneProtocol.recognizes` is false without it, so raw TCP can never
+reach it.
+
+Demo flow:
+1. Register a tracker with protocol `PHONE` and a 10-15 digit `device_id`, assigned to a vehicle (`POST /trackers`).
+2. `POST /trackers/{id}/pairing-token` returns a signed token and, with `tracking.phone.public-url` set, a `pairing_url`.
+3. Open `pairing_url` on the phone (served over https by your proxy) and tap Start tracking.
+4. Movement, speed and geofence/speed alerts appear in the platform like any other tracker.
+
+Config (both services need the same `PHONE_PAIRING_SECRET`, 32+ bytes): `PHONE_INGEST_ENABLED`, `PHONE_INGEST_PORT`,
+`PHONE_MAX_ACCURACY_METERS` (device-comm); `PHONE_PAIRING_TTL_MINUTES`, `PHONE_PUBLIC_URL` (core). Tokens are
+stateless: they cannot be revoked individually, only by expiry or by rotating the secret.
+
+Browsers report battery only where the Battery API exists (not Safari); speed is derived on the page when the
+browser omits it, and the server rejects a frame with no speed rather than inventing one.

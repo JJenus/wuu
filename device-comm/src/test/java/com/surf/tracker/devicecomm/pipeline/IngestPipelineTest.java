@@ -195,4 +195,33 @@ class IngestPipelineTest {
         assertThatThrownBy(() -> isolated.ingest(frame("x#"), RECEIVED, new ConnectionSession()))
                 .isInstanceOf(ProtocolException.class);
     }
+
+    @Test
+    void ingest_authenticatedPhoneFrame_publishesFixUnderPhoneProtocolWithBattery() {
+        // given: the WebSocket pipeline only knows pre-framed protocols
+        var phone = new IngestPipeline(ProtocolRegistry.forTransport(
+                List.of(new AutoseekerProtocol(), new com.surf.tracker.devicecomm.protocol.phone.PhoneProtocol(100)),
+                com.surf.tracker.devicecomm.protocol.Transport.WEBSOCKET), publisher, Clock.fixed(RECEIVED, ZoneOffset.UTC));
+        var json = "{\"lat\":6.5,\"lng\":3.3,\"speed_kmh\":20,\"ts\":" + RECEIVED.toEpochMilli() + ",\"battery_pct\":55}";
+        // when
+        String deviceId = phone.ingest(new Frame(json.getBytes(StandardCharsets.UTF_8), "2348000000001"), RECEIVED, new ConnectionSession());
+        // then
+        var captured = ArgumentCaptor.forClass(LocationDataEvent.class);
+        verify(publisher).publish(captured.capture());
+        assertThat(deviceId).isEqualTo("2348000000001");
+        assertThat(captured.getValue().getProtocol()).isEqualTo("PHONE");
+        assertThat(captured.getValue().getHealth().batteryPercent()).isEqualTo(55);
+    }
+
+    @Test
+    void ingest_phonePipelineGivenUnauthenticatedFrame_isRejectedAndNothingPublished() {
+        // given
+        var phone = new IngestPipeline(ProtocolRegistry.forTransport(
+                List.of(new com.surf.tracker.devicecomm.protocol.phone.PhoneProtocol(100)),
+                com.surf.tracker.devicecomm.protocol.Transport.WEBSOCKET), publisher, Clock.fixed(RECEIVED, ZoneOffset.UTC));
+        // when / then
+        assertThatThrownBy(() -> phone.ingest(frame("{\"lat\":6.5,\"lng\":3.3,\"speed_kmh\":20,\"ts\":1}"), RECEIVED, new ConnectionSession()))
+                .isInstanceOf(ProtocolException.class);
+        verifyNoInteractions(publisher);
+    }
 }

@@ -143,6 +143,12 @@ spring:
 
 # TCP Server Configuration
 tracking:
+  phone:
+    # Must equal device-comm's PHONE_PAIRING_SECRET (32+ bytes). Leave empty to disable pairing.
+    pairing-secret: ${PHONE_PAIRING_SECRET:}
+    pairing-ttl-minutes: ${PHONE_PAIRING_TTL_MINUTES:720}
+    # Public https origin of the device-comm phone listener, used to build pairing_url.
+    public-url: ${PHONE_PUBLIC_URL:}
   commands:
     channel:
       enabled: ${COMMAND_CHANNEL_ENABLED:false}

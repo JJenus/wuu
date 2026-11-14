@@ -13,7 +13,6 @@ import com.surf.tracker.shared.pubsub.EventPublisher;
 import com.surf.tracker.shared.util.TimeProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -23,7 +22,6 @@ import java.util.List;
  * The one flow every protocol shares: detect once per connection, decode, verify identity, route.
  * Protocols only decode; nothing here is protocol-specific.
  */
-@Service
 public class IngestPipeline {
     private static final Logger log = LoggerFactory.getLogger(IngestPipeline.class);
 

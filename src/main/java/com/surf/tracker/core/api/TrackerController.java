@@ -27,10 +27,13 @@ import java.time.Instant;
 public class TrackerController {
 
     private final TrackerService trackerService;
+    private final com.surf.tracker.core.application.service.PhonePairingService pairing;
     private final Clock clock;
 
-    public TrackerController(TrackerService trackerService, Clock clock) {
+    public TrackerController(TrackerService trackerService,
+                             com.surf.tracker.core.application.service.PhonePairingService pairing, Clock clock) {
         this.trackerService = trackerService;
+        this.pairing = pairing;
         this.clock = clock;
     }
 
@@ -98,6 +101,22 @@ public class TrackerController {
                  | org.hibernate.exception.ConstraintViolationException conflict) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Tracker conflicts with existing data");
         }
+    }
+
+    @PostMapping("/{trackerId}/pairing-token")
+    @Operation(operationId = "trackersPairingToken", summary = "Issue a phone/browser pairing token", description = "Requires vehicles.assign_device. Only for trackers whose protocol is PHONE. The token lets one phone or browser report positions as this tracker until it expires; pairing_url opens the tracking page with the token already filled in when a public URL is configured. The token is not stored, so keep it private.")
+    @ApiResponse(responseCode = "200", description = "Token issued")
+    @ApiResponse(responseCode = "404", description = "Tracker not found in the authorized scope")
+    @ApiResponse(responseCode = "409", description = "Tracker protocol is not PHONE")
+    @ApiResponse(responseCode = "503", description = "Phone pairing is not configured on this server")
+    public ResponseEntity<PairingTokenResponse> issuePairingToken(@PathVariable String trackerId) {
+        Tracker tracker = trackerService.getTrackerById(trackerId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tracker not found"));
+        if (!com.surf.tracker.core.application.service.PhonePairingService.isPhone(tracker))
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Only trackers with protocol PHONE can be paired");
+        if (!pairing.isConfigured())
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Phone pairing is not configured");
+        return ResponseEntity.ok().header("Cache-Control", "no-store").body(pairing.issue(tracker));
     }
 
     @PatchMapping("/{trackerId}/profile")
