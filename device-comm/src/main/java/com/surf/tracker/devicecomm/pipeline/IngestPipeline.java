@@ -86,7 +86,7 @@ public class IngestPipeline {
     private void publish(DeviceProtocol protocol, String deviceId, PositionReport position) {
         try {
             publisher.publish(new LocationDataEvent(clock, TimeProvider.newUuid(), deviceId,
-                    position.point(), protocol.name(), null));
+                    position.point(), protocol.name(), null, position.health()));
         } catch (RuntimeException failure) {
             throw new InfrastructureException("DEVICE_DATA_PROCESS_ERROR",
                     "Failed to publish telemetry for " + deviceId, failure);

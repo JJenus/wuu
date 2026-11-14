@@ -1,6 +1,6 @@
 package com.surf.tracker.devicecomm.protocol.common;
 
-import com.surf.tracker.devicecomm.protocol.model.DeviceAlarm;
+import com.surf.tracker.shared.domain.DeviceAlarm;
 import org.junit.jupiter.api.Test;
 
 import java.util.EnumSet;

@@ -1,4 +1,4 @@
-package com.surf.tracker.devicecomm.protocol.model;
+package com.surf.tracker.shared.domain;
 
 /** Protocol-neutral alarm and state flags a device can report. */
 public enum DeviceAlarm {

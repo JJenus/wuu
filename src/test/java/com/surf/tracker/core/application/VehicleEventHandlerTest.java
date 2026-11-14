@@ -4,6 +4,8 @@ import com.surf.tracker.core.application.service.VehicleService;
 import com.surf.tracker.core.domain.entity.Tracker;
 import com.surf.tracker.core.domain.entity.Vehicle;
 import com.surf.tracker.core.infrastructure.repository.TrackerRepository;
+import com.surf.tracker.shared.domain.DeviceAlarm;
+import com.surf.tracker.shared.domain.DeviceHealth;
 import com.surf.tracker.shared.domain.LocationPoint;
 import com.surf.tracker.shared.events.LocationDataEvent;
 import com.surf.tracker.shared.events.VehicleUpdatedEvent;
@@ -190,6 +192,37 @@ class VehicleEventHandlerTest {
         handler.handleLocationUpdate(source);
         verify(vehicleService).updateVehicleLocation("vehicle-1", "device-1", source.getLocation());
         verifyNoInteractions(publisher, activityTracker);
+    }
+
+    @Test
+    void handleLocationUpdate_latestFixWithHealth_updatesTrackerAndForwardsHealth() {
+        // given
+        Tracker tracker = assignedTracker();
+        when(trackerRepository.findForTelemetryByDeviceId("device-1")).thenReturn(Optional.of(tracker));
+        var health = new DeviceHealth(80, null, 21, 9, java.util.Set.of(DeviceAlarm.SOS));
+        var source = new LocationDataEvent(clock, java.util.UUID.fromString("00000000-0000-0000-0000-000000000009"),
+                "device-1", new LocationPoint(1, 2, 0, clock.instant()), "AUTOSEEKER", null, health);
+        // when
+        handler.handleLocationUpdate(source);
+        // then
+        assertThat(tracker.getBatteryLevel()).isEqualTo(80f);
+        assertThat(tracker.getSignalStrength()).isEqualTo(21);
+        verify(receipts).record(anyString(), eq(11L), eq("vehicle-1"), eq(source), argThat(update ->
+                update.getHealth().equals(health)));
+    }
+
+    @Test
+    void handleLocationUpdate_unreportedHealth_keepsLastKnownTrackerReadings() {
+        // given
+        Tracker tracker = assignedTracker();
+        tracker.setBatteryLevel(55f);
+        tracker.setSignalStrength(17);
+        when(trackerRepository.findForTelemetryByDeviceId("device-1")).thenReturn(Optional.of(tracker));
+        // when
+        handler.handleLocationUpdate(event());
+        // then
+        assertThat(tracker.getBatteryLevel()).isEqualTo(55f);
+        assertThat(tracker.getSignalStrength()).isEqualTo(17);
     }
 
     private Tracker assignedTracker() {

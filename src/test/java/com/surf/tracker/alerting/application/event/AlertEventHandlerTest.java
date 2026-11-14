@@ -1,6 +1,7 @@
 package com.surf.tracker.alerting.application.event;
 
 import com.surf.tracker.alerting.application.AlertingEngine;
+import com.surf.tracker.alerting.application.DeviceAlarmProcessor;
 import com.surf.tracker.shared.domain.LocationPoint;
 import com.surf.tracker.shared.events.VehicleUpdatedEvent;
 import com.surf.tracker.shared.security.TenantContext;
@@ -17,7 +18,8 @@ import static org.mockito.Mockito.*;
 class AlertEventHandlerTest {
     private final AlertingEngine engine = mock(AlertingEngine.class);
     private final Clock clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC);
-    private final AlertEventHandler handler = new AlertEventHandler(engine, clock);
+    private final DeviceAlarmProcessor deviceAlarms = mock(DeviceAlarmProcessor.class);
+    private final AlertEventHandler handler = new AlertEventHandler(engine, deviceAlarms, clock);
 
     @AfterEach
     void clear_context() { TenantContext.clear(); }
@@ -40,12 +42,24 @@ class AlertEventHandlerTest {
     }
 
     @Test
+    void handleVehicleUpdate_validUpdate_processesDeviceAlarmsBeforeRuleEvaluation() {
+        // given
+        VehicleUpdatedEvent event = event(11L);
+        // when
+        handler.handleVehicleUpdate(event);
+        // then: alarms must not depend on the vehicle having configured rules
+        var order = inOrder(deviceAlarms, engine);
+        order.verify(deviceAlarms).process(event);
+        order.verify(engine).processVehicleUpdate(event);
+    }
+
+    @Test
     void handleVehicleUpdate_missing_owner_fails_closed() {
         // given
         VehicleUpdatedEvent event = event(null);
         // when / then
         assertThatThrownBy(() -> handler.handleVehicleUpdate(event)).isInstanceOf(IllegalArgumentException.class);
-        verifyNoInteractions(engine);
+        verifyNoInteractions(engine, deviceAlarms);
     }
 
     @org.junit.jupiter.params.ParameterizedTest

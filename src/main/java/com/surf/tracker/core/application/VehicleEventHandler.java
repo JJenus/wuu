@@ -1,7 +1,9 @@
 package com.surf.tracker.core.application;
 
 import com.surf.tracker.core.application.service.VehicleService;
+import com.surf.tracker.core.domain.entity.Tracker;
 import com.surf.tracker.core.domain.entity.Vehicle;
+import com.surf.tracker.shared.domain.DeviceHealth;
 import com.surf.tracker.core.infrastructure.repository.TrackerRepository;
 import com.surf.tracker.shared.security.TenantContext;
 import com.surf.tracker.shared.events.LocationDataEvent;
@@ -64,7 +66,7 @@ public class VehicleEventHandler {
         Long previousUser = TenantContext.getCurrentUserId();
         try {
             var tracker = trackerRepository.findForTelemetryByDeviceId(event.getDeviceId());
-            Vehicle vehicle = tracker.map(com.surf.tracker.core.domain.entity.Tracker::getVehicle).orElse(null);
+            Vehicle vehicle = tracker.map(Tracker::getVehicle).orElse(null);
             if (vehicle == null || vehicle.getOrganizationId() == null || vehicle.getOrganizationId() <= 0) {
                 logger.warn("Skipping location update for device {}: no tenant-owned vehicle assignment", event.getDeviceId());
                 metrics.increment("telemetry.packets.skipped");
@@ -83,6 +85,7 @@ public class VehicleEventHandler {
                     || event.getLocation().timestamp().isAfter(vehicle.getCurrentLocation().getRecordedAt());
 
             vehicleService.updateVehicleLocation(vehicleId, event.getDeviceId(), event.getLocation());
+            if (latest) applyHealth(tracker.get(), event.getHealth());
             boolean timely = !event.getLocation().timestamp().isBefore(clock.instant().minusSeconds(maxAlertAgeSeconds))
                     && !event.getLocation().timestamp().isAfter(clock.instant().plusSeconds(maxFutureSkewSeconds));
             if (!latest || !timely) {
@@ -101,7 +104,8 @@ public class VehicleEventHandler {
                     vehicleId,
                     vehicle.getOrganizationId(),
                     event.getLocation(),
-                    event.getMetaData()
+                    event.getMetaData(),
+                    event.getHealth()
             );
             receipts.record(receiptKey, vehicle.getOrganizationId(), vehicleId, event, vehicleUpdatedEvent);
 
@@ -118,6 +122,12 @@ public class VehicleEventHandler {
             if (previousOrg != null) TenantContext.setCurrentOrgId(previousOrg);
             if (previousUser != null) TenantContext.setCurrentUserId(previousUser);
         }
+    }
+
+    /** Only reported values overwrite; a frame without battery or signal leaves the last known reading. */
+    private static void applyHealth(Tracker tracker, DeviceHealth health) {
+        if (health.batteryPercent() != null) tracker.updateBatteryLevel(health.batteryPercent().floatValue());
+        if (health.gsmSignal() != null) tracker.setSignalStrength(health.gsmSignal());
     }
 
     private String derivedUpdateId(LocationDataEvent source, Vehicle vehicle) {

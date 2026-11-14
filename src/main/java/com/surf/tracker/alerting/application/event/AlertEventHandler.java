@@ -1,6 +1,7 @@
 package com.surf.tracker.alerting.application.event;
 
 import com.surf.tracker.alerting.application.AlertingEngine;
+import com.surf.tracker.alerting.application.DeviceAlarmProcessor;
 import com.surf.tracker.shared.events.VehicleUpdatedEvent;
 import com.surf.tracker.shared.security.TenantContext;
 import org.slf4j.Logger;
@@ -14,14 +15,16 @@ public class AlertEventHandler {
     private static final Logger logger = LoggerFactory.getLogger(AlertEventHandler.class);
 
     private final AlertingEngine alertingEngine;
+    private final DeviceAlarmProcessor deviceAlarms;
     private final java.time.Clock clock;
     @org.springframework.beans.factory.annotation.Value("${tracking.telemetry.max-alert-age-seconds:300}")
     private int maxAlertAgeSeconds = 300;
     @org.springframework.beans.factory.annotation.Value("${tracking.telemetry.max-future-skew-seconds:300}")
     private int maxFutureSkewSeconds = 300;
 
-    public AlertEventHandler(AlertingEngine alertingEngine, java.time.Clock clock) {
+    public AlertEventHandler(AlertingEngine alertingEngine, DeviceAlarmProcessor deviceAlarms, java.time.Clock clock) {
         this.alertingEngine = alertingEngine;
+        this.deviceAlarms = deviceAlarms;
         this.clock = clock;
     }
 
@@ -51,7 +54,9 @@ public class AlertEventHandler {
             logger.info("Alert Processing received LOCATION update for device {}", event.getVehicleId());
             logger.debug("Processing vehicle update for {}", event.getEventId());
 
-             alertingEngine.processVehicleUpdate(event);
+            // Device-reported alarms first: they need no configured rule, which the engine requires.
+            deviceAlarms.process(event);
+            alertingEngine.processVehicleUpdate(event);
         } catch (Exception e) {
             logger.error("Failed to process vehicle update for {}",
                     event.getEventId(), e);

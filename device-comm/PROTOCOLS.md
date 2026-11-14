@@ -30,8 +30,14 @@ TCP bytes ─► DelimitedFrameDecoder ─► Frame ─► IngestPipeline ─►
 - Exception messages never echo device payload (they are logged).
 - Command encoding rejects device ids that could inject fields or delimiters.
 
-## Not yet published
+## Health and alarms
 
-`DeviceHealth` (battery, signal, alarms) is decoded for `PositionReport` and `StatusReport`, but only the position is
-published: `DurableLocationPublisher` deliberately accepts no dynamic metadata. Publishing health needs a typed event
-and a consumer in core.
+`DeviceHealth` (battery, GSM/GPS signal, alarms) travels on the position as a typed field of `LocationDataEvent`
+(`shared.domain.DeviceHealth`, `DeviceAlarm`), through the durable spool (envelope v2, `-1` = not reported) and into
+core. Core applies battery and signal to the tracker; `DeviceAlarmProcessor` (alerting) raises alerts for SOS, tamper,
+battery removed, power cut and low battery, with Redis cooldown and a deterministic id so a redelivery cannot alert twice.
+Alarms with no mapping (e.g. VIBRATION) are counted as `device.alarm.unmapped`. To add a new device alarm, add it to
+`DeviceAlarm`, decode it in the protocol, and map it in `DeviceAlarmProcessor`.
+
+Status-only frames (GT06 heartbeat/V3/V5) carry health but no position, so they are still not published: there is no fix
+to attach them to. A dedicated status event would be the next step.

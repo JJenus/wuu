@@ -1,10 +1,13 @@
-package com.surf.tracker.devicecomm.protocol.model;
+package com.surf.tracker.shared.domain;
 
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Set;
 
-/** Device condition reported alongside a frame. Null numeric fields mean "not reported". */
+/**
+ * Device condition reported alongside a frame. Null numeric fields mean "not reported";
+ * {@link #NONE} means the frame carried no health information at all.
+ */
 public record DeviceHealth(Integer batteryPercent, Float batteryVolts, Integer gsmSignal, Integer gpsSignal,
                            Set<DeviceAlarm> alarms) {
     public static final DeviceHealth NONE = new DeviceHealth(null, null, null, null, Set.of());
@@ -22,9 +25,5 @@ public record DeviceHealth(Integer batteryPercent, Float batteryVolts, Integer g
 
     public static DeviceHealth ofBattery(Integer percent, Float volts) {
         return new DeviceHealth(percent, volts, null, null, Set.of());
-    }
-
-    public boolean hasAlarms() {
-        return !alarms.isEmpty();
     }
 }
