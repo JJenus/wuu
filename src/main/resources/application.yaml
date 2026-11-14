@@ -147,7 +147,8 @@ tracking:
     # Must equal device-comm's PHONE_PAIRING_SECRET (32+ bytes). Leave empty to disable pairing.
     pairing-secret: ${PHONE_PAIRING_SECRET:}
     pairing-ttl-minutes: ${PHONE_PAIRING_TTL_MINUTES:720}
-    # Public https origin of the device-comm phone listener, used to build pairing_url.
+    # Public https origin of the device-comm phone listener, used to build pairing_url. Dev: http://localhost:8891
+    # on the same machine, or an https tunnel URL for a phone. See device-comm/PHONE-TRACKING.md.
     public-url: ${PHONE_PUBLIC_URL:}
   commands:
     channel:

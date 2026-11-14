@@ -104,7 +104,7 @@ public class TrackerController {
     }
 
     @PostMapping("/{trackerId}/pairing-token")
-    @Operation(operationId = "trackersPairingToken", summary = "Issue a phone/browser pairing token", description = "Requires vehicles.assign_device. Only for trackers whose protocol is PHONE. The token lets one phone or browser report positions as this tracker until it expires; pairing_url opens the tracking page with the token already filled in when a public URL is configured. The token is not stored, so keep it private.")
+    @Operation(operationId = "trackersPairingToken", summary = "Issue a phone/browser pairing token", description = "Requires vehicles.assign_device. Only for trackers whose protocol is PHONE. The token lets one phone or browser report positions as this tracker until it expires; pairing_url opens the tracking page with the token already filled in when PHONE_PUBLIC_URL is configured. The page must be opened over https, because browsers only expose location on secure origins; http://localhost on the same machine also works for development, and a phone needs an https tunnel or proxy (see device-comm/PHONE-TRACKING.md). The page connects to the device-comm WebSocket /ingest, sends the token, then one JSON fix per message (lat, lng, speed_kmh, ts in epoch ms; optional accuracy_m, battery_pct). The token is stateless and not stored: it cannot be revoked individually, only by expiry (PHONE_PAIRING_TTL_MINUTES) or by rotating PHONE_PAIRING_SECRET.")
     @ApiResponse(responseCode = "200", description = "Token issued")
     @ApiResponse(responseCode = "404", description = "Tracker not found in the authorized scope")
     @ApiResponse(responseCode = "409", description = "Tracker protocol is not PHONE")

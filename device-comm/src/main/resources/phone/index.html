@@ -107,7 +107,7 @@
   async function start() {
     if (!tokenInput.value.trim()) { say('Paste the pairing token first.'); return; }
     if (!('geolocation' in navigator)) { say('This browser has no location support.'); return; }
-    if (!isSecureContext) { say('Location needs a secure (https) connection.'); return; }
+    if (!isSecureContext) { say('Location needs https (or http://localhost on this device). Use the https link from the platform.'); return; }
     tracking = true; retry = 0; toggle.textContent = 'Stop tracking'; toggle.className = 'stop'; setState('Connecting…');
     try { if (navigator.getBattery) { const b = await navigator.getBattery(); battery = Math.round(b.level * 100); b.onlevelchange = () => { battery = Math.round(b.level * 100); }; } } catch {}
     try { if (navigator.wakeLock) wakeLock = await navigator.wakeLock.request('screen'); } catch {}

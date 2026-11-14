@@ -44,6 +44,8 @@ to attach them to. A dedicated status event would be the next step.
 
 ## Phone / browser adapter (live demos)
 
+Setup, HTTPS and local-dev testing are in [PHONE-TRACKING.md](PHONE-TRACKING.md).
+
 A phone is just another protocol on a second transport. `DeviceProtocol.transport()` selects the listener
 (`TCP` or `WEBSOCKET`); `ProtocolConfig` builds one registry and one `IngestPipeline` per transport, so protocols on a
 listener always share framing and the same decode, identity, publish flow applies. `PhoneProtocol` uses

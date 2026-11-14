@@ -45,7 +45,8 @@ tracking:
       wiretap-enabled: ${TCP_WIRETAP_ENABLED:false}
 
   phone:
-    # Browser/phone tracking for live demos. Off by default; terminate TLS in front (geolocation needs https).
+    # Browser/phone tracking for live demos. Off by default. Plain HTTP here: browsers only allow geolocation on https
+    # or http://localhost, so front it with TLS (or a tunnel for a real phone). See device-comm/PHONE-TRACKING.md.
     enabled: ${PHONE_INGEST_ENABLED:false}
     host: ${PHONE_INGEST_HOST:0.0.0.0}
     port: ${PHONE_INGEST_PORT:8891}

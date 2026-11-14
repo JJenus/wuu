@@ -40,7 +40,9 @@ import java.util.concurrent.atomic.AtomicReference;
  *
  * <p>Protocol: the client's first message is {@code {"token":"<pairing token>"}}; once verified, every
  * later message is one fix and is stamped with the token's device id before it reaches the pipeline.
- * TLS is expected from the fronting proxy; browsers only expose geolocation on secure origins.
+ * <p><b>HTTPS:</b> this listener speaks plain HTTP/WS. Browsers expose geolocation only on secure origins, so a TLS
+ * proxy must front it in any real deployment. {@code http://localhost} is exempt (same-machine dev); a phone needs
+ * an https tunnel or proxy. Exact steps, proxy snippets and troubleshooting: {@code device-comm/PHONE-TRACKING.md}.
  */
 @Service
 public class PhoneIngestServer {
@@ -98,7 +100,7 @@ public class PhoneIngestServer {
                         .ws("/ingest", this::handleSocket,
                                 WebsocketServerSpec.builder().maxFramePayloadLength(MAX_MESSAGE_BYTES).build()))
                 .bindNow();
-        logger.info("Phone ingest listening on {}:{}", host, port);
+        logger.info("Phone ingest listening on {}:{} (plain HTTP; front with TLS, see PHONE-TRACKING.md)", host, port);
     }
 
     public void stop() {
