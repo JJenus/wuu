@@ -13,4 +13,15 @@ public sealed interface FramingSpec {
                 throw new IllegalArgumentException("Frame length bound must be between 1 and 65536");
         }
     }
+
+    /**
+     * The transport already delivers one message per frame (WebSocket), so no byte-stream cutting is
+     * needed; only an upper bound on message size.
+     */
+    record Preframed(int maxLength) implements FramingSpec {
+        public Preframed {
+            if (maxLength < 1 || maxLength > 65536)
+                throw new IllegalArgumentException("Frame length bound must be between 1 and 65536");
+        }
+    }
 }

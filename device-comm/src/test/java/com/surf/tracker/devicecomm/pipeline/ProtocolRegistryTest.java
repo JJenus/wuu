@@ -102,4 +102,19 @@ class ProtocolRegistryTest {
         // when / then
         assertThat(registry.framing()).isEqualTo(new FramingSpec.Delimited((byte) '#', 1024));
     }
+
+    @Test
+    void forTransport_mixedProtocols_splitsByTransportSoFramingNeverConflicts() {
+        // given
+        var phone = new com.surf.tracker.devicecomm.protocol.phone.PhoneProtocol(100);
+        var all = List.<DeviceProtocol>of(new AutoseekerProtocol(), new Gt06Protocol(), phone);
+        // when
+        var tcp = ProtocolRegistry.forTransport(all, com.surf.tracker.devicecomm.protocol.Transport.TCP);
+        var socket = ProtocolRegistry.forTransport(all, com.surf.tracker.devicecomm.protocol.Transport.WEBSOCKET);
+        // then
+        assertThat(tcp.framing()).isInstanceOf(FramingSpec.Delimited.class);
+        assertThat(tcp.byName("PHONE")).isEmpty();
+        assertThat(socket.framing()).isInstanceOf(FramingSpec.Preframed.class);
+        assertThat(socket.byName("AUTOSEEKER")).isEmpty();
+    }
 }

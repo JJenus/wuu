@@ -44,7 +44,7 @@ class TrackerControllerTest {
 
     @BeforeEach
     void setUp() {
-        mockMvc = com.surf.tracker.main.api.ApiMockMvc.standaloneSetup(new TrackerController(trackerService, clock)).build();
+        mockMvc = com.surf.tracker.main.api.ApiMockMvc.standaloneSetup(new TrackerController(trackerService, new com.surf.tracker.core.application.service.PhonePairingService(clock, "", 720, ""), clock)).build();
     }
 
     private Tracker aTracker() {
@@ -123,5 +123,40 @@ class TrackerControllerTest {
 
         mockMvc.perform(delete("/api/v1/trackers/TRK-999"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void issuePairingToken_nonPhoneTracker_returns409() throws Exception {
+        when(trackerService.getTrackerById("TRK-001")).thenReturn(Optional.of(aTracker()));
+
+        mockMvc.perform(post("/api/v1/trackers/TRK-001/pairing-token"))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void issuePairingToken_pairingNotConfigured_returns503() throws Exception {
+        Tracker phone = aTracker();
+        phone.setProtocol("PHONE");
+        when(trackerService.getTrackerById("TRK-001")).thenReturn(Optional.of(phone));
+
+        mockMvc.perform(post("/api/v1/trackers/TRK-001/pairing-token"))
+                .andExpect(status().isServiceUnavailable());
+    }
+
+    @Test
+    void issuePairingToken_configuredPhoneTracker_returnsNoStoreToken() throws Exception {
+        Tracker phone = aTracker();
+        phone.setProtocol("PHONE");
+        phone.setDeviceId("2348000000001");
+        when(trackerService.getTrackerById("TRK-001")).thenReturn(Optional.of(phone));
+        var configured = com.surf.tracker.main.api.ApiMockMvc.standaloneSetup(new TrackerController(trackerService,
+                new com.surf.tracker.core.application.service.PhonePairingService(clock, "0123456789abcdef0123456789abcdef", 60, ""),
+                clock)).build();
+
+        configured.perform(post("/api/v1/trackers/TRK-001/pairing-token"))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.deviceId", is("2348000000001")))
+                .andExpect(jsonPath("$.token", org.hamcrest.Matchers.startsWith("v1.2348000000001.")));
     }
 }

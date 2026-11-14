@@ -44,6 +44,16 @@ tracking:
       # Raw frames contain device IDs and coordinates; keep tracing off by default.
       wiretap-enabled: ${TCP_WIRETAP_ENABLED:false}
 
+  phone:
+    # Browser/phone tracking for live demos. Off by default; terminate TLS in front (geolocation needs https).
+    enabled: ${PHONE_INGEST_ENABLED:false}
+    host: ${PHONE_INGEST_HOST:0.0.0.0}
+    port: ${PHONE_INGEST_PORT:8891}
+    # Shared with the core service, which issues pairing tokens. At least 32 bytes.
+    pairing-secret: ${PHONE_PAIRING_SECRET:}
+    max-accuracy-meters: ${PHONE_MAX_ACCURACY_METERS:100}
+    read-timeout: ${PHONE_READ_TIMEOUT_SECONDS:120}
+
 management:
   endpoints:
     web:

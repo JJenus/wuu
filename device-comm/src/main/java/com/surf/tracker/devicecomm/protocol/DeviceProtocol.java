@@ -22,7 +22,12 @@ public interface DeviceProtocol {
         return 100;
     }
 
-    /** How this protocol's frames are cut from the TCP stream. */
+    /** Which listener serves this protocol. */
+    default Transport transport() {
+        return Transport.TCP;
+    }
+
+    /** How this protocol's frames are cut from the stream (or bounded, for pre-framed transports). */
     FramingSpec framing();
 
     /** Cheap structural check used only on a connection's first frame; must not throw. */
