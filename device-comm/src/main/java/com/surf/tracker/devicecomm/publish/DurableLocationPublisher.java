@@ -1,6 +1,8 @@
 package com.surf.tracker.devicecomm.publish;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.surf.tracker.shared.domain.DeviceAlarm;
+import com.surf.tracker.shared.domain.DeviceHealth;
 import com.surf.tracker.shared.domain.LocationPoint;
 import com.surf.tracker.shared.events.LocationDataEvent;
 import com.surf.tracker.shared.exception.InfrastructureException;
@@ -21,6 +23,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -89,8 +92,9 @@ public final class DurableLocationPublisher implements EventPublisher, AutoClose
     public void publish(DomainEvent source) {
         if (!(source instanceof LocationDataEvent event) || !event.getMetaData().isEmpty())
             throw new IllegalArgumentException("Spool accepts only the defined location envelope without dynamic metadata");
-        PendingLocation record = new PendingLocation(1, event.getEventId(), event.getOccurredOn(),
-                event.getDeviceId(), CapturedFix.from(event.getLocation()), event.getProtocol());
+        PendingLocation record = new PendingLocation(2, event.getEventId(), event.getOccurredOn(),
+                event.getDeviceId(), CapturedFix.from(event.getLocation()), event.getProtocol(),
+                CapturedHealth.from(event.getHealth()));
         record.validate();
         synchronized (stateLock) {
             if (closed || storageFailed) throw unavailable("Telemetry storage is not available", null);
@@ -187,9 +191,9 @@ public final class DurableLocationPublisher implements EventPublisher, AutoClose
     private record Entry(Path path, long bytes) { }
 
     private record PendingLocation(int version, String eventId, Instant occurredOn,
-                                   String deviceId, CapturedFix location, String protocol) {
+                                   String deviceId, CapturedFix location, String protocol, CapturedHealth health) {
         void validate() {
-            if (version != 1 || occurredOn == null || deviceId == null || !deviceId.matches("[0-9]{10,15}")
+            if (version != 2 || health == null || !health.isValid() || occurredOn == null || deviceId == null || !deviceId.matches("[0-9]{10,15}")
                     || protocol == null || protocol.isBlank() || protocol.length() > 50
                     || location == null || !location.toLocation().isValid()
                     || !Float.isFinite(location.speedKmh())) throw new IllegalArgumentException("Invalid location capture");
@@ -197,8 +201,33 @@ public final class DurableLocationPublisher implements EventPublisher, AutoClose
         }
         LocationDataEvent toEvent() {
             return new LocationDataEvent(Clock.fixed(occurredOn, java.time.ZoneOffset.UTC), UUID.fromString(eventId),
-                    deviceId, location.toLocation(), protocol, null);
+                    deviceId, location.toLocation(), protocol, null, health.toHealth());
         }
+    }
+
+    /**
+     * Versioned wire form of {@link DeviceHealth}. The spool mapper rejects null creator properties,
+     * so "not reported" is -1 here (all reported values are non-negative) and alarms are a sorted list.
+     */
+    private record CapturedHealth(int batteryPercent, float batteryVolts, int gsmSignal, int gpsSignal,
+                                  List<DeviceAlarm> alarms) {
+        static CapturedHealth from(DeviceHealth health) {
+            return new CapturedHealth(orAbsent(health.batteryPercent()),
+                    health.batteryVolts() == null ? -1f : health.batteryVolts(),
+                    orAbsent(health.gsmSignal()), orAbsent(health.gpsSignal()),
+                    health.alarms().stream().sorted().toList());
+        }
+        boolean isValid() {
+            return batteryPercent >= -1 && batteryPercent <= 100 && Float.isFinite(batteryVolts) && batteryVolts >= -1f
+                    && gsmSignal >= -1 && gpsSignal >= -1 && alarms != null && !alarms.contains(null)
+                    && new java.util.HashSet<>(alarms).size() == alarms.size();
+        }
+        DeviceHealth toHealth() {
+            return new DeviceHealth(present(batteryPercent), batteryVolts < 0 ? null : batteryVolts,
+                    present(gsmSignal), present(gpsSignal), Set.copyOf(alarms));
+        }
+        private static int orAbsent(Integer value) { return value == null ? -1 : value; }
+        private static Integer present(int value) { return value < 0 ? null : value; }
     }
 
     // Store only the versioned wire fields, not LocationPoint's computed bean properties.

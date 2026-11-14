@@ -1,6 +1,6 @@
 package com.surf.tracker.devicecomm.protocol.common;
 
-import com.surf.tracker.devicecomm.protocol.model.DeviceAlarm;
+import com.surf.tracker.shared.domain.DeviceAlarm;
 
 import java.util.EnumSet;
 import java.util.List;

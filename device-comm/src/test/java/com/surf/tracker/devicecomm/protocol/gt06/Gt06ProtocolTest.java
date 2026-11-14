@@ -3,7 +3,7 @@ package com.surf.tracker.devicecomm.protocol.gt06;
 import com.surf.tracker.devicecomm.exception.ProtocolException;
 import com.surf.tracker.devicecomm.protocol.DeviceCommand;
 import com.surf.tracker.devicecomm.protocol.Frame;
-import com.surf.tracker.devicecomm.protocol.model.DeviceAlarm;
+import com.surf.tracker.shared.domain.DeviceAlarm;
 import com.surf.tracker.devicecomm.protocol.model.DeviceMessage;
 import com.surf.tracker.devicecomm.protocol.model.LoginReport;
 import com.surf.tracker.devicecomm.protocol.model.PositionReport;

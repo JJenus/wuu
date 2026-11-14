@@ -3,6 +3,7 @@ package com.surf.tracker.shared.events;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.surf.tracker.shared.pubsub.DomainEvent;
+import com.surf.tracker.shared.domain.DeviceHealth;
 import com.surf.tracker.shared.domain.LocationPoint;
 
 import java.time.Clock;
@@ -15,6 +16,7 @@ public class VehicleUpdatedEvent extends DomainEvent implements com.surf.tracker
     private final Long organizationId;
     private final LocationPoint newLocation;
     private final Map<String, Object> metaData;
+    private final DeviceHealth health;
 
     @JsonCreator
     public VehicleUpdatedEvent(@JsonProperty("event_id") String eventId,
@@ -22,12 +24,19 @@ public class VehicleUpdatedEvent extends DomainEvent implements com.surf.tracker
                                @JsonProperty("vehicle_id") String vehicleId,
                                @JsonProperty("organization_id") Long organizationId,
                                @JsonProperty("new_location") LocationPoint newLocation,
-                               @JsonProperty("meta_data") Map<String, Object> metaData) {
+                               @JsonProperty("meta_data") Map<String, Object> metaData,
+                               @JsonProperty("health") DeviceHealth health) {
         super(eventId, occurredOn);
         this.vehicleId = vehicleId;
         this.organizationId = organizationId;
         this.newLocation = newLocation;
         this.metaData = metaData;
+        this.health = health != null ? health : DeviceHealth.NONE;
+    }
+
+    public VehicleUpdatedEvent(String eventId, Instant occurredOn, String vehicleId, Long organizationId,
+                               LocationPoint newLocation, Map<String, Object> metaData) {
+        this(eventId, occurredOn, vehicleId, organizationId, newLocation, metaData, null);
     }
 
     public VehicleUpdatedEvent(Clock clock, UUID eventId, String vehicleId,
@@ -37,11 +46,17 @@ public class VehicleUpdatedEvent extends DomainEvent implements com.surf.tracker
 
     public VehicleUpdatedEvent(Clock clock, UUID eventId, String vehicleId, Long organizationId,
                                LocationPoint newLocation, Map<String, Object> metaData) {
+        this(clock, eventId, vehicleId, organizationId, newLocation, metaData, null);
+    }
+
+    public VehicleUpdatedEvent(Clock clock, UUID eventId, String vehicleId, Long organizationId,
+                               LocationPoint newLocation, Map<String, Object> metaData, DeviceHealth health) {
         super(clock, eventId);
         this.vehicleId = vehicleId;
         this.organizationId = organizationId;
         this.newLocation = newLocation;
         this.metaData = metaData;
+        this.health = health != null ? health : DeviceHealth.NONE;
     }
 
     public String getVehicleId() {
@@ -50,4 +65,5 @@ public class VehicleUpdatedEvent extends DomainEvent implements com.surf.tracker
     public Long getOrganizationId() { return organizationId; }
     public Map<String, Object> getMetaData() { return metaData; }
     public LocationPoint getNewLocation() { return newLocation; }
+    public DeviceHealth getHealth() { return health; }
 }

@@ -7,7 +7,7 @@ import com.surf.tracker.devicecomm.protocol.Frame;
 import com.surf.tracker.devicecomm.protocol.FramingSpec;
 import com.surf.tracker.devicecomm.protocol.autoseeker.AutoseekerProtocol;
 import com.surf.tracker.devicecomm.protocol.gt06.Gt06Protocol;
-import com.surf.tracker.devicecomm.protocol.model.DeviceHealth;
+import com.surf.tracker.shared.domain.DeviceHealth;
 import com.surf.tracker.devicecomm.protocol.model.DeviceMessage;
 import com.surf.tracker.devicecomm.protocol.model.StatusReport;
 import com.surf.tracker.shared.events.LocationDataEvent;
@@ -61,6 +61,22 @@ class IngestPipelineTest {
         assertThat(captured.getValue().getDeviceId()).isEqualTo("8168000008");
         assertThat(captured.getValue().getProtocol()).isEqualTo("Autoseeker");
         assertThat(captured.getValue().getMetaData()).isEmpty();
+        assertThat(captured.getValue().getHealth().gsmSignal()).isEqualTo(25);
+        assertThat(captured.getValue().getHealth().gpsSignal()).isEqualTo(10);
+    }
+
+    @Test
+    void ingest_frameWithActiveAlarm_publishesAlarmOnTheLocationEvent() {
+        // given: Autoseeker status word with the cut-fuel and battery-removed bits cleared
+        var session = new ConnectionSession();
+        // when
+        pipeline.ingest(frame(AUTOSEEKER.replace("FBFBBFF", "FBFBBE7")), RECEIVED, session);
+        // then
+        var captured = ArgumentCaptor.forClass(LocationDataEvent.class);
+        verify(publisher).publish(captured.capture());
+        assertThat(captured.getValue().getHealth().alarms())
+                .containsExactlyInAnyOrder(com.surf.tracker.shared.domain.DeviceAlarm.OIL_CUT,
+                        com.surf.tracker.shared.domain.DeviceAlarm.BATTERY_REMOVED);
     }
 
     @Test

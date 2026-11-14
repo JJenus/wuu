@@ -3,6 +3,8 @@ package com.surf.tracker.devicecomm.publish;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.surf.tracker.shared.domain.DeviceAlarm;
+import com.surf.tracker.shared.domain.DeviceHealth;
 import com.surf.tracker.shared.domain.LocationPoint;
 import com.surf.tracker.shared.events.LocationDataEvent;
 import org.junit.jupiter.api.Test;
@@ -48,6 +50,29 @@ class DurableLocationPublisherTest {
             verify(queue).convertAndSend(eq("tracking.telemetry.locations"), captured.capture());
             assertThat(captured.getValue()).usingRecursiveComparison().isEqualTo(source);
             assertThat(recovered.pendingCount()).isZero();
+        }
+    }
+
+    @Test
+    void publish_eventWithHealthAndAlarms_replaysHealthExactlyAcrossRestart() throws Exception {
+        // given: partially reported health, including alarms and unreported (null) fields
+        var queue = mock(JmsTemplate.class);
+        var health = new DeviceHealth(null, null, 25, 10, java.util.Set.of(DeviceAlarm.SOS, DeviceAlarm.OIL_CUT));
+        var source = event("00000000-0000-0000-0000-000000000003", health);
+        doThrow(new IllegalStateException("broker unavailable")).when(queue).convertAndSend(anyString(), any(LocationDataEvent.class));
+        try (var spool = spool(queue, 10)) {
+            spool.publish(source);
+            spool.relayPending();
+        }
+        reset(queue);
+        // when
+        try (var recovered = spool(queue, 10)) {
+            recovered.relayPending();
+            // then: health survives the durable envelope without nulls turning into zeros
+            var captured = org.mockito.ArgumentCaptor.forClass(LocationDataEvent.class);
+            verify(queue).convertAndSend(eq("tracking.telemetry.locations"), captured.capture());
+            assertThat(captured.getValue().getHealth()).isEqualTo(health);
+            assertThat(captured.getValue().getHealth().batteryPercent()).isNull();
         }
     }
 
@@ -173,7 +198,11 @@ class DurableLocationPublisherTest {
     }
 
     private LocationDataEvent event(String id) {
+        return event(id, DeviceHealth.NONE);
+    }
+
+    private LocationDataEvent event(String id, DeviceHealth health) {
         return new LocationDataEvent(clock, UUID.fromString(id), "8168000008",
-                new LocationPoint(51.5, -0.1, 24, clock.instant()), "AUTOSEEKER", null);
+                new LocationPoint(51.5, -0.1, 24, clock.instant()), "AUTOSEEKER", null, health);
     }
 }
